@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+  <appSettings>
+    <!-- SMTP Email Configuration -->
+    <!-- Copy this file to App.config.local and configure your settings -->
+    <!-- App.config.local is gitignored and will not be committed to GitHub -->
+    
+    <!-- Gmail Example: -->
+    <add key="SmtpServer" value="smtp.gmail.com" />
+    <add key="SmtpPort" value="587" />
+    <add key="SmtpUsername" value="your-email@gmail.com" />
+    <add key="SmtpPassword" value="your-app-password" />
+    <add key="SmtpEnableSsl" value="true" />
+    <add key="SmtpFromAddress" value="your-email@gmail.com" />
+    
+    <!-- Outlook/Hotmail Example: -->
+    <!--
+    <add key="SmtpServer" value="smtp-mail.outlook.com" />
+    <add key="SmtpPort" value="587" />
+    <add key="SmtpUsername" value="your-email@outlook.com" />
+    <add key="SmtpPassword" value="your-password" />
+    <add key="SmtpEnableSsl" value="true" />
+    <add key="SmtpFromAddress" value="your-email@outlook.com" />
+    -->
+  </appSettings>
+</configuration>
