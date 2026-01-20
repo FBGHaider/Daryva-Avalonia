@@ -1,8 +1,8 @@
 -- =============================================
--- LandLord Buddy Database - Indexes and Performance
+-- Daryva Database - Indexes and Performance
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 -- =============================================

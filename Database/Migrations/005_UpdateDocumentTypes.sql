@@ -3,7 +3,7 @@
 -- Migration Script 005
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 -- Drop existing check constraint on Type

@@ -2,7 +2,7 @@
 -- Create NotificationTemplate and NotificationAttempt Tables
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 -- NotificationTemplate Table

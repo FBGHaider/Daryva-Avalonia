@@ -4,7 +4,7 @@
 -- keeping only the most recent one based on CreatedAt
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 PRINT 'Starting tenant cleanup...';

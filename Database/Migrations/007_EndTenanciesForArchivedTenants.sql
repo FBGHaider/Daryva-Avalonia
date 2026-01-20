@@ -3,7 +3,7 @@
 -- This script ends all active tenancies for tenants that are archived
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 PRINT 'Ending tenancies for archived tenants...';

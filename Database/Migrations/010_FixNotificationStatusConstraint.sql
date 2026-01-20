@@ -3,7 +3,7 @@
 -- This script finds and updates the Status constraint regardless of its name
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 PRINT 'Updating Notification Status constraint to include Cancelled...';

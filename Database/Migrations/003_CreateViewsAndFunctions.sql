@@ -1,8 +1,8 @@
 -- =============================================
--- LandLord Buddy Database - Views and Helper Functions
+-- Daryva Database - Views and Helper Functions
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 -- =============================================

@@ -3,7 +3,7 @@
 -- Add Cleaning and Maintenance categories
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 PRINT 'Updating HouseExpense Category constraint...';

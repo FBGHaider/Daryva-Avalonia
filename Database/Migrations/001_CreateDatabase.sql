@@ -1,9 +1,9 @@
 -- =============================================
--- LandLord Buddy Database Schema
+-- Daryva Database Schema
 -- SQL Server Migration Script
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 -- =============================================

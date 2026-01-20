@@ -2,7 +2,7 @@
 -- Add DepositPayment Table
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 -- DepositPayment Table

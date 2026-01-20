@@ -3,7 +3,7 @@
 -- This script will drop ALL constraints on the Status column and recreate it
 -- =============================================
 
-USE [LandLordBuddyDB]
+USE [DaryvaDB]
 GO
 
 PRINT 'Force fixing Notification Status constraint...';

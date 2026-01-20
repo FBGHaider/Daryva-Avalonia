@@ -1,6 +1,6 @@
-# LandLord Buddy Database Schema
+# Daryva Database Schema
 
-This folder contains SQL migration scripts to set up the LandLord Buddy database schema in SQL Server.
+This folder contains SQL migration scripts to set up the Daryva database schema in SQL Server.
 
 ## Database Structure
 
@@ -43,7 +43,7 @@ The database includes the following main entities:
 
 2. **Create the database (if not exists):**
    ```sql
-   CREATE DATABASE LandLordBuddyDB;
+   CREATE DATABASE DaryvaDB;
    GO
    ```
 
@@ -79,7 +79,7 @@ The database includes the following main entities:
 
 The connection string in `App.config` is already configured:
 ```
-Server=localhost,1433;Database=LandLordBuddyDB;User Id=sa;Password=YourStrong@Password123;TrustServerCertificate=True;Encrypt=True;
+Server=localhost,1433;Database=DaryvaDB;User Id=sa;Password=YourStrong@Password123;TrustServerCertificate=True;Encrypt=True;
 ```
 
 ## Notes
