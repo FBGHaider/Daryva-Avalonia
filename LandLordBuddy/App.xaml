@@ -2,8 +2,39 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:LandLordBuddy"
-             StartupUri="MainWindow.xaml">
+             xmlns:viewmodels="clr-namespace:LandLordBuddy.MVVM.ViewModels"
+             xmlns:views="clr-namespace:LandLordBuddy.MVVM.Views">
     <Application.Resources>
-         
+        <!-- ViewModel to View DataTemplates -->
+        <DataTemplate DataType="{x:Type viewmodels:DashboardViewModel}">
+            <views:DashboardView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:HousesViewModel}">
+            <views:HousesView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:TenantsViewModel}">
+            <views:TenantsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:RentPaymentsViewModel}">
+            <views:RentPaymentsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:RentLedgerViewModel}">
+            <views:RentLedgerView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:TransactionsViewModel}">
+            <views:TransactionsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:DocumentsViewModel}">
+            <views:DocumentsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:ExpensesViewModel}">
+            <views:ExpensesView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:NotificationsViewModel}">
+            <views:NotificationsView/>
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewmodels:SettingsViewModel}">
+            <views:SettingsView/>
+        </DataTemplate>
     </Application.Resources>
 </Application>

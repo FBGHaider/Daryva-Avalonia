@@ -1,13 +1,5 @@
-﻿using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+﻿using System.Windows;
+using LandLordBuddy.MVVM.ViewModels;
 
 namespace LandLordBuddy
 {
@@ -16,9 +8,14 @@ namespace LandLordBuddy
     /// </summary>
     public partial class MainWindow : Window
     {
-        public MainWindow()
+        /// <summary>
+        /// Initializes a new instance of the MainWindow class.
+        /// </summary>
+        /// <param name="viewModel">The ViewModel for this view.</param>
+        public MainWindow(MainWindowViewModel viewModel)
         {
             InitializeComponent();
+            DataContext = viewModel;
         }
     }
 }
