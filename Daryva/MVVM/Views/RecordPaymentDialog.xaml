@@ -104,6 +104,16 @@
                         <ColumnDefinition Width="140"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Collected By:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding CollectedBy, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                </Grid>
+
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Payment Date:" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                     <DatePicker Grid.Column="1" SelectedDate="{Binding PaymentDate}" Padding="5"/>

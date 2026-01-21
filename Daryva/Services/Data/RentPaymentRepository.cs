@@ -38,8 +38,8 @@ namespace Daryva.Services.Data
         public async Task<int> CreateRentPaymentAsync(RentPayment payment)
         {
             var sql = @"
-                INSERT INTO RentPayment (TenancyId, RentChargeId, PaidOn, AmountPaid, Method, Reference, Notes)
-                VALUES (@TenancyId, @RentChargeId, @PaidOn, @AmountPaid, @Method, @Reference, @Notes);
+                INSERT INTO RentPayment (TenancyId, RentChargeId, PaidOn, AmountPaid, Method, Reference, Notes, CollectedBy)
+                VALUES (@TenancyId, @RentChargeId, @PaidOn, @AmountPaid, @Method, @Reference, @Notes, @CollectedBy);
                 SELECT CAST(SCOPE_IDENTITY() as int);";
 
             var paymentId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, payment));

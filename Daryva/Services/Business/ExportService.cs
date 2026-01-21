@@ -114,28 +114,6 @@ namespace Daryva.Services.Business
                 ws.Cell(currentRow, 2).Style.NumberFormat.Format = "£ #,##0.00";
                 currentRow++;
 
-                // Month summary
-                currentRow++;
-                ws.Cell(currentRow, 1).Value = "Month Summary";
-                ws.Range(currentRow, 1, currentRow, 5).Merge();
-                ws.Range(currentRow, 1, currentRow, 5).Style
-                    .Font.SetBold()
-                    .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                    .Fill.SetBackgroundColor(XLColor.Yellow);
-                currentRow++;
-
-                var primaryCollector = model.Collectors?.FirstOrDefault() ?? "Collector A";
-                var secondaryCollector = model.Collectors?.Skip(1).FirstOrDefault() ?? "Collector B";
-                totals.RentCollectedBy.TryGetValue(primaryCollector, out var primaryCollected);
-                totals.RentCollectedBy.TryGetValue(secondaryCollector, out var secondaryCollected);
-                var owes = secondaryCollected - primaryCollected;
-
-                ws.Cell(currentRow, 1).Value = $"{primaryCollector} Owes {secondaryCollector} in Rent";
-                ws.Cell(currentRow, 2).Value = owes;
-                ws.Cell(currentRow, 2).Style.NumberFormat.Format = "£ #,##0.00";
-                ws.Cell(currentRow, 2).Style.Fill.SetBackgroundColor(XLColor.LightGoldenrodYellow);
-                currentRow++;
-
                 ws.Columns().AdjustToContents();
 
                 var directory = Path.GetDirectoryName(model.OutputPath);

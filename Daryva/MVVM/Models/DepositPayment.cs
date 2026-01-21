@@ -9,6 +9,7 @@ namespace Daryva.MVVM.Models
         public string Method { get; set; } = "BankTransfer"; // BankTransfer, Cash, Card, Other
         public string? Reference { get; set; }
         public string? Notes { get; set; }
+        public string? CollectedBy { get; set; }
         
         // Navigation
         public Tenancy? Tenancy { get; set; }

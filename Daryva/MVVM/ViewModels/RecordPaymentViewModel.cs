@@ -22,6 +22,7 @@ namespace Daryva.MVVM.ViewModels
         private string _paymentMethod = "BankTransfer";
         private string? _reference;
         private string? _notes;
+        private string _collectedBy = "Abbas";
         private decimal _depositAmount = 0;
         private decimal _rentAmount = 0;
         private int _rentYear = DateTime.Now.Year;
@@ -140,6 +141,12 @@ namespace Daryva.MVVM.ViewModels
         {
             get => _notes;
             set => SetProperty(ref _notes, value);
+        }
+
+        public string CollectedBy
+        {
+            get => _collectedBy;
+            set => SetProperty(ref _collectedBy, value);
         }
 
         public decimal DepositAmount
@@ -326,23 +333,24 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                        // Record payment
-                        await _paymentService.RecordPaymentAsync(
-                            SelectedTenancy.TenancyId,
-                            DepositAmount,
-                            RentAmount,
-                            RentYear,
-                            RentMonth,
-                            PaymentDate,
-                            PaymentMethod,
-                            Reference,
-                            Notes);
+                // Record payment
+                await _paymentService.RecordPaymentAsync(
+                    SelectedTenancy.TenancyId,
+                    DepositAmount,
+                    RentAmount,
+                    RentYear,
+                    RentMonth,
+                    PaymentDate,
+                    PaymentMethod,
+                    Reference,
+                    Notes,
+                    CollectedBy);
 
-                        // Notify dashboard to refresh
-                        DashboardViewModel.NotifyPaymentDataChanged();
-                        
-                        _dialogService.ShowMessage("Payment recorded successfully!", "Success");
-                        CloseRequested?.Invoke(this, EventArgs.Empty);
+                // Notify dashboard to refresh
+                DashboardViewModel.NotifyPaymentDataChanged();
+                
+                _dialogService.ShowMessage("Payment recorded successfully!", "Success");
+                CloseRequested?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {

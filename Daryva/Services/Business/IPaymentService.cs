@@ -4,7 +4,7 @@ namespace Daryva.Services.Business
 {
     public interface IPaymentService
     {
-        Task RecordPaymentAsync(int tenancyId, decimal depositAmount, decimal rentAmount, int rentYear, int rentMonth, DateTime paymentDate, string method, string? reference, string? notes);
+        Task RecordPaymentAsync(int tenancyId, decimal depositAmount, decimal rentAmount, int rentYear, int rentMonth, DateTime paymentDate, string method, string? reference, string? notes, string? collectedBy = null);
         Task<decimal> GetTotalDepositPaidAsync(int tenancyId);
         Task<decimal> GetTotalRentPaidForPeriodAsync(int tenancyId, int year, int month);
         Task<string> GetDepositStatusAsync(int tenancyId, decimal depositRequired);

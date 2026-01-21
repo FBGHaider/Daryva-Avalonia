@@ -26,7 +26,7 @@ namespace Daryva.Services.Business
             _tenancyRepository = tenancyRepository;
         }
 
-        public async Task RecordPaymentAsync(int tenancyId, decimal depositAmount, decimal rentAmount, int rentYear, int rentMonth, DateTime paymentDate, string method, string? reference, string? notes)
+        public async Task RecordPaymentAsync(int tenancyId, decimal depositAmount, decimal rentAmount, int rentYear, int rentMonth, DateTime paymentDate, string method, string? reference, string? notes, string? collectedBy = null)
         {
             // Get tenancy to get rent amount and payment due day
             var tenancy = await _tenancyRepository.GetTenancyByIdAsync(tenancyId);
@@ -43,7 +43,8 @@ namespace Daryva.Services.Business
                     AmountPaid = depositAmount,
                     Method = method,
                     Reference = reference,
-                    Notes = notes
+                    Notes = notes,
+                    CollectedBy = collectedBy
                 };
                 await _depositPaymentRepository.CreateDepositPaymentAsync(depositPayment);
             }
@@ -79,7 +80,8 @@ namespace Daryva.Services.Business
                     AmountPaid = rentAmount,
                     Method = method,
                     Reference = reference,
-                    Notes = notes
+                    Notes = notes,
+                    CollectedBy = collectedBy
                 };
                 await _rentPaymentRepository.CreateRentPaymentAsync(rentPayment);
 
