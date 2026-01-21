@@ -12,6 +12,7 @@ namespace Daryva.MVVM.Models
         public string Method { get; set; } = string.Empty;
         public string? Reference { get; set; }
         public string? Notes { get; set; }
+        public string? CollectedBy { get; set; }
         public int? TenancyId { get; set; }
         public int? RentChargeId { get; set; }
     }

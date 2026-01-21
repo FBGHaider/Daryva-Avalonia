@@ -54,6 +54,7 @@ namespace Daryva.Services
                 return new EmailSender(configService);
             });
             services.AddScoped<IExportService, ExportService>();
+            services.AddScoped<IHouseReportExportService, HouseReportExportService>();
             services.AddScoped<IDocumentService, DocumentService>();
             services.AddScoped<ISettingsService, SettingsService>();
             services.AddScoped<IBackupService, BackupService>();

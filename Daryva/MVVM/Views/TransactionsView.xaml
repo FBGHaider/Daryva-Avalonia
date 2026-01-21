@@ -143,6 +143,7 @@
                     <DataGridTextColumn Header="House" Binding="{Binding HouseAddress}" Width="200"/>
                     <DataGridTextColumn Header="Period" Binding="{Binding PeriodLabel}" Width="100"/>
                     <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='£{0:N2}'}" Width="100"/>
+                    <DataGridTextColumn Header="Collected By" Binding="{Binding CollectedBy}" Width="120"/>
                     <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="120"/>
                     <DataGridTextColumn Header="Reference" Binding="{Binding Reference}" Width="150"/>
                     <DataGridTemplateColumn Header="Actions" Width="150">
@@ -209,6 +210,7 @@
                     <DataGridTextColumn Header="Tenant" Binding="{Binding TenantName}" Width="150"/>
                     <DataGridTextColumn Header="House" Binding="{Binding HouseAddress}" Width="200"/>
                     <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='£{0:N2}'}" Width="100"/>
+                    <DataGridTextColumn Header="Collected By" Binding="{Binding CollectedBy}" Width="120"/>
                     <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="120"/>
                     <DataGridTextColumn Header="Reference" Binding="{Binding Reference}" Width="150"/>
                     <DataGridTemplateColumn Header="Actions" Width="150">

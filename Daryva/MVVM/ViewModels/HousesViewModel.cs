@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Threading;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
@@ -13,22 +15,24 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IHouseReportExportService _houseReportExportService;
         private string _searchTerm = string.Empty;
         private bool _showActiveOnly = false;
         private House? _selectedHouse;
 
-        public HousesViewModel(IHouseService houseService, IDialogService dialogService, IServiceProvider serviceProvider)
+        public HousesViewModel(IHouseService houseService, IDialogService dialogService, IServiceProvider serviceProvider, IHouseReportExportService houseReportExportService)
         {
             _houseService = houseService;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
+            _houseReportExportService = houseReportExportService ?? throw new ArgumentNullException(nameof(houseReportExportService));
             Houses = new ObservableCollection<House>();
 
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             SearchCommand = new RelayCommand(async _ => await SearchHousesAsync());
             AddHouseCommand = new RelayCommand(_ => ShowAddHouseDialog());
             RemoveHouseCommand = new RelayCommand(_ => RemoveHouseAsync(), _ => SelectedHouse != null);
-            ExportReportCommand = new RelayCommand(_ => { /* Export report */ });
+            ExportReportCommand = new RelayCommand(async _ => await ExportHouseReportAsync(), _ => SelectedHouse != null);
 
             LoadHousesCommand.Execute(null);
         }
@@ -159,6 +163,35 @@ namespace Daryva.MVVM.ViewModels
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error deleting house: {ex.Message}", "Error");
+            }
+        }
+
+        private async Task ExportHouseReportAsync()
+        {
+            if (SelectedHouse == null) return;
+
+            try
+            {
+                var houseName = SelectedHouse.Postcode?.Replace(" ", "") ?? SelectedHouse.AddressLine1.Replace(" ", "");
+                var defaultFile = $"Daryva_HouseReport_{houseName}_{DateTime.Now:yyyy-MM-dd}.xlsx";
+                var path = _dialogService.ShowSaveFileDialog(defaultFile, "Excel Files|*.xlsx", "Save House Report");
+                
+                if (string.IsNullOrWhiteSpace(path))
+                    return;
+
+                // Optional: Ask for date range (for now, use all-time)
+                var range = new DateRange
+                {
+                    FromDate = null, // All-time
+                    ToDate = null
+                };
+
+                await _houseReportExportService.ExportHouseReportAsync(SelectedHouse.HouseId, range, path, CancellationToken.None);
+                _dialogService.ShowMessage($"House report exported successfully to:\n{path}", "Export Complete");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error exporting house report: {ex.Message}", "Error");
             }
         }
     }

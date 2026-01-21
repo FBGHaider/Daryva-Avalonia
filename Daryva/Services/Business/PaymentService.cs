@@ -234,7 +234,8 @@ namespace Daryva.Services.Business
                         Amount = rp.AmountPaid,
                         Method = rp.Method,
                         Reference = rp.Reference,
-                        Notes = rp.Notes
+                        Notes = rp.Notes,
+                        CollectedBy = rp.CollectedBy
                     }));
                 }
                 
@@ -313,7 +314,8 @@ namespace Daryva.Services.Business
                     Amount = dp.AmountPaid,
                     Method = dp.Method,
                     Reference = dp.Reference,
-                    Notes = dp.Notes
+                    Notes = dp.Notes,
+                    CollectedBy = dp.CollectedBy
                 }).ToList();
                 
                 ledgerRows.Add(new DepositLedgerRowViewModel
@@ -387,6 +389,7 @@ namespace Daryva.Services.Business
                         Method = rp.Method,
                         Reference = rp.Reference,
                         Notes = rp.Notes,
+                        CollectedBy = rp.CollectedBy,
                         TenancyId = rp.TenancyId,
                         RentChargeId = rp.RentChargeId
                     });
@@ -433,6 +436,7 @@ namespace Daryva.Services.Business
                         Method = dp.Method,
                         Reference = dp.Reference,
                         Notes = dp.Notes,
+                        CollectedBy = dp.CollectedBy,
                         TenancyId = dp.TenancyId
                     });
                 }
@@ -450,7 +454,8 @@ namespace Daryva.Services.Business
                 Amount = rp.AmountPaid,
                 Method = rp.Method,
                 Reference = rp.Reference,
-                Notes = rp.Notes
+                Notes = rp.Notes,
+                CollectedBy = rp.CollectedBy
             });
         }
 

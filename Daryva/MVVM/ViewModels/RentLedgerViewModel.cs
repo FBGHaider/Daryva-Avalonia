@@ -185,13 +185,15 @@ namespace Daryva.MVVM.ViewModels
                 foreach (var rentRow in LedgerRows)
                 {
                     var depositMatch = DepositLedgerRows.FirstOrDefault(d => string.Equals(d.TenantName, rentRow.TenantName, StringComparison.OrdinalIgnoreCase));
+                    var rentCollector = rentRow.PaymentsForThisMonth.FirstOrDefault()?.CollectedBy ?? "Nil";
+                    var depositCollector = depositMatch?.Payments.FirstOrDefault()?.CollectedBy ?? "Nil";
                     rows.Add(new LedgerRowModel
                     {
                         TenantName = rentRow.TenantName,
                         RentAmount = rentRow.AmountDue,
-                        RentCollectedBy = null, // Collector info not tracked currently
+                        RentCollectedBy = rentCollector,
                         DepositAmount = depositMatch?.AmountPaid ?? 0m,
-                        DepositCollectedBy = null
+                        DepositCollectedBy = depositCollector
                     });
                 }
 
