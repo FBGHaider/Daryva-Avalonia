@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
@@ -19,6 +22,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly IDialogService _dialogService;
         private readonly INavigationService _navigationService;
+        private readonly IExportService _exportService;
 
         private int _selectedYear = DateTime.Now.Year;
         private int _selectedMonth = DateTime.Now.Month;
@@ -32,13 +36,15 @@ namespace Daryva.MVVM.ViewModels
             IHouseService houseService,
             IServiceProvider serviceProvider,
             IDialogService dialogService,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IExportService exportService)
         {
             _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _exportService = exportService ?? throw new ArgumentNullException(nameof(exportService));
 
             LedgerRows = new ObservableCollection<RentLedgerRowViewModel>();
             DepositLedgerRows = new ObservableCollection<DepositLedgerRowViewModel>();
@@ -57,6 +63,7 @@ namespace Daryva.MVVM.ViewModels
                 RecordPaymentForSelectedRow();
             }, _ => SelectedRow != null);
             ExpandRowCommand = new RelayCommand(_ => ToggleRowExpansion(), _ => SelectedRow != null);
+            ExportLedgerCommand = new RelayCommand(async _ => await ExportLedgerAsync());
         }
 
         public ICommand LoadLedgerCommand { get; }
@@ -64,6 +71,7 @@ namespace Daryva.MVVM.ViewModels
         public ICommand LoadHousesCommand { get; }
         public ICommand RecordPaymentCommand { get; }
         public ICommand ExpandRowCommand { get; }
+        public ICommand ExportLedgerCommand { get; }
 
         public ObservableCollection<RentLedgerRowViewModel> LedgerRows { get; }
         public ObservableCollection<DepositLedgerRowViewModel> DepositLedgerRows { get; }
@@ -143,6 +151,68 @@ namespace Daryva.MVVM.ViewModels
         }
 
         public string SelectedMonthDisplay => new DateTime(SelectedYear, SelectedMonth, 1).ToString("MMMM yyyy");
+
+        private string GetHouseDisplayName()
+        {
+            if (SelectedHouseId == null || SelectedHouseId == 0)
+            {
+                return "All Houses";
+            }
+
+            var house = Houses.FirstOrDefault(h => h.HouseId == SelectedHouseId);
+            return house != null ? house.AddressLine1 : "House";
+        }
+
+        private async Task ExportLedgerAsync()
+        {
+            try
+            {
+                var defaultFile = $"Daryva_{GetHouseDisplayName().Replace(" ", "")}_{SelectedMonthDisplay.Replace(" ", "")}_RentDeposit.xlsx";
+                var path = _dialogService.ShowSaveFileDialog(defaultFile, "Excel Files|*.xlsx", "Save Rent & Deposit Ledger");
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return;
+                }
+
+                decimal rentGivenToLandlord = 0m;
+                var input = _dialogService.ShowInputDialog("Enter Rent Given to Landlord (leave blank for 0):", "Rent Settlement", "0");
+                if (!string.IsNullOrWhiteSpace(input))
+                {
+                    decimal.TryParse(input, NumberStyles.Any, CultureInfo.InvariantCulture, out rentGivenToLandlord);
+                }
+
+                var rows = new List<LedgerRowModel>();
+                foreach (var rentRow in LedgerRows)
+                {
+                    var depositMatch = DepositLedgerRows.FirstOrDefault(d => string.Equals(d.TenantName, rentRow.TenantName, StringComparison.OrdinalIgnoreCase));
+                    rows.Add(new LedgerRowModel
+                    {
+                        TenantName = rentRow.TenantName,
+                        RentAmount = rentRow.AmountDue,
+                        RentCollectedBy = null, // Collector info not tracked currently
+                        DepositAmount = depositMatch?.AmountPaid ?? 0m,
+                        DepositCollectedBy = null
+                    });
+                }
+
+                var model = new LedgerExportModel
+                {
+                    HouseName = GetHouseDisplayName(),
+                    MonthYearDisplay = SelectedMonthDisplay,
+                    Rows = rows,
+                    RentGivenToLandlord = rentGivenToLandlord,
+                    Collectors = new List<string>(),
+                    OutputPath = path
+                };
+
+                await _exportService.ExportRentDepositLedgerAsync(model, CancellationToken.None);
+                _dialogService.ShowMessage($"Exported to {path}", "Export Complete");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error exporting ledger: {ex.Message}", "Error");
+            }
+        }
 
         private async Task LoadHousesAsync()
         {

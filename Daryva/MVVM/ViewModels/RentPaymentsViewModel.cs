@@ -24,7 +24,7 @@ namespace Daryva.MVVM.ViewModels
             CurrentTabViewModel = LedgerViewModel;
 
             RecordPaymentCommand = new RelayCommand(_ => ShowRecordPaymentDialog());
-            ExportLedgerCommand = new RelayCommand(_ => { /* Export ledger */ });
+            ExportLedgerCommand = new RelayCommand(_ => LedgerViewModel.ExportLedgerCommand.Execute(null));
         }
 
         public ICommand RecordPaymentCommand { get; }

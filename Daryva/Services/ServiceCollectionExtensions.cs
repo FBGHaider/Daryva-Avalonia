@@ -53,6 +53,7 @@ namespace Daryva.Services
                 var configService = serviceProvider.GetService<IConfigurationService>();
                 return new EmailSender(configService);
             });
+            services.AddScoped<IExportService, ExportService>();
             services.AddScoped<IDocumentService, DocumentService>();
             services.AddScoped<ISettingsService, SettingsService>();
             services.AddScoped<IBackupService, BackupService>();
