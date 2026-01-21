@@ -270,8 +270,48 @@
     <Style TargetType="TabControl">
         <Setter Property="Background" Value="{DynamicResource ApplicationBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
-        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <!-- Tab Headers -->
+                        <Border Grid.Row="0" 
+                                BorderBrush="Transparent" 
+                                BorderThickness="0,0,0,1"
+                                Background="Transparent">
+                            <TabPanel x:Name="HeaderPanel" 
+                                     IsItemsHost="True" 
+                                     Margin="0,0,0,0"
+                                     KeyboardNavigation.TabIndex="1"
+                                     Grid.IsSharedSizeScope="True"/>
+                        </Border>
+                        <!-- Content Area with border for active tab -->
+                        <Border x:Name="ContentBorder"
+                                Grid.Row="1"
+                                BorderBrush="#000000"
+                                BorderThickness="1"
+                                Background="{TemplateBinding Background}"
+                                Margin="0,-1,0,0">
+                            <ContentPresenter x:Name="PART_SelectedContentHost"
+                                            ContentSource="SelectedContent"
+                                            Margin="{TemplateBinding Padding}"
+                                            SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="HasItems" Value="False">
+                            <Setter TargetName="ContentBorder" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
     
     <!-- TabItem Style -->
@@ -279,7 +319,7 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="20,12"/>
         <Setter Property="MinWidth" Value="120"/>
         <Setter Property="MinHeight" Value="40"/>
@@ -287,28 +327,38 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
-                    <Border x:Name="Border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            Padding="{TemplateBinding Padding}"
-                            MinWidth="{TemplateBinding MinWidth}"
-                            MinHeight="{TemplateBinding MinHeight}"
-                            CornerRadius="4">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                        ContentSource="Header"
-                                        TextBlock.Foreground="{TemplateBinding Foreground}"/>
-                    </Border>
+                    <Grid>
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                MinWidth="{TemplateBinding MinWidth}"
+                                MinHeight="{TemplateBinding MinHeight}"
+                                CornerRadius="4,4,0,0"
+                                Margin="0,0,0,-1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                            ContentSource="Header"
+                                            TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+                            <Setter TargetName="Border" Property="BorderBrush" Value="#000000"/>
+                            <Setter TargetName="Border" Property="BorderThickness" Value="1"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Panel.ZIndex" Value="1"/>
                         </Trigger>
-                        <Trigger Property="IsMouseOver" Value="True">
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsSelected" Value="False"/>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                            </MultiTrigger.Conditions>
                             <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        </Trigger>
+                        </MultiTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

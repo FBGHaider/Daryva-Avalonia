@@ -6,6 +6,17 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="1000">
+    <UserControl.Resources>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="MinHeight" Value="35"/>
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </UserControl.Resources>
     <StackPanel Margin="0">
             <TextBlock Text="Dashboard" Style="{StaticResource Heading1}"/>
             
@@ -63,7 +74,7 @@
 
             <!-- Rent Due in Next 7 Days -->
             <TextBlock Text="Rent Due in Next 7 Days" Style="{StaticResource Heading2}"/>
-            <DataGrid ItemsSource="{Binding RentDueInNext7Days}" AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,0,24">
+            <DataGrid ItemsSource="{Binding RentDueInNext7Days}" AutoGenerateColumns="False" IsReadOnly="True" Margin="0,0,0,24" FontSize="14" RowHeight="35">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Tenant" Binding="{Binding TenantName}" Width="*"/>
                     <DataGridTextColumn Header="House" Binding="{Binding HouseAddress}" Width="*"/>
@@ -82,7 +93,7 @@
 
             <!-- Overdue Rent -->
             <TextBlock Text="Overdue Rent" Style="{StaticResource Heading2}"/>
-            <DataGrid ItemsSource="{Binding OverdueRent}" AutoGenerateColumns="False" IsReadOnly="True">
+            <DataGrid ItemsSource="{Binding OverdueRent}" AutoGenerateColumns="False" IsReadOnly="True" FontSize="14" RowHeight="35">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Tenant" Binding="{Binding TenantName}" Width="*"/>
                     <DataGridTextColumn Header="House" Binding="{Binding HouseAddress}" Width="*"/>

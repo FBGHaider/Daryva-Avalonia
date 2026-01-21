@@ -99,5 +99,76 @@ namespace Daryva.Services
             config.Save(ConfigurationSaveMode.Modified);
             ConfigurationManager.RefreshSection("appSettings");
         }
+
+        /// <summary>
+        /// Sets a configuration value in App.config.local.
+        /// Creates the file if it doesn't exist.
+        /// </summary>
+        public void SetLocalValue(string key, string value)
+        {
+            if (!File.Exists(LocalConfigPath))
+            {
+                // Create the file with basic structure
+                var doc = new XmlDocument();
+                var declaration = doc.CreateXmlDeclaration("1.0", "utf-8", null);
+                doc.AppendChild(declaration);
+                
+                var configElement = doc.CreateElement("configuration");
+                doc.AppendChild(configElement);
+                
+                var appSettingsElement = doc.CreateElement("appSettings");
+                configElement.AppendChild(appSettingsElement);
+                
+                doc.Save(LocalConfigPath);
+            }
+
+            var doc2 = new XmlDocument();
+            doc2.Load(LocalConfigPath);
+            
+            var appSettings = doc2.SelectSingleNode("//configuration/appSettings");
+            if (appSettings == null)
+            {
+                var config = doc2.SelectSingleNode("//configuration");
+                if (config == null)
+                {
+                    var configElement = doc2.CreateElement("configuration");
+                    doc2.AppendChild(configElement);
+                    config = configElement;
+                }
+                appSettings = doc2.CreateElement("appSettings");
+                config.AppendChild(appSettings);
+            }
+
+            // Find existing add node with this key
+            var existingNode = doc2.SelectSingleNode($"//configuration/appSettings/add[@key='{key}']");
+            if (existingNode != null)
+            {
+                var valueAttr = existingNode.Attributes?["value"];
+                if (valueAttr != null)
+                {
+                    valueAttr.Value = value;
+                }
+            }
+            else
+            {
+                var addNode = doc2.CreateElement("add");
+                addNode.SetAttribute("key", key);
+                addNode.SetAttribute("value", value);
+                appSettings.AppendChild(addNode);
+            }
+
+            doc2.Save(LocalConfigPath);
+            
+            // Reload the local settings cache
+            LoadLocalConfig();
+        }
+
+        /// <summary>
+        /// Reloads the local configuration file.
+        /// </summary>
+        public void ReloadLocalConfig()
+        {
+            LoadLocalConfig();
+        }
     }
 }

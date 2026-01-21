@@ -7,37 +7,39 @@ namespace Daryva.Services.Business
     public class EmailSender : IEmailSender
     {
         private readonly IConfigurationService? _configurationService;
-        private readonly string? _smtpServer;
-        private readonly int _smtpPort;
-        private readonly string? _smtpUsername;
-        private readonly string? _smtpPassword;
-        private readonly bool _enableSsl;
-        private readonly string? _fromAddress;
 
         public EmailSender(IConfigurationService? configurationService = null)
         {
             _configurationService = configurationService;
-            
-            // Load SMTP settings from configuration
-            _smtpServer = _configurationService?.GetValue("SmtpServer");
+        }
+
+        private void GetSmtpSettings(out string? smtpServer, out int smtpPort, out string? smtpUsername, out string? smtpPassword, out bool enableSsl, out string? fromAddress)
+        {
+            smtpServer = _configurationService?.GetValue("SmtpServer");
             var portStr = _configurationService?.GetValue("SmtpPort");
-            _smtpPort = int.TryParse(portStr, out var port) ? port : 587;
-            _smtpUsername = _configurationService?.GetValue("SmtpUsername");
-            _smtpPassword = _configurationService?.GetValue("SmtpPassword");
+            smtpPort = int.TryParse(portStr, out var port) ? port : 587;
+            smtpUsername = _configurationService?.GetValue("SmtpUsername");
+            smtpPassword = _configurationService?.GetValue("SmtpPassword");
             var sslStr = _configurationService?.GetValue("SmtpEnableSsl");
-            _enableSsl = sslStr != null && bool.TryParse(sslStr, out var ssl) && ssl;
-            _fromAddress = _configurationService?.GetValue("SmtpFromAddress");
+            enableSsl = sslStr != null && bool.TryParse(sslStr, out var ssl) && ssl;
+            fromAddress = _configurationService?.GetValue("SmtpFromAddress");
         }
 
         public async Task<bool> SendEmailAsync(string toAddress, string subject, string body, string? fromAddress = null)
         {
             try
             {
+                // Reload config to get latest settings
+                _configurationService?.ReloadLocalConfig();
+                
+                // Get SMTP settings dynamically
+                GetSmtpSettings(out var smtpServer, out var smtpPort, out var smtpUsername, out var smtpPassword, out var enableSsl, out var fromAddr);
+
                 // If SMTP is not configured, show a helpful message
-                if (string.IsNullOrWhiteSpace(_smtpServer) || string.IsNullOrWhiteSpace(_smtpUsername) || string.IsNullOrWhiteSpace(_smtpPassword))
+                if (string.IsNullOrWhiteSpace(smtpServer) || string.IsNullOrWhiteSpace(smtpUsername) || string.IsNullOrWhiteSpace(smtpPassword))
                 {
                     throw new InvalidOperationException(
-                        "SMTP is not configured. Please add the following settings to App.config:\n\n" +
+                        "SMTP is not configured. Please add the following settings to App.config.local:\n\n" +
                         "<add key=\"SmtpServer\" value=\"smtp.gmail.com\" />\n" +
                         "<add key=\"SmtpPort\" value=\"587\" />\n" +
                         "<add key=\"SmtpUsername\" value=\"your-email@gmail.com\" />\n" +
@@ -47,14 +49,14 @@ namespace Daryva.Services.Business
                         "For Gmail, you need to use an App Password (not your regular password).");
                 }
 
-                using var client = new SmtpClient(_smtpServer, _smtpPort)
+                using var client = new SmtpClient(smtpServer, smtpPort)
                 {
-                    EnableSsl = _enableSsl,
-                    Credentials = new NetworkCredential(_smtpUsername, _smtpPassword),
+                    EnableSsl = enableSsl,
+                    Credentials = new NetworkCredential(smtpUsername, smtpPassword),
                     DeliveryMethod = SmtpDeliveryMethod.Network
                 };
 
-                var from = fromAddress ?? _fromAddress ?? _smtpUsername ?? "noreply@landlordbuddy.com";
+                var from = fromAddress ?? fromAddr ?? smtpUsername ?? "noreply@landlordbuddy.com";
                 
                 using var message = new MailMessage(from, toAddress)
                 {

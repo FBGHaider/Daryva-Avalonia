@@ -114,14 +114,16 @@
                              IsReadOnly="True"
                              GridLinesVisibility="All"
                              HeadersVisibility="Column"
-                             MinHeight="300">
+                             MinHeight="300"
+                             FontSize="14"
+                             RowHeight="35">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Date" Binding="{Binding DateIncurred, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100"/>
                             <DataGridTextColumn Header="House" Binding="{Binding HouseAddress}" Width="*"/>
                             <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="120"/>
                             <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="150"/>
                             <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-                            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='{}{0:C}'}" Width="100"/>
+                            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='£{0:N2}'}" Width="100"/>
                             <DataGridTemplateColumn Header="Receipt" Width="80">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -184,7 +186,7 @@
                             <Border Grid.Column="0" Background="#1E3A5F" Padding="15" Margin="5" CornerRadius="8" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
                                 <StackPanel>
                                     <TextBlock Text="Total Expenses" FontSize="12" Foreground="#B3D9FF"/>
-                                    <TextBlock Text="{Binding Summary.TotalAmount, StringFormat='{}{0:C}'}" 
+                                    <TextBlock Text="{Binding Summary.TotalAmount, StringFormat='£{0:N2}'}" 
                                               FontSize="24" FontWeight="Bold" Foreground="White"/>
                                 </StackPanel>
                             </Border>
@@ -192,7 +194,7 @@
                             <Border Grid.Column="1" Background="#3A1E4A" Padding="15" Margin="5" CornerRadius="8" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
                                 <StackPanel>
                                     <TextBlock Text="Average Monthly" FontSize="12" Foreground="#E6B3FF"/>
-                                    <TextBlock Text="{Binding Summary.AverageMonthlyAmount, StringFormat='{}{0:C}'}" 
+                                    <TextBlock Text="{Binding Summary.AverageMonthlyAmount, StringFormat='£{0:N2}'}" 
                                               FontSize="24" FontWeight="Bold" Foreground="White"/>
                                 </StackPanel>
                             </Border>
@@ -202,7 +204,7 @@
                                     <TextBlock Text="Biggest Category" FontSize="12" Foreground="#B3FFB3"/>
                                     <TextBlock Text="{Binding Summary.BiggestCategory}" 
                                               FontSize="18" FontWeight="Bold" Foreground="White"/>
-                                    <TextBlock Text="{Binding Summary.BiggestCategoryAmount, StringFormat='{}{0:C}'}" 
+                                    <TextBlock Text="{Binding Summary.BiggestCategoryAmount, StringFormat='£{0:N2}'}" 
                                               FontSize="14" Foreground="#B3FFB3"/>
                                 </StackPanel>
                             </Border>
@@ -210,7 +212,7 @@
                             <Border Grid.Column="3" Background="#4A3A1E" Padding="15" Margin="5" CornerRadius="8" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
                                 <StackPanel>
                                     <TextBlock Text="Highest Single" FontSize="12" Foreground="#FFE6B3"/>
-                                    <TextBlock Text="{Binding Summary.HighestSingleExpense, StringFormat='{}{0:C}'}" 
+                                    <TextBlock Text="{Binding Summary.HighestSingleExpense, StringFormat='£{0:N2}'}" 
                                               FontSize="24" FontWeight="Bold" Foreground="White"/>
                                 </StackPanel>
                             </Border>
@@ -230,10 +232,12 @@
                                          CanUserAddRows="False"
                                          IsReadOnly="True"
                                          HeadersVisibility="Column"
-                                         MinHeight="200">
+                                         MinHeight="200"
+                                         FontSize="14"
+                                         RowHeight="35">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="House" Binding="{Binding HouseAddress}" Width="*"/>
-                                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='{}{0:C}'}" Width="100"/>
+                                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='£{0:N2}'}" Width="100"/>
                                         <DataGridTextColumn Header="%" Binding="{Binding PercentageOfTotal, StringFormat='{}{0:F1}%'}" Width="80"/>
                                         <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="80"/>
                                     </DataGrid.Columns>
@@ -247,12 +251,14 @@
                                          CanUserAddRows="False"
                                          IsReadOnly="True"
                                          HeadersVisibility="Column"
-                                         MinHeight="200">
+                                         MinHeight="200"
+                                         FontSize="14"
+                                         RowHeight="35">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*"/>
-                                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='{}{0:C}'}" Width="100"/>
+                                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='£{0:N2}'}" Width="100"/>
                                         <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="80"/>
-                                        <DataGridTextColumn Header="Average" Binding="{Binding Average, StringFormat='{}{0:C}'}" Width="100"/>
+                                        <DataGridTextColumn Header="Average" Binding="{Binding Average, StringFormat='£{0:N2}'}" Width="100"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </GroupBox>
@@ -265,13 +271,15 @@
                                      CanUserAddRows="False"
                                      IsReadOnly="True"
                                      HeadersVisibility="Column"
-                                     MinHeight="200">
+                                     MinHeight="200"
+                                     FontSize="14"
+                                     RowHeight="35">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Month" Binding="{Binding MonthName}" Width="150"/>
-                                    <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='{}{0:C}'}" Width="100"/>
-                                    <DataGridTextColumn Header="Repairs" Binding="{Binding Repairs, StringFormat='{}{0:C}'}" Width="100"/>
-                                    <DataGridTextColumn Header="Bills" Binding="{Binding Bills, StringFormat='{}{0:C}'}" Width="100"/>
-                                    <DataGridTextColumn Header="Other" Binding="{Binding Other, StringFormat='{}{0:C}'}" Width="100"/>
+                                    <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat='£{0:N2}'}" Width="100"/>
+                                    <DataGridTextColumn Header="Repairs" Binding="{Binding Repairs, StringFormat='£{0:N2}'}" Width="100"/>
+                                    <DataGridTextColumn Header="Bills" Binding="{Binding Bills, StringFormat='£{0:N2}'}" Width="100"/>
+                                    <DataGridTextColumn Header="Other" Binding="{Binding Other, StringFormat='£{0:N2}'}" Width="100"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </GroupBox>

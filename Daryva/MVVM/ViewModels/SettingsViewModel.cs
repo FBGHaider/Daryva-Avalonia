@@ -46,6 +46,7 @@ namespace Daryva.MVVM.ViewModels
         public List<string> Sections { get; } = new()
         {
             "General",
+            "Theme",
             "Rent & Finance",
             "Documents",
             "Notifications",
@@ -60,6 +61,7 @@ namespace Daryva.MVVM.ViewModels
                 CurrentSectionViewModel = section switch
                 {
                     "General" => _serviceProvider.GetRequiredService<GeneralSettingsViewModel>(),
+                    "Theme" => _serviceProvider.GetRequiredService<ThemeSettingsViewModel>(),
                     "Rent & Finance" => _serviceProvider.GetRequiredService<RentSettingsViewModel>(),
                     "Documents" => _serviceProvider.GetRequiredService<DocumentSettingsViewModel>(),
                     "Notifications" => _serviceProvider.GetRequiredService<NotificationSettingsViewModel>(),

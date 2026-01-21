@@ -18,7 +18,7 @@
     <Border x:Name="MainBorder"
             Background="{DynamicResource ApplicationBackgroundBrush}" 
             BorderThickness="0"
-            CornerRadius="16"
+            CornerRadius="12"
             ClipToBounds="True">
         <Grid Background="Transparent">
         <Grid.RowDefinitions>
@@ -26,12 +26,12 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         
-        <!-- Custom Title Bar -->
+        <!-- Custom Title Bar - Windows 11 acrylic style -->
         <Border Grid.Row="0" 
                 Background="{DynamicResource NavigationViewBackgroundBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                BorderThickness="0"
-                CornerRadius="16,16,0,0"
+                BorderThickness="0,0,0,1"
+                CornerRadius="12,12,0,0"
                 MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -167,26 +167,36 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Navigation Sidebar -->
+            <!-- Navigation Sidebar - Windows 11 acrylic style -->
             <Border Grid.Column="0" 
+                x:Name="SidebarBorder"
                 Background="{DynamicResource NavigationViewBackgroundBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                BorderThickness="0,0,1,0">
+                BorderThickness="0,0,1,0"
+                CornerRadius="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
+                <!-- Header - Windows 11 style (subtle, integrated) -->
                 <Border Grid.Row="0" 
-                        Background="{DynamicResource AccentFillColorDefaultBrush}"
-                        Padding="0">
-                    <Image Source="pack://application:,,,/Assets/Logo/logo.png"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           Margin="0"/>
+                        Background="Transparent"
+                        Padding="12,8">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="pack://application:,,,/Assets/Logo/logo.png"
+                               Width="32"
+                               Height="32"
+                               Stretch="Uniform"
+                               VerticalAlignment="Center"
+                               Margin="0,0,12,0"/>
+                        <TextBlock Text="Daryva"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Border>
 
                 <!-- Menu Items - Styled ListBox -->
@@ -209,8 +219,9 @@
                                                 Background="Transparent"
                                                 BorderBrush="Transparent"
                                                 BorderThickness="0"
-                                                Padding="12,10"
-                                                CornerRadius="4">
+                                                Padding="12,8"
+                                                CornerRadius="6"
+                                                Margin="4,2">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Icon}" 
                                                            FontSize="18" 
@@ -239,10 +250,14 @@
             </Grid>
         </Border>
 
-            <!-- Content Area -->
+            <!-- Content Area - Windows 11 acrylic style -->
             <Border Grid.Column="1" 
+                    x:Name="ContentAreaBorder"
                     Background="{DynamicResource ApplicationBackgroundBrush}"
-                    Padding="24">
+                    Padding="24"
+                    Opacity="1.0"
+                    CornerRadius="0"
+                    BorderThickness="0">
                 <ContentControl Content="{Binding CurrentViewModel}"/>
             </Border>
         </Grid>

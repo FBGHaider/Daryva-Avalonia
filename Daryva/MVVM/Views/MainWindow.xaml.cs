@@ -182,7 +182,7 @@ namespace Daryva
             if (border != null && border.ActualWidth > 0 && border.ActualHeight > 0)
             {
                 var rect = new System.Windows.Rect(0, 0, border.ActualWidth, border.ActualHeight);
-                var geometry = new System.Windows.Media.RectangleGeometry(rect, 16, 16);
+                var geometry = new System.Windows.Media.RectangleGeometry(rect, 12, 12); // Windows 11 style corners
                 border.Clip = geometry;
             }
         }

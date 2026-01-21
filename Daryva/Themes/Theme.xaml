@@ -5,7 +5,7 @@
     <!-- Note: Theme is applied via code-behind in App.xaml.cs -->
     <!-- The WPF UI resources are loaded automatically when ApplicationThemeManager.Apply() is called -->
     
-    <!-- Fallback dark theme colors if WPF UI resources aren't loaded -->
+    <!-- Fallback dark theme colors - these will be overridden by WPF UI resources when loaded -->
     <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#202020"/>
     <SolidColorBrush x:Key="CardFillColorDefaultBrush" Color="#2D2D2D"/>
     <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#404040"/>

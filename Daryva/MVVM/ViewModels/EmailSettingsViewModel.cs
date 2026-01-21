@@ -160,22 +160,27 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                // Note: SMTP settings are stored in App.config.local (gitignored)
-                // We can't modify that file directly, so we'll show instructions
-                _dialogService.ShowMessage(
-                    "SMTP settings are stored in App.config.local for security.\n\n" +
-                    "Please update the following settings in App.config.local:\n\n" +
-                    $"SmtpServer: {SmtpServer}\n" +
-                    $"SmtpPort: {SmtpPort}\n" +
-                    $"SmtpUsername: {SmtpUsername}\n" +
-                    $"SmtpPassword: [Your password]\n" +
-                    $"SmtpEnableSsl: {EnableSsl}\n" +
-                    $"SmtpFromAddress: {FromAddress}\n\n" +
-                    "After updating, restart the application for changes to take effect.",
-                    "SMTP Configuration");
+                // Save SMTP settings to App.config.local
+                _configurationService.SetLocalValue("SmtpServer", SmtpServer);
+                _configurationService.SetLocalValue("SmtpPort", SmtpPort.ToString());
+                _configurationService.SetLocalValue("SmtpUsername", SmtpUsername);
+                if (!string.IsNullOrWhiteSpace(SmtpPassword))
+                {
+                    _configurationService.SetLocalValue("SmtpPassword", SmtpPassword);
+                }
+                _configurationService.SetLocalValue("SmtpEnableSsl", EnableSsl.ToString());
+                _configurationService.SetLocalValue("SmtpFromAddress", FromAddress);
+
+                // Reload configuration
+                _configurationService.ReloadLocalConfig();
 
                 UpdateEmailStatus();
                 await _settingsService.SetSettingAsync("EmailStatus", EmailStatus);
+                
+                _dialogService.ShowMessage(
+                    "SMTP settings have been saved successfully!\n\n" +
+                    "You can now test the email configuration using the 'Test Email' button.",
+                    "Settings Saved");
             }
             catch (Exception ex)
             {

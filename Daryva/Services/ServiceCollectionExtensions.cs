@@ -84,6 +84,7 @@ namespace Daryva.Services
             
             // Settings section ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.GeneralSettingsViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.ThemeSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.RentSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.DocumentSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.NotificationSettingsViewModel>();

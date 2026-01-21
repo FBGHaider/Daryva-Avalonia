@@ -23,5 +23,17 @@ namespace Daryva.Services
         /// <param name="key">The configuration key.</param>
         /// <param name="value">The configuration value.</param>
         void SetValue(string key, string value);
+
+        /// <summary>
+        /// Sets a configuration value in App.config.local.
+        /// </summary>
+        /// <param name="key">The configuration key.</param>
+        /// <param name="value">The configuration value.</param>
+        void SetLocalValue(string key, string value);
+
+        /// <summary>
+        /// Reloads the local configuration file.
+        /// </summary>
+        void ReloadLocalConfig();
     }
 }

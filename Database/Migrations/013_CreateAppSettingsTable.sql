@@ -34,6 +34,7 @@ BEGIN
         ('AppStartPage', 'Dashboard', 'String', 'General', 'Default page to show on app start'),
         ('ConfirmDestructiveActions', 'true', 'Bool', 'General', 'Show confirmation dialogs for destructive actions'),
         ('AutoRefreshDashboard', 'true', 'Bool', 'General', 'Automatically refresh dashboard data'),
+        ('Theme', 'Dark', 'String', 'General', 'Application theme (Dark or Light)'),
         
         -- Rent & Finance Settings
         ('DefaultRentDueDay', '1', 'Int', 'Rent', 'Default day of month when rent is due'),

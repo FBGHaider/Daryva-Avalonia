@@ -17,6 +17,32 @@ namespace Daryva
         /// Gets the service provider for dependency injection.
         /// </summary>
         public static ServiceProvider? ServiceProvider { get; private set; }
+        
+        /// <summary>
+        /// Gets the cached WPF UI assembly for theme management.
+        /// </summary>
+        public static Assembly? WpfUiAssembly { get; private set; }
+
+        public App()
+        {
+            // Handle unhandled exceptions
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        }
+
+        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            MessageBox.Show($"Unhandled exception: {e.Exception.Message}\n\n{e.Exception.StackTrace}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            e.Handled = true;
+        }
+
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            if (e.ExceptionObject is Exception ex)
+            {
+                MessageBox.Show($"Unhandled exception: {ex.Message}\n\n{ex.StackTrace}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
         /// <summary>
         /// Called when the application starts.
@@ -25,35 +51,147 @@ namespace Daryva
         {
             base.OnStartup(e);
 
-            // Apply WPF UI theme FIRST (before creating windows)
-            // This ensures theme resources are available when windows load
-            ApplyWpfUiTheme();
+            try
+            {
+                // Apply default theme FIRST (before configuring services)
+                // This ensures theme resources are available when windows load
+                var startupTheme = "Light";
+                ApplyWpfUiTheme(startupTheme);
 
-            // Configure services
-            var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
-            _serviceProvider = serviceCollection.BuildServiceProvider();
-            ServiceProvider = _serviceProvider;
+                // Configure services
+                var serviceCollection = new ServiceCollection();
+                ConfigureServices(serviceCollection);
+                _serviceProvider = serviceCollection.BuildServiceProvider();
+                ServiceProvider = _serviceProvider;
 
-            // Create and show the main window
-            var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-            mainWindow.Show();
+                // Create and show the main window
+                var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+                MainWindow = mainWindow;
+                
+                // Load saved theme from database after window is shown (non-blocking)
+                mainWindow.Loaded += async (s, e) =>
+                {
+                        try
+                        {
+                            var settingsService = _serviceProvider.GetRequiredService<Services.Business.ISettingsService>();
+                            var savedTheme = await settingsService.GetSettingAsync("Theme", "Light");
+                            
+                            if (!string.IsNullOrEmpty(savedTheme) && 
+                                (savedTheme == "Light" || savedTheme == "Dark") && 
+                                savedTheme != startupTheme)
+                            {
+                                ApplyWpfUiTheme(savedTheme);
+                                ApplyThemeResources(savedTheme, mainWindow);
+                            }
+                            else
+                            {
+                                ApplyThemeResources(startupTheme, mainWindow);
+                            }
+                        }
+                        catch
+                        {
+                            // If database access fails, use default theme
+                            ApplyThemeResources(startupTheme, mainWindow);
+                        }
+                };
+                
+                mainWindow.Show();
+                mainWindow.Activate();
+                mainWindow.Focus();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to start application: {ex.Message}\n\n{ex.StackTrace}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+            }
+        }
+        
+        /// <summary>
+        /// Applies theme resources based on the theme name.
+        /// </summary>
+        private void ApplyThemeResources(string theme, System.Windows.Window mainWindow)
+        {
+            var mainBorder = mainWindow.FindName("MainBorder") as System.Windows.Controls.Border;
+            
+            if (theme == "Light")
+            {
+                // Modern light theme with professional color palette
+                Resources["ApplicationBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xF6, 0xF7, 0xF9)) { Opacity = 1.0 };
+                Resources["CardFillColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Colors.White) { Opacity = 1.0 };
+                Resources["ControlFillColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xF3, 0xF4, 0xF6)) { Opacity = 1.0 };
+                Resources["ControlFillColorSecondaryBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xE5, 0xE7, 0xEB)) { Opacity = 1.0 };
+                Resources["ControlStrokeColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xE5, 0xE7, 0xEB)) { Opacity = 1.0 };
+                Resources["TextFillColorPrimaryBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x1F, 0x29, 0x33)) { Opacity = 1.0 };
+                Resources["TextFillColorSecondaryBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x6B, 0x72, 0x80)) { Opacity = 1.0 };
+                Resources["NavigationViewBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xEC, 0xEF, 0xF3)) { Opacity = 1.0 };
+                Resources["LayerFillColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Colors.White) { Opacity = 1.0 };
+                // Lighter blue for light theme - softer, more modern appearance
+                Resources["AccentFillColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x4A, 0x9E, 0xFF)) { Opacity = 1.0 }; // Lighter blue (#4A9EFF)
+                Resources["AccentFillColorSecondaryBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x6B, 0xAD, 0xFF)) { Opacity = 1.0 }; // Lighter blue hover (#6BADFF)
+                
+                if (mainBorder != null)
+                {
+                    mainBorder.Background = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(0xF6, 0xF7, 0xF9)) { Opacity = 1.0 };
+                }
+            }
+            else // Dark theme
+            {
+                Resources["ApplicationBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(32, 32, 32)) { Opacity = 1.0 };
+                Resources["CardFillColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(45, 45, 45)) { Opacity = 1.0 };
+                Resources["ControlFillColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(50, 50, 50)) { Opacity = 1.0 };
+                Resources["ControlFillColorSecondaryBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(61, 61, 61)) { Opacity = 1.0 };
+                Resources["ControlStrokeColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(80, 80, 80)) { Opacity = 1.0 };
+                Resources["TextFillColorPrimaryBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Colors.White) { Opacity = 1.0 };
+                Resources["TextFillColorSecondaryBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(204, 204, 204)) { Opacity = 1.0 };
+                Resources["NavigationViewBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(30, 30, 30)) { Opacity = 1.0 };
+                Resources["LayerFillColorDefaultBrush"] = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(37, 37, 37)) { Opacity = 1.0 };
+                
+                if (mainBorder != null)
+                {
+                    mainBorder.Background = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(32, 32, 32)) { Opacity = 1.0 };
+                }
+            }
         }
 
         /// <summary>
         /// Applies WPF UI theme using reflection (works around .NET Framework/.NET 8 compatibility issue).
         /// </summary>
-        private void ApplyWpfUiTheme()
+        /// <param name="theme">Theme name: "Dark" or "Light"</param>
+        private void ApplyWpfUiTheme(string theme = "Dark")
         {
             try
             {
+                var effectiveTheme = theme;
+                
                 // Load WPF UI assembly
                 var assembly = Assembly.Load("Wpf.Ui");
                 if (assembly == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("WPF UI assembly not found");
                     return;
-                }
+                
+                // Cache the assembly for use by ViewModels
+                WpfUiAssembly = assembly;
 
                 // Get types
                 var themeManagerType = assembly.GetType("Wpf.Ui.Appearance.ApplicationThemeManager");
@@ -61,29 +199,34 @@ namespace Daryva
                 var backdropEnumType = assembly.GetType("Wpf.Ui.Appearance.WindowBackdropType");
 
                 if (themeManagerType == null || themeEnumType == null || backdropEnumType == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("WPF UI types not found");
                     return;
-                }
 
-                // Try to load WPF UI resource dictionaries manually
+                // Try to load WPF UI resource dictionaries
                 try
                 {
-                    var resourceUri1 = new Uri("pack://application:,,,/Wpf.Ui;component/Styles/Theme/Dark.xaml", UriKind.Absolute);
+                    // Remove old theme dictionaries if they exist
+                    var resourcesToRemove = Resources.MergedDictionaries
+                        .Where(d => d.Source?.ToString().Contains("Wpf.Ui") == true && d.Source.ToString().Contains("Theme"))
+                        .ToList();
+                    foreach (var dict in resourcesToRemove)
+                    {
+                        Resources.MergedDictionaries.Remove(dict);
+                    }
+
+                    var themeFileName = effectiveTheme == "Light" ? "Light.xaml" : "Dark.xaml";
+                    var resourceUri1 = new Uri($"pack://application:,,,/Wpf.Ui;component/Styles/Theme/{themeFileName}", UriKind.Absolute);
                     var resourceUri2 = new Uri("pack://application:,,,/Wpf.Ui;component/Styles/Controls.xaml", UriKind.Absolute);
                     
-                    var darkThemeDict = new ResourceDictionary { Source = resourceUri1 };
+                    var themeDict = new ResourceDictionary { Source = resourceUri1 };
                     var controlsDict = new ResourceDictionary { Source = resourceUri2 };
                     
                     // Merge into application resources
-                    Resources.MergedDictionaries.Add(darkThemeDict);
+                    Resources.MergedDictionaries.Insert(0, themeDict);
                     Resources.MergedDictionaries.Add(controlsDict);
-                    
-                    System.Diagnostics.Debug.WriteLine("WPF UI resource dictionaries loaded");
                 }
-                catch (Exception resEx)
+                catch
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to load WPF UI resources: {resEx.Message}");
+                    // Resource dictionaries may not be available - use manual resource updates instead
                 }
 
                 // Get Apply method with 3 parameters (theme, backdrop, updateAccent)
@@ -111,59 +254,30 @@ namespace Daryva
                 }
 
                 if (applyMethod == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("WPF UI Apply method not found - using fallback dark theme");
                     return;
-                }
 
-                // Create enum values
-                var darkTheme = Enum.Parse(themeEnumType, "Dark");
+                // Use effectiveTheme with None backdrop
+                var themeValue = Enum.Parse(themeEnumType, effectiveTheme);
+                var backdrop = Enum.Parse(backdropEnumType, "None");
 
-                // Apply theme
-                if (applyMethod.GetParameters().Length == 3)
+                // Apply theme with appropriate backdrop
+                var paramCount = applyMethod.GetParameters().Length;
+                if (paramCount == 3)
                 {
-                    var micaBackdrop = Enum.Parse(backdropEnumType, "Mica");
-                    applyMethod.Invoke(null, new[] { darkTheme, micaBackdrop, true });
+                    applyMethod.Invoke(null, new[] { themeValue, backdrop, true });
                 }
-                else if (applyMethod.GetParameters().Length == 2)
+                else if (paramCount == 2)
                 {
-                    var micaBackdrop = Enum.Parse(backdropEnumType, "Mica");
-                    applyMethod.Invoke(null, new[] { darkTheme, micaBackdrop });
+                    applyMethod.Invoke(null, new[] { themeValue, backdrop });
                 }
                 else
                 {
-                    applyMethod.Invoke(null, new[] { darkTheme });
+                    applyMethod.Invoke(null, new[] { themeValue });
                 }
-                
-                System.Diagnostics.Debug.WriteLine("WPF UI Dark theme applied successfully");
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"WPF UI theme application failed: {ex.Message}");
-                
-                // Fallback: Try applying just the theme without Mica
-                try
-                {
-                    var assembly = Assembly.Load("Wpf.Ui");
-                    var themeManagerType = assembly?.GetType("Wpf.Ui.Appearance.ApplicationThemeManager");
-                    var themeEnumType = assembly?.GetType("Wpf.Ui.Appearance.ApplicationTheme");
-                    
-                    if (themeManagerType != null && themeEnumType != null)
-                    {
-                        var applyMethod = themeManagerType.GetMethod("Apply", new[] { themeEnumType });
-                        if (applyMethod != null)
-                        {
-                            var darkTheme = Enum.Parse(themeEnumType, "Dark");
-                            applyMethod.Invoke(null, new[] { darkTheme });
-                            System.Diagnostics.Debug.WriteLine("WPF UI Dark theme applied (fallback)");
-                        }
-                    }
-                }
-                catch (Exception ex2)
-                {
-                    System.Diagnostics.Debug.WriteLine($"WPF UI theme fallback failed: {ex2.Message}");
-                    // WPF UI theme application failed - app will use default styling
-                }
+                // Theme application failed - app will use default styling
             }
         }
 

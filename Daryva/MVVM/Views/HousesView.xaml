@@ -9,6 +9,15 @@
              d:DesignHeight="600" d:DesignWidth="1000">
     <UserControl.Resources>
         <converters:IsNotNullConverter x:Key="IsNotNullConverter"/>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="MinHeight" Value="35"/>
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
     </UserControl.Resources>
     <StackPanel Margin="0">
         <TextBlock Text="Houses" Style="{StaticResource Heading1}"/>
@@ -73,7 +82,9 @@
                  AutoGenerateColumns="False" 
                  IsReadOnly="True"
                  GridLinesVisibility="Horizontal"
-                 HeadersVisibility="Column">
+                 HeadersVisibility="Column"
+                 FontSize="14"
+                 RowHeight="35">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Address" Binding="{Binding AddressLine1}" Width="*"/>
                 <DataGridTextColumn Header="City" Binding="{Binding City}" Width="120"/>
