@@ -1,12 +1,14 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Win32;
+using Avalonia.Threading;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -18,12 +20,14 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
+        private readonly ISettingsService _settingsService;
 
         private string _ownerFilter = "All"; // All, Tenant, Tenancy, House
         private int? _selectedTenantId;
         private int? _selectedTenancyId;
         private int? _selectedHouseId;
         private string _typeFilter = "All";
+        private string _allDocumentsTypeFilter = "All";
         private string _selectedDocumentTypeForUpload = "Other"; // Document type selected from dropdown for upload
         private DocumentStatusItem? _selectedDocumentStatus;
         private Document? _selectedDocument;
@@ -33,13 +37,15 @@ namespace Daryva.MVVM.ViewModels
             ITenantService tenantService,
             IHouseService houseService,
             IDialogService dialogService,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            ISettingsService settingsService)
         {
             _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
             _tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
             // Try to get ITenancyService if available
             _tenancyService = serviceProvider.GetService<ITenancyService>();
@@ -48,24 +54,20 @@ namespace Daryva.MVVM.ViewModels
             DocumentStatusChecklist = new ObservableCollection<DocumentStatusItem>();
             Tenants = new ObservableCollection<Tenant>();
             Houses = new ObservableCollection<House>();
-            AvailableDocumentTypes = new ObservableCollection<string>
-            {
-                "StudentConfirmationLetter",
-                "PhotoId",
-                "RightToRent",
-                "TenancyAgreementSigned",
-                "GuarantorAgreement",
-                "InventoryCheckIn",
-                "DepositProtectionCertificate",
-                "NoticeToLeave",
-                "Other"
-            };
+            var allTypes = new[] { "StudentConfirmationLetter", "PhotoId", "RightToRent", "TenancyAgreementSigned", "GuarantorAgreement", "InventoryCheckIn", "DepositProtectionCertificate", "NoticeToLeave", "Contract", "CouncilTax", "Bills", "Insurance", "GasSafety", "Epc", "Other" };
+            AvailableDocumentTypes = new ObservableCollection<string>(allTypes);
+            DocumentTypesForUpload = new ObservableCollection<string>();
+            OwnerTypeOptions = new ObservableCollection<string> { "All", "Tenant", "House" };
+            TypeFilterOptions = new ObservableCollection<string> { "All", "Active", "Expired", "ExpiringSoon", "Missing" };
+            AllDocumentsTypeFilterOptions = new ObservableCollection<string> { "All" };
+            foreach (var t in allTypes)
+                AllDocumentsTypeFilterOptions.Add(t);
 
             LoadDocumentsCommand = new RelayCommand(async _ => await LoadDocumentsAsync());
             LoadDocumentStatusCommand = new RelayCommand(async _ => await LoadDocumentStatusAsync());
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
-            UploadDocumentCommand = new RelayCommand(_ => ShowUploadDocumentDialog(), _ => CanUploadDocument());
+            UploadDocumentCommand = new RelayCommand(async _ => await ShowUploadDocumentAsync(), _ => CanUploadDocument());
             ViewDocumentCommand = new RelayCommand(_ => ViewDocumentAsync(), _ => SelectedDocumentStatus != null && SelectedDocumentStatus.DocumentId.HasValue);
             DownloadDocumentCommand = new RelayCommand(_ => DownloadDocumentAsync(), _ => SelectedDocumentStatus != null && SelectedDocumentStatus.DocumentId.HasValue);
             DeleteDocumentCommand = new RelayCommand(async _ => await DeleteDocumentAsync(), _ => SelectedDocumentStatus != null && SelectedDocumentStatus.DocumentId.HasValue);
@@ -73,9 +75,13 @@ namespace Daryva.MVVM.ViewModels
             DeleteAllDocumentsCommand = new RelayCommand(async _ => await DeleteAllDocumentsAsync());
             ViewHistoryCommand = new RelayCommand(async _ => await ViewDocumentHistoryAsync(), _ => SelectedDocumentStatus != null);
 
+            RefreshDocumentTypesForUpload();
+
             // Load initial data
             LoadHousesCommand.Execute(null);
             LoadTenantsCommand.Execute(null);
+            LoadDocumentsCommand.Execute(null);
+            LoadDocumentStatusCommand.Execute(null);
         }
 
         public ICommand LoadDocumentsCommand { get; }
@@ -95,35 +101,62 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<Tenant> Tenants { get; }
         public ObservableCollection<House> Houses { get; }
         public ObservableCollection<string> AvailableDocumentTypes { get; }
+        public ObservableCollection<string> DocumentTypesForUpload { get; }
+        public ObservableCollection<string> OwnerTypeOptions { get; }
+        public ObservableCollection<string> TypeFilterOptions { get; }
+        public ObservableCollection<string> AllDocumentsTypeFilterOptions { get; }
 
         public string OwnerFilter
         {
             get => _ownerFilter;
             set
             {
-                if (SetProperty(ref _ownerFilter, value))
+                var v = value ?? "All";
+                if (SetProperty(ref _ownerFilter, v))
                 {
                     // Reset only the selections that don't match the new filter (to avoid circular updates)
-                    if (value != "Tenant" && _selectedTenantId.HasValue)
+                    if (v != "Tenant" && _selectedTenantId.HasValue)
                     {
                         _selectedTenantId = null;
                         OnPropertyChanged(nameof(SelectedTenantId));
                     }
-                    if (value != "Tenancy" && _selectedTenancyId.HasValue)
-                    {
-                        _selectedTenancyId = null;
-                        OnPropertyChanged(nameof(SelectedTenancyId));
-                    }
-                    if (value != "House" && _selectedHouseId.HasValue)
+                    if (v != "House" && _selectedHouseId.HasValue)
                     {
                         _selectedHouseId = null;
                         OnPropertyChanged(nameof(SelectedHouseId));
                     }
-                    
+
+                    OnPropertyChanged(nameof(IsHouseFilterVisible));
+                    OnPropertyChanged(nameof(IsTenantFilterVisible));
+                    OnPropertyChanged(nameof(IsTypeFilterVisible));
+                    RefreshDocumentTypesForUpload();
                     ((RelayCommand)UploadDocumentCommand).RaiseCanExecuteChanged();
                     LoadDocumentStatusCommand.Execute(null);
                 }
             }
+        }
+
+        public bool IsHouseFilterVisible => string.Equals(OwnerFilter, "House", StringComparison.OrdinalIgnoreCase);
+        public bool IsTenantFilterVisible => string.Equals(OwnerFilter, "Tenant", StringComparison.OrdinalIgnoreCase);
+        public bool IsTypeFilterVisible => !string.Equals(OwnerFilter, "All", StringComparison.OrdinalIgnoreCase);
+
+        private void RefreshDocumentTypesForUpload()
+        {
+            DocumentTypesForUpload.Clear();
+            if (string.Equals(OwnerFilter, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                _selectedDocumentTypeForUpload = "Other";
+                OnPropertyChanged(nameof(SelectedDocumentTypeForUpload));
+                ((RelayCommand)UploadDocumentCommand).RaiseCanExecuteChanged();
+                return;
+            }
+            var types = _documentService.GetDocumentTypesForOwner(OwnerFilter).ToList();
+            foreach (var t in types)
+                DocumentTypesForUpload.Add(t);
+            var preferred = types.FirstOrDefault(x => string.Equals(x, "Other", StringComparison.OrdinalIgnoreCase)) ?? types.FirstOrDefault();
+            _selectedDocumentTypeForUpload = preferred ?? "Other";
+            OnPropertyChanged(nameof(SelectedDocumentTypeForUpload));
+            ((RelayCommand)UploadDocumentCommand).RaiseCanExecuteChanged();
         }
 
         public int? SelectedTenantId
@@ -133,19 +166,11 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedTenantId, value))
                 {
-                    // Only clear other selections if we're setting a value (not clearing)
-                    if (value.HasValue)
+                    // Only clear tenancy when setting tenant (same owner-type dimension). Do not clear house.
+                    if (value.HasValue && _selectedTenancyId.HasValue)
                     {
-                        if (_selectedTenancyId.HasValue)
-                        {
-                            _selectedTenancyId = null;
-                            OnPropertyChanged(nameof(SelectedTenancyId));
-                        }
-                        if (_selectedHouseId.HasValue)
-                        {
-                            _selectedHouseId = null;
-                            OnPropertyChanged(nameof(SelectedHouseId));
-                        }
+                        _selectedTenancyId = null;
+                        OnPropertyChanged(nameof(SelectedTenancyId));
                     }
                     LoadDocumentStatusCommand.Execute(null);
                     ((RelayCommand)UploadDocumentCommand).RaiseCanExecuteChanged();
@@ -160,19 +185,11 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedTenancyId, value))
                 {
-                    // Only clear other selections if we're setting a value (not clearing)
-                    if (value.HasValue)
+                    // Only clear tenant when setting tenancy (same owner-type dimension). Do not clear house.
+                    if (value.HasValue && _selectedTenantId.HasValue)
                     {
-                        if (_selectedTenantId.HasValue)
-                        {
-                            _selectedTenantId = null;
-                            OnPropertyChanged(nameof(SelectedTenantId));
-                        }
-                        if (_selectedHouseId.HasValue)
-                        {
-                            _selectedHouseId = null;
-                            OnPropertyChanged(nameof(SelectedHouseId));
-                        }
+                        _selectedTenantId = null;
+                        OnPropertyChanged(nameof(SelectedTenantId));
                     }
                     LoadDocumentStatusCommand.Execute(null);
                     ((RelayCommand)UploadDocumentCommand).RaiseCanExecuteChanged();
@@ -187,20 +204,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedHouseId, value))
                 {
-                    // Only clear other selections if we're setting a value (not clearing)
-                    if (value.HasValue)
-                    {
-                        if (_selectedTenantId.HasValue)
-                        {
-                            _selectedTenantId = null;
-                            OnPropertyChanged(nameof(SelectedTenantId));
-                        }
-                        if (_selectedTenancyId.HasValue)
-                        {
-                            _selectedTenancyId = null;
-                            OnPropertyChanged(nameof(SelectedTenancyId));
-                        }
-                    }
+                    // Do not clear tenant or tenancy when selecting house; filters are independent.
                     LoadDocumentStatusCommand.Execute(null);
                     ((RelayCommand)UploadDocumentCommand).RaiseCanExecuteChanged();
                 }
@@ -212,17 +216,31 @@ namespace Daryva.MVVM.ViewModels
             get => _typeFilter;
             set
             {
-                if (SetProperty(ref _typeFilter, value))
-                {
+                var v = value ?? "All";
+                if (SetProperty(ref _typeFilter, v))
+                    LoadDocumentStatusCommand.Execute(null);
+            }
+        }
+
+        public string AllDocumentsTypeFilter
+        {
+            get => _allDocumentsTypeFilter;
+            set
+            {
+                var v = value ?? "All";
+                if (SetProperty(ref _allDocumentsTypeFilter, v))
                     LoadDocumentsCommand.Execute(null);
-                }
             }
         }
 
         public string SelectedDocumentTypeForUpload
         {
             get => _selectedDocumentTypeForUpload;
-            set => SetProperty(ref _selectedDocumentTypeForUpload, value);
+            set
+            {
+                if (SetProperty(ref _selectedDocumentTypeForUpload, value))
+                    ((RelayCommand)UploadDocumentCommand).RaiseCanExecuteChanged();
+            }
         }
 
         public DocumentStatusItem? SelectedDocumentStatus
@@ -254,26 +272,26 @@ namespace Daryva.MVVM.ViewModels
 
         private bool CanUploadDocument()
         {
-            // Must have an owner type selected AND the corresponding owner selected
+            if (OwnerFilter == "All" || string.IsNullOrWhiteSpace(SelectedDocumentTypeForUpload))
+                return false;
             if (OwnerFilter == "Tenant")
                 return SelectedTenantId.HasValue;
-            if (OwnerFilter == "Tenancy")
-                return SelectedTenancyId.HasValue;
             if (OwnerFilter == "House")
                 return SelectedHouseId.HasValue;
-            return false; // "All" or invalid filter means no upload allowed
+            return false;
         }
 
         private async Task LoadDocumentsAsync()
         {
             try
             {
-                int? tenantId = OwnerFilter == "Tenant" ? SelectedTenantId : null;
-                int? tenancyId = OwnerFilter == "Tenancy" ? SelectedTenancyId : null;
-                int? houseId = OwnerFilter == "House" ? SelectedHouseId : null;
-                string? type = TypeFilter != "All" ? TypeFilter : null;
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                Daryva.Services.DateTimeFormatProvider.DateFormat = dateFormat;
 
-                var documents = await _documentService.GetDocumentsAsync(tenantId, tenancyId, houseId, type);
+                string? typeFilter = (string.IsNullOrEmpty(AllDocumentsTypeFilter) || string.Equals(AllDocumentsTypeFilter, "All", StringComparison.OrdinalIgnoreCase))
+                    ? null
+                    : AllDocumentsTypeFilter;
+                var documents = await _documentService.GetDocumentsAsync(null, null, null, typeFilter);
 
                 // Load tenant information for documents to populate TenantName
                 var tenantIds = documents.Where(d => d.TenantId.HasValue).Select(d => d.TenantId!.Value).Distinct().ToList();
@@ -295,7 +313,7 @@ namespace Daryva.MVVM.ViewModels
                 }
 
                 // Ensure UI updates happen on the UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Documents.Clear();
                     foreach (var doc in documents.OrderByDescending(d => d.UploadedAt))
@@ -314,24 +332,40 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                int? tenantId = OwnerFilter == "Tenant" ? SelectedTenantId : null;
-                int? tenancyId = OwnerFilter == "Tenancy" ? SelectedTenancyId : null;
-                int? houseId = OwnerFilter == "House" ? SelectedHouseId : null;
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                Daryva.Services.DateTimeFormatProvider.DateFormat = dateFormat;
 
-                // Only load checklist if an owner is selected
-                if (!tenantId.HasValue && !tenancyId.HasValue && !houseId.HasValue)
+                // Use OwnerFilter to decide which owner drives the checklist (one owner only).
+                // This prevents checklist from "resetting" when house is selected after tenant.
+                int? tenantId = null;
+                int? tenancyId = null;
+                int? houseId = null;
+
+                if (OwnerFilter == "Tenant" && SelectedTenantId.HasValue)
+                    tenantId = SelectedTenantId;
+                else if (OwnerFilter == "House" && SelectedHouseId.HasValue)
+                    houseId = SelectedHouseId;
+                else
                 {
-                    DocumentStatusChecklist.Clear();
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        DocumentStatusChecklist.Clear();
+                    });
                     return;
                 }
 
                 var checklist = await _documentService.GetDocumentStatusChecklistAsync(tenantId, tenancyId, houseId);
 
+                // Apply status filter (TypeFilter: All, Active, Expired, ExpiringSoon, Missing)
+                var filtered = checklist.AsEnumerable();
+                if (!string.IsNullOrEmpty(TypeFilter) && !string.Equals(TypeFilter, "All", StringComparison.OrdinalIgnoreCase))
+                    filtered = filtered.Where(i => string.Equals(i.Status, TypeFilter, StringComparison.OrdinalIgnoreCase));
+
                 // Ensure UI updates happen on the UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     DocumentStatusChecklist.Clear();
-                    foreach (var item in checklist.OrderBy(i => i.DisplayName))
+                    foreach (var item in filtered.OrderBy(i => i.DisplayName))
                     {
                         DocumentStatusChecklist.Add(item);
                     }
@@ -349,7 +383,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 var tenants = await _tenantService.GetAllTenantsAsync();
                 // Ensure UI updates happen on the UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Tenants.Clear();
                     foreach (var tenant in tenants)
@@ -370,7 +404,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 var houses = await _houseService.GetAllHousesAsync();
                 // Ensure UI updates happen on the UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Houses.Clear();
                     foreach (var house in houses)
@@ -385,28 +419,71 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void ShowUploadDocumentDialog()
+        private static readonly Dictionary<string, string> FormatToExtension = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["PDF"] = "*.pdf",
+            ["JPG"] = "*.jpg",
+            ["JPEG"] = "*.jpeg",
+            ["PNG"] = "*.png",
+            ["GIF"] = "*.gif",
+            ["DOC"] = "*.doc",
+            ["DOCX"] = "*.docx",
+            ["XLS"] = "*.xls",
+            ["XLSX"] = "*.xlsx",
+        };
+
+        private static string BuildFileFilterFromAllowedFormats(string allowedFormats)
+        {
+            if (string.IsNullOrWhiteSpace(allowedFormats))
+                return "All Files (*.*)|*.*";
+            var tokens = allowedFormats.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var patterns = new List<string>();
+            var names = new List<string>();
+            foreach (var t in tokens)
+            {
+                if (string.IsNullOrWhiteSpace(t)) continue;
+                var ext = FormatToExtension.TryGetValue(t, out var e) ? e : "*." + t.TrimStart('.');
+                if (!patterns.Contains(ext, StringComparer.OrdinalIgnoreCase))
+                {
+                    patterns.Add(ext);
+                    names.Add(t.ToUpperInvariant());
+                }
+            }
+            if (patterns.Count == 0)
+                return "All Files (*.*)|*.*";
+            var display = "Allowed (" + string.Join(", ", names) + ")";
+            var patternStr = string.Join(";", patterns);
+            return $"{display}|{patternStr}";
+        }
+
+        private async System.Threading.Tasks.Task ShowUploadDocumentAsync()
         {
             try
             {
-                var openDialog = new OpenFileDialog
-                {
-                    Filter = "All Files (*.*)|*.*|PDF Files (*.pdf)|*.pdf|Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png|Word Documents (*.doc;*.docx)|*.doc;*.docx",
-                    Title = "Select Document to Upload"
-                };
+                var allowedFormats = await _settingsService.GetSettingAsync("AllowedFormats", "PDF,JPG,JPEG,PNG,DOCX") ?? "PDF,JPG,JPEG,PNG,DOCX";
+                var maxFileSizeMB = await _settingsService.GetSettingAsync<int>("MaxFileSizeMB", 10) ?? 10;
+                var filter = BuildFileFilterFromAllowedFormats(allowedFormats);
 
-                if (openDialog.ShowDialog() == true)
+                var filePath = await _dialogService.ShowOpenFileDialogAsync(filter, "Select Document to Upload");
+
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                 {
-                    var filePath = openDialog.FileName;
                     var fileName = Path.GetFileName(filePath);
-                    var fileBytes = File.ReadAllBytes(filePath);
+                    var fileBytes = await File.ReadAllBytesAsync(filePath);
+                    var sizeMB = fileBytes.Length / (1024.0 * 1024.0);
+                    if (sizeMB > maxFileSizeMB)
+                    {
+                        _dialogService.ShowMessage(
+                            $"File size ({sizeMB:F1} MB) exceeds the maximum allowed ({maxFileSizeMB} MB). Adjust Settings → Documents if needed.",
+                            "File Too Large");
+                        return;
+                    }
 
-                    // Use selected document type from dropdown, or fallback to SelectedDocumentStatus, or "Other"
-                    string docType = !string.IsNullOrWhiteSpace(SelectedDocumentTypeForUpload) 
-                        ? SelectedDocumentTypeForUpload 
+                    string docType = !string.IsNullOrWhiteSpace(SelectedDocumentTypeForUpload)
+                        ? SelectedDocumentTypeForUpload
                         : SelectedDocumentStatus?.Type ?? "Other";
 
-                    UploadDocumentAsync(docType, fileName, fileBytes);
+                    await UploadDocumentAsync(docType, fileName, fileBytes);
                 }
             }
             catch (Exception ex)
@@ -415,53 +492,32 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private async void UploadDocumentAsync(string docType, string fileName, byte[] fileBytes)
+        private async System.Threading.Tasks.Task UploadDocumentAsync(string docType, string fileName, byte[] fileBytes)
         {
             try
             {
-                // Validate that an owner is selected
-                int? tenantId = null;
-                int? tenancyId = null;
-                int? houseId = null;
-
-                if (OwnerFilter == "Tenant")
+                // Validate same as CanUploadDocument: Owner Type + corresponding owner + Type
+                if (OwnerFilter == "All" || string.IsNullOrWhiteSpace(docType))
                 {
-                    if (!SelectedTenantId.HasValue)
-                    {
-                        _dialogService.ShowMessage("Please select a tenant before uploading a document.", "No Tenant Selected");
-                        return;
-                    }
-                    tenantId = SelectedTenantId;
+                    _dialogService.ShowMessage("Please select Owner Type, the corresponding owner, and Document Type before uploading.", "Validation");
+                    return;
                 }
-                else if (OwnerFilter == "Tenancy")
+                if (OwnerFilter == "Tenant" && !SelectedTenantId.HasValue)
                 {
-                    if (!SelectedTenancyId.HasValue)
-                    {
-                        _dialogService.ShowMessage("Please select a tenancy before uploading a document.", "No Tenancy Selected");
-                        return;
-                    }
-                    tenancyId = SelectedTenancyId;
+                    _dialogService.ShowMessage("Please select a tenant before uploading a document.", "No Tenant Selected");
+                    return;
                 }
-                else if (OwnerFilter == "House")
+                if (OwnerFilter == "House" && !SelectedHouseId.HasValue)
                 {
-                    if (!SelectedHouseId.HasValue)
-                    {
-                        _dialogService.ShowMessage("Please select a house before uploading a document.", "No House Selected");
-                        return;
-                    }
-                    houseId = SelectedHouseId;
-                }
-                else
-                {
-                    _dialogService.ShowMessage("Please select an owner type (Tenant, Tenancy, or House) and the specific owner before uploading a document.", "No Owner Selected");
+                    _dialogService.ShowMessage("Please select a house before uploading a document.", "No House Selected");
                     return;
                 }
 
                 var document = new Document
                 {
-                    TenantId = tenantId,
-                    TenancyId = tenancyId,
-                    HouseId = houseId,
+                    TenantId = OwnerFilter == "Tenant" ? SelectedTenantId : null,
+                    TenancyId = null,
+                    HouseId = OwnerFilter == "House" ? SelectedHouseId : null,
                     Type = docType,
                     FileName = fileName,
                     Source = "Uploaded"
@@ -475,7 +531,9 @@ namespace Daryva.MVVM.ViewModels
                     document.ValidTo = new DateTime(currentYear + 1, 8, 31); // Academic year end
                 }
 
-                var uploadedDoc = await _documentService.UploadDocumentAsync(document, fileBytes);
+                var storageRootPath = await _settingsService.GetSettingAsync("DocumentStoragePath", string.Empty);
+                var pathToUse = string.IsNullOrWhiteSpace(storageRootPath) ? null : storageRootPath.Trim();
+                var uploadedDoc = await _documentService.UploadDocumentAsync(document, fileBytes, pathToUse);
 
                 _dialogService.ShowMessage($"Document '{uploadedDoc.DisplayName}' uploaded successfully.", "Success");
                 
@@ -547,16 +605,12 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                var saveDialog = new SaveFileDialog
-                {
-                    FileName = document.FileName,
-                    Filter = "All Files (*.*)|*.*"
-                };
+                var filePath = _dialogService.ShowSaveFileDialog(document.FileName, "All Files (*.*)|*.*", "Save Document");
 
-                if (saveDialog.ShowDialog() == true)
+                if (!string.IsNullOrEmpty(filePath))
                 {
-                    await File.WriteAllBytesAsync(saveDialog.FileName, fileBytes);
-                    _dialogService.ShowMessage($"Document saved to {saveDialog.FileName}", "Success");
+                    await File.WriteAllBytesAsync(filePath, fileBytes);
+                    _dialogService.ShowMessage($"Document saved to {filePath}", "Success");
                 }
             }
             catch (Exception ex)
@@ -570,7 +624,8 @@ namespace Daryva.MVVM.ViewModels
             if (SelectedDocumentStatus?.DocumentId == null)
                 return;
 
-            var confirmed = _dialogService.ShowConfirmation(
+            var requireConfirm = await _settingsService.GetSettingAsync<bool>("ConfirmDestructiveActions", true) ?? true;
+            var confirmed = !requireConfirm || await _dialogService.ShowConfirmationAsync(
                 $"Are you sure you want to delete '{SelectedDocumentStatus.DisplayName}'?", 
                 "Confirm Delete");
 
@@ -602,7 +657,8 @@ namespace Daryva.MVVM.ViewModels
             if (SelectedDocument == null)
                 return;
 
-            var confirmed = _dialogService.ShowConfirmation(
+            var requireConfirm = await _settingsService.GetSettingAsync<bool>("ConfirmDestructiveActions", true) ?? true;
+            var confirmed = !requireConfirm || await _dialogService.ShowConfirmationAsync(
                 $"Are you sure you want to delete '{SelectedDocument.DisplayName}'?", 
                 "Confirm Delete");
 
@@ -637,15 +693,18 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                Daryva.Services.DateTimeFormatProvider.DateFormat = dateFormat;
+
                 int? tenantId = OwnerFilter == "Tenant" ? SelectedTenantId : null;
-                int? tenancyId = OwnerFilter == "Tenancy" ? SelectedTenancyId : null;
+                int? tenancyId = null;
                 int? houseId = OwnerFilter == "House" ? SelectedHouseId : null;
 
                 var history = await _documentService.GetDocumentHistoryAsync(
                     tenantId, tenancyId, houseId, SelectedDocumentStatus.Type);
 
-                var historyText = string.Join("\n", history.Select(d => 
-                    $"v{d.Version} - {d.DisplayName} - {d.UploadedAt:yyyy-MM-dd} - {(d.IsActive ? "Active" : "Inactive")}"));
+                var historyText = string.Join("\n", history.Select(d =>
+                    $"v{d.Version} - {d.DisplayName} - {Daryva.Services.DateTimeFormatProvider.FormatDate(d.UploadedAt)} - {(d.IsActive ? "Active" : "Inactive")}"));
 
                 _dialogService.ShowMessage(historyText, $"History: {SelectedDocumentStatus.DisplayName}");
             }
@@ -659,13 +718,12 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                var result = System.Windows.MessageBox.Show(
+                var requireConfirm = await _settingsService.GetSettingAsync<bool>("ConfirmDestructiveActions", true) ?? true;
+                var confirmed = !requireConfirm || await _dialogService.ShowConfirmationAsync(
                     "Are you sure you want to delete ALL documents? This action cannot be undone!",
-                    "Delete All Documents",
-                    System.Windows.MessageBoxButton.YesNo,
-                    System.Windows.MessageBoxImage.Warning);
+                    "Delete All Documents");
 
-                if (result != System.Windows.MessageBoxResult.Yes)
+                if (!confirmed)
                     return;
 
                 // Get all documents

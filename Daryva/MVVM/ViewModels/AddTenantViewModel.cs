@@ -2,7 +2,9 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
@@ -17,6 +19,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseService _houseService;
         private readonly ITenancyRepository _tenancyRepository;
         private readonly IDialogService _dialogService;
+        private readonly ISettingsService _settingsService;
 
         private string _fullName = string.Empty;
         private string _email = string.Empty;
@@ -31,30 +34,25 @@ namespace Daryva.MVVM.ViewModels
             ITenantService tenantService, 
             IHouseService houseService,
             ITenancyRepository tenancyRepository,
-            IDialogService dialogService)
+            IDialogService dialogService,
+            ISettingsService settingsService)
         {
             _tenantService = tenantService;
             _houseService = houseService;
             _tenancyRepository = tenancyRepository;
             _dialogService = dialogService;
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             
             Houses = new ObservableCollection<House>();
             SaveCommand = new RelayCommand(async _ => await SaveAsync(), _ => CanSave());
             
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             
-            // Load houses asynchronously after construction - use dispatcher to avoid thread issues
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(async () =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                try
-                {
-                    await LoadHousesAsync();
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error loading houses in background: {ex.Message}");
-                }
-            }));
+                _ = LoadHousesAsync().ContinueWith(_ => { });
+                _ = LoadDefaultRentDueDayAsync();
+            });
         }
 
         public event EventHandler? CloseRequested;
@@ -133,7 +131,7 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 var houses = await _houseService.GetAllHousesAsync();
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     Houses.Clear();
                     foreach (var house in houses)
@@ -147,6 +145,23 @@ namespace Daryva.MVVM.ViewModels
                 System.Diagnostics.Debug.WriteLine($"Error loading houses: {ex.Message}");
                 _dialogService?.ShowMessage($"Error loading houses: {ex.Message}", "Error");
             }
+        }
+
+        private async Task LoadDefaultRentDueDayAsync()
+        {
+            try
+            {
+                var day = await _settingsService.GetSettingAsync<int>("DefaultRentDueDay", 1) ?? 1;
+                if (day >= 1 && day <= 28)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        _paymentDueDay = (byte)day;
+                        OnPropertyChanged(nameof(PaymentDueDay));
+                    });
+                }
+            }
+            catch { /* ignore */ }
         }
 
         private bool CanSave()

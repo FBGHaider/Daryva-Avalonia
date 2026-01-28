@@ -1,7 +1,7 @@
 using System.Globalization;
-using System.Windows;
-using System.Windows.Data;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Data.Converters;
+using Avalonia.Media;
 
 namespace Daryva.MVVM.Converters
 {
@@ -10,8 +10,8 @@ namespace Daryva.MVVM.Converters
         public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             // Check if we're in light theme by checking the application background color
-            var isLightTheme = Application.Current.Resources.Contains("ApplicationBackgroundBrush") &&
-                              Application.Current.Resources["ApplicationBackgroundBrush"] is SolidColorBrush bgBrush &&
+            var isLightTheme = Application.Current?.Resources.TryGetValue("ApplicationBackgroundBrush", out var bgBrushRes) == true &&
+                              bgBrushRes is SolidColorBrush bgBrush &&
                               bgBrush.Color.R > 200; // Light theme has light background (high R value)
             
             if (value is string status)

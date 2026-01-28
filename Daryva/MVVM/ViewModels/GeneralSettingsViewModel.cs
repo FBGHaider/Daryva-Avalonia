@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
+using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 
@@ -97,6 +98,7 @@ namespace Daryva.MVVM.ViewModels
                 await _settingsService.SetSettingAsync("AppStartPage", AppStartPage);
                 await _settingsService.SetSettingAsync("ConfirmDestructiveActions", ConfirmDestructiveActions);
                 await _settingsService.SetSettingAsync("AutoRefreshDashboard", AutoRefreshDashboard);
+                DateTimeFormatProvider.DateFormat = DateFormat;
 
                 _dialogService.ShowMessage("Settings saved successfully. Changes will apply to future actions only.", "Settings Saved");
             }

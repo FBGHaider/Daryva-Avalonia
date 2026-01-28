@@ -386,10 +386,10 @@ namespace Daryva.Services.Business
                         HouseAddress = $"{tenancy.House?.AddressLine1}, {tenancy.House?.City}",
                         PeriodLabel = periodLabel,
                         Amount = rp.AmountPaid,
-                        Method = rp.Method,
-                        Reference = rp.Reference,
-                        Notes = rp.Notes,
-                        CollectedBy = rp.CollectedBy,
+                        Method = rp.Method ?? string.Empty,
+                        Reference = rp.Reference ?? string.Empty,
+                        Notes = rp.Notes ?? string.Empty,
+                        CollectedBy = rp.CollectedBy ?? string.Empty,
                         TenancyId = rp.TenancyId,
                         RentChargeId = rp.RentChargeId
                     });
@@ -433,10 +433,10 @@ namespace Daryva.Services.Business
                         HouseAddress = $"{tenancy.House?.AddressLine1}, {tenancy.House?.City}",
                         PeriodLabel = "",
                         Amount = dp.AmountPaid,
-                        Method = dp.Method,
-                        Reference = dp.Reference,
-                        Notes = dp.Notes,
-                        CollectedBy = dp.CollectedBy,
+                        Method = dp.Method ?? string.Empty,
+                        Reference = dp.Reference ?? string.Empty,
+                        Notes = dp.Notes ?? string.Empty,
+                        CollectedBy = dp.CollectedBy ?? string.Empty,
                         TenancyId = dp.TenancyId
                     });
                 }

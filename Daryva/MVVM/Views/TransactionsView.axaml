@@ -1,0 +1,201 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.TransactionsView"
+             x:CompileBindings="False">
+    <Border Padding="12">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+            <!-- Filters -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Date Range:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox Width="140"
+                              ItemsSource="{Binding DateRangeFilterOptions}"
+                              SelectedItem="{Binding DateRangeFilter}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="House:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox Width="200"
+                              ItemsSource="{Binding Houses}"
+                              SelectedValue="{Binding SelectedHouseId}"
+                              SelectedValueBinding="{Binding HouseId}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding AddressLine1}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Tenant:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox Width="200"
+                              ItemsSource="{Binding Tenants}"
+                              SelectedValue="{Binding SelectedTenantId}"
+                              SelectedValueBinding="{Binding TenantId}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding FullName}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Type:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox Width="120"
+                              ItemsSource="{Binding PaymentTypeFilterOptions}"
+                              SelectedItem="{Binding PaymentTypeFilter}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Method:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox Width="140"
+                              ItemsSource="{Binding MethodFilterOptions}"
+                              SelectedItem="{Binding MethodFilter}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Rent Transactions Table -->
+            <TextBlock Grid.Row="1" Text="Rent Transactions" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+            
+            <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,16">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1100">
+                        <!-- Header Row -->
+                        <Border Grid.Row="0" 
+                                Background="#F5F5F5" 
+                                BorderBrush="#E0E0E0" 
+                                BorderThickness="0,0,0,1"
+                                Padding="8,10">
+                            <Grid ColumnDefinitions="100,200,240,100,100,120,100,120">
+                                <TextBlock Grid.Column="0" Text="Date" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="2" Text="House" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="3" Text="Period" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="4" Text="Amount" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="5" Text="Collected By" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="6" Text="Method" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="7" Text="Reference" FontWeight="Bold" FontSize="14"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Data Rows -->
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding RentTransactions}"
+                                 SelectedItem="{Binding SelectedTransaction}"
+                                 SelectionMode="Single"
+                                 Background="White"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#E0E0E0" 
+                                            BorderThickness="0,0,0,1"
+                                            Padding="8,8"
+                                            Background="Transparent"
+                                            Cursor="Hand">
+                                        <Grid ColumnDefinitions="100,200,240,100,100,120,100,120">
+                                            <TextBlock Grid.Column="0" Text="{Binding PaidOnDisplay}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding PeriodLabel}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding Amount, StringFormat='£{0:N2}'}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding CollectedBy}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding Method}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="7" Text="{Binding Reference}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Background" Value="White"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="#E3F2FD"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Deposit Transactions Table -->
+            <TextBlock Grid.Row="3" Text="Deposit Transactions" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+            
+            <Border Grid.Row="4" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1030">
+                        <!-- Header Row -->
+                        <Border Grid.Row="0" 
+                                Background="#F5F5F5" 
+                                BorderBrush="#E0E0E0" 
+                                BorderThickness="0,0,0,1"
+                                Padding="8,10">
+                            <Grid ColumnDefinitions="100,200,240,100,120,100,120,100">
+                                <TextBlock Grid.Column="0" Text="Date" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="2" Text="House" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="3" Text="Amount" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="4" Text="Collected By" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="5" Text="Method" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="6" Text="Reference" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Data Rows -->
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding DepositTransactions}"
+                                 SelectedItem="{Binding SelectedTransaction}"
+                                 SelectionMode="Single"
+                                 Background="White"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#E0E0E0" 
+                                            BorderThickness="0,0,0,1"
+                                            Padding="8,8"
+                                            Background="Transparent"
+                                            Cursor="Hand">
+                                        <Grid ColumnDefinitions="100,200,240,100,120,100,120,100">
+                                            <TextBlock Grid.Column="0" Text="{Binding PaidOnDisplay}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding Amount, StringFormat='£{0:N2}'}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding CollectedBy}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding Method}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding Reference}" VerticalAlignment="Center"/>
+                                            <Button Grid.Column="7" 
+                                                    Content="Unreco" 
+                                                    Command="{Binding DataContext.UnrecordPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalAlignment="Left"
+                                                    Padding="8,4"
+                                                    FontSize="12"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Background" Value="White"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="#E3F2FD"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

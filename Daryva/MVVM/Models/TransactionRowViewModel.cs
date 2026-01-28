@@ -5,6 +5,7 @@ namespace Daryva.MVVM.Models
         public int PaymentId { get; set; }
         public string PaymentType { get; set; } = string.Empty; // "Rent" or "Deposit"
         public DateTime PaidOn { get; set; }
+        public string PaidOnDisplay { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
         public string HouseAddress { get; set; } = string.Empty;
         public string PeriodLabel { get; set; } = string.Empty; // "Jan 2026" or empty for deposit

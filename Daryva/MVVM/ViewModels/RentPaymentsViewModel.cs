@@ -10,7 +10,8 @@ namespace Daryva.MVVM.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly INavigationService _navigationService;
         private BaseViewModel? _currentTabViewModel;
-        private string _selectedTab = "Ledger";
+        private string _selectedTab = "Rent Ledger";
+        private int _selectedTabIndex = 0;
 
         public RentPaymentsViewModel(IServiceProvider serviceProvider, INavigationService navigationService)
         {
@@ -22,6 +23,7 @@ namespace Daryva.MVVM.ViewModels
             TransactionsViewModel = _serviceProvider.GetRequiredService<TransactionsViewModel>();
 
             CurrentTabViewModel = LedgerViewModel;
+            SelectedTab = "Rent Ledger";
 
             RecordPaymentCommand = new RelayCommand(_ => ShowRecordPaymentDialog());
             ExportLedgerCommand = new RelayCommand(_ => LedgerViewModel.ExportLedgerCommand.Execute(null));
@@ -46,7 +48,21 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedTab, value))
                 {
-                    CurrentTabViewModel = value == "Ledger" ? LedgerViewModel : TransactionsViewModel;
+                    CurrentTabViewModel = value == "Rent Ledger" ? LedgerViewModel : TransactionsViewModel;
+                    SelectedTabIndex = value == "Rent Ledger" ? 0 : 1;
+                }
+            }
+        }
+
+        public int SelectedTabIndex
+        {
+            get => _selectedTabIndex;
+            set
+            {
+                if (SetProperty(ref _selectedTabIndex, value))
+                {
+                    SelectedTab = value == 0 ? "Rent Ledger" : "Transactions";
+                    CurrentTabViewModel = value == 0 ? LedgerViewModel : TransactionsViewModel;
                 }
             }
         }
@@ -57,16 +73,25 @@ namespace Daryva.MVVM.ViewModels
             {
                 var viewModel = _serviceProvider.GetRequiredService<RecordPaymentViewModel>();
                 var dialog = new MVVM.Views.RecordPaymentDialog(viewModel);
-                dialog.Owner = System.Windows.Application.Current.MainWindow;
-                if (dialog.ShowDialog() == true)
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
+                if (mainWindow != null)
                 {
-                    // Refresh both tabs
-                    LedgerViewModel.LoadLedgerCommand.Execute(null);
-                    TransactionsViewModel.LoadTransactionsCommand.Execute(null);
-                    
-                    // Refresh dashboard if it's currently displayed
-                    RefreshDashboardIfActive();
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    dialog.ShowDialog(mainWindow);
                 }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+                // Refresh both tabs
+                LedgerViewModel.LoadLedgerCommand.Execute(null);
+                TransactionsViewModel.LoadTransactionsCommand.Execute(null);
+                
+                // Refresh dashboard if it's currently displayed
+                RefreshDashboardIfActive();
             }
             catch
             {

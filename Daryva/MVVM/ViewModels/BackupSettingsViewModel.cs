@@ -3,7 +3,6 @@ using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
-using System.Windows.Forms;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -89,20 +88,10 @@ namespace Daryva.MVVM.ViewModels
 
         private void BrowseBackupLocation()
         {
-            using var dialog = new FolderBrowserDialog
+            var selectedPath = _dialogService.ShowFolderBrowserDialog("Select folder for database backups");
+            if (!string.IsNullOrEmpty(selectedPath))
             {
-                Description = "Select folder for database backups",
-                ShowNewFolderButton = true
-            };
-
-            if (!string.IsNullOrWhiteSpace(BackupLocation) && Directory.Exists(BackupLocation))
-            {
-                dialog.SelectedPath = BackupLocation;
-            }
-
-            if (dialog.ShowDialog() == DialogResult.OK)
-            {
-                BackupLocation = dialog.SelectedPath;
+                BackupLocation = selectedPath;
             }
         }
 

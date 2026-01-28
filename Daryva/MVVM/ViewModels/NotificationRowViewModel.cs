@@ -14,5 +14,8 @@ namespace Daryva.MVVM.ViewModels
         public string Status { get; set; } = string.Empty;
         public int AttemptCount { get; set; }
         public string? Error { get; set; }
+
+        public string SentDisplay { get; set; } = "-";
+        public string ScheduledDisplay { get; set; } = string.Empty;
     }
 }

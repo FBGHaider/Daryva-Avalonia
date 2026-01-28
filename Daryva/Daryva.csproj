@@ -1,11 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +15,15 @@
     <Folder Include="MVVM\ViewModels\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="App.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="App.config.local" Condition="Exists('App.config.local')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  
   <ItemGroup>
     <Content Include="Assets\main_logo.ico" Condition="Exists('Assets\main_logo.ico')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -43,6 +54,12 @@
     </Content>
   </ItemGroup>
 
+  <Target Name="CopyAppConfig" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\App.config" 
+          DestinationFiles="$(OutputPath)$(AssemblyName).exe.config" 
+          SkipUnchangedFiles="true" />
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
@@ -50,10 +67,14 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.5" />
     <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
-    <PackageReference Include="Wpf.Ui" Version="3.4.2.7">
-      <IncludeAssets>all</IncludeAssets>
-      <PrivateAssets>none</PrivateAssets>
-    </PackageReference>
+    <PackageReference Include="Avalonia" Version="11.1.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.1.0" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.1.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.1.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.1.0" />
+    <!-- Conditionally include platform-specific packages. -->
+    <PackageReference Include="Avalonia.Win32" Version="11.1.0" />
+    <PackageReference Include="Avalonia.Native" Version="11.1.0" Condition="'$(RuntimeIdentifier)' == 'osx' or '$(RuntimeIdentifier)' == 'osx-arm64'" />
   </ItemGroup>
 
 </Project>

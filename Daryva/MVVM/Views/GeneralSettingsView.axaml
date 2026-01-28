@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="500"
+             x:Class="Daryva.MVVM.Views.GeneralSettingsView"
+             x:CompileBindings="False">
+    <ScrollViewer>
+        <StackPanel Margin="0,0,0,24" Spacing="24">
+            <!-- Header -->
+            <TextBlock Text="General Settings"
+                       FontSize="24"
+                       FontWeight="SemiBold"/>
+
+            <!-- Appearance & Behavior -->
+            <Border BorderBrush="#E0E0E0"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Background="White"
+                    Padding="20,16">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="Appearance &amp; Behavior"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               Opacity="0.85"
+                               Margin="0,0,0,4"/>
+
+                    <!-- Currency -->
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
+                        <TextBlock Text="Currency:"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0"/>
+                        <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="2">
+                            <TextBox Text="{Binding Currency, Mode=TwoWay}"
+                                     MinWidth="120"
+                                     Padding="8,6"
+                                     Watermark="e.g. GBP, £, USD"/>
+                            <TextBlock Text="Used in notifications (e.g. {Currency}{AmountDue}). Codes: GBP, USD, EUR, INR, PKR; or symbol £, $, €, Rs."
+                                       FontSize="11"
+                                       Opacity="0.7"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Date Format -->
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
+                        <TextBlock Text="Date Format:"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding DateFormatOptions}"
+                                  SelectedItem="{Binding DateFormat, Mode=TwoWay}"
+                                  MinWidth="200"
+                                  PlaceholderText="Select format"/>
+                    </Grid>
+
+                    <!-- Time Zone -->
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
+                        <TextBlock Text="Time Zone:"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding TimeZone, Mode=TwoWay}"
+                                 IsReadOnly="True"
+                                 Background="#F5F5F5"
+                                 MinWidth="220"
+                                 Padding="8,6"/>
+                    </Grid>
+
+                    <!-- App Start Page -->
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
+                        <TextBlock Text="App Start Page:"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding AppStartPageOptions}"
+                                  SelectedItem="{Binding AppStartPage, Mode=TwoWay}"
+                                  MinWidth="200"
+                                  PlaceholderText="Select page"/>
+                    </Grid>
+
+                    <!-- Checkboxes -->
+                    <StackPanel Spacing="12" Margin="0,8,0,0">
+                        <CheckBox IsChecked="{Binding ConfirmDestructiveActions, Mode=TwoWay}"
+                                  Content="Confirm destructive actions (Delete, End tenancy)"/>
+                        <CheckBox IsChecked="{Binding AutoRefreshDashboard, Mode=TwoWay}"
+                                  Content="Auto-refresh dashboard"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Action buttons -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="12">
+                <Button Content="Reset"
+                        Command="{Binding ResetCommand}"
+                        Background="Transparent"
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="1"/>
+                <Button Content="Save"
+                        Command="{Binding SaveCommand}"
+                        Background="#2196F3"
+                        Foreground="White"
+                        BorderThickness="0"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
@@ -18,7 +19,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
 
         private Tenancy? _selectedTenancy;
-        private DateTime _paymentDate = DateTime.Today;
+        private DateTimeOffset? _paymentDate = DateTimeOffset.Now;
         private string _paymentMethod = "BankTransfer";
         private string? _reference;
         private string? _notes;
@@ -91,7 +92,7 @@ namespace Daryva.MVVM.ViewModels
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 
                 // Don't show dialog here as it might cause issues - let the dialog handle it
@@ -119,7 +120,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        public DateTime PaymentDate
+        public DateTimeOffset? PaymentDate
         {
             get => _paymentDate;
             set => SetProperty(ref _paymentDate, value);
@@ -231,7 +232,7 @@ namespace Daryva.MVVM.ViewModels
                 }).ConfigureAwait(false);
                 
                 // Update UI on UI thread
-                var dispatcher = System.Windows.Application.Current.Dispatcher;
+                var dispatcher = Avalonia.Threading.Dispatcher.UIThread;
                 if (dispatcher.CheckAccess())
                 {
                     Tenancies.Clear();
@@ -277,8 +278,8 @@ namespace Daryva.MVVM.ViewModels
                 var depositPaid = await _paymentService.GetTotalDepositPaidAsync(SelectedTenancy.TenancyId);
                 var rentPaid = await _paymentService.GetTotalRentPaidForPeriodAsync(SelectedTenancy.TenancyId, RentYear, RentMonth);
 
-                // Update on UI thread using BeginInvoke to avoid blocking (fire-and-forget)
-                _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                // Update on UI thread using Post to avoid blocking (fire-and-forget)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     try
                     {
@@ -297,7 +298,7 @@ namespace Daryva.MVVM.ViewModels
                     {
                         System.Diagnostics.Debug.WriteLine($"Error updating UI in LoadTenancyDetails: {ex.Message}");
                     }
-                }));
+                });
             }
             catch (Exception ex)
             {
@@ -308,6 +309,7 @@ namespace Daryva.MVVM.ViewModels
         private bool CanSave()
         {
             return SelectedTenancy != null &&
+                   PaymentDate.HasValue &&
                    (DepositAmount > 0 || RentAmount > 0) &&
                    DepositAmount <= DepositRemaining + 100 && // Allow small overpayment
                    RentAmount >= 0;
@@ -340,7 +342,7 @@ namespace Daryva.MVVM.ViewModels
                     RentAmount,
                     RentYear,
                     RentMonth,
-                    PaymentDate,
+                    PaymentDate!.Value.DateTime,
                     PaymentMethod,
                     Reference,
                     Notes,

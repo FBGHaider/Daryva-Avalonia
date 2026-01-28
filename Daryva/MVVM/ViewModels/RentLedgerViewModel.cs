@@ -5,8 +5,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Data;
 using Daryva.Services.Dialog;
@@ -23,6 +25,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
         private readonly INavigationService _navigationService;
         private readonly IExportService _exportService;
+        private readonly ISettingsService _settingsService;
 
         private int _selectedYear = DateTime.Now.Year;
         private int _selectedMonth = DateTime.Now.Month;
@@ -37,7 +40,8 @@ namespace Daryva.MVVM.ViewModels
             IServiceProvider serviceProvider,
             IDialogService dialogService,
             INavigationService navigationService,
-            IExportService exportService)
+            IExportService exportService,
+            ISettingsService settingsService)
         {
             _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
@@ -45,10 +49,12 @@ namespace Daryva.MVVM.ViewModels
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _exportService = exportService ?? throw new ArgumentNullException(nameof(exportService));
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
             LedgerRows = new ObservableCollection<RentLedgerRowViewModel>();
             DepositLedgerRows = new ObservableCollection<DepositLedgerRowViewModel>();
             Houses = new ObservableCollection<House>();
+            StatusFilterOptions = new ObservableCollection<string> { "All", "Paid", "PartPaid", "Unpaid", "Overdue" };
             
             LoadLedgerCommand = new RelayCommand(async _ => await LoadLedgerAsync());
             LoadDepositLedgerCommand = new RelayCommand(async _ => await LoadDepositLedgerAsync());
@@ -64,6 +70,10 @@ namespace Daryva.MVVM.ViewModels
             }, _ => SelectedRow != null);
             ExpandRowCommand = new RelayCommand(_ => ToggleRowExpansion(), _ => SelectedRow != null);
             ExportLedgerCommand = new RelayCommand(async _ => await ExportLedgerAsync());
+
+            LoadHousesCommand.Execute(null);
+            LoadLedgerCommand.Execute(null);
+            LoadDepositLedgerCommand.Execute(null);
         }
 
         public ICommand LoadLedgerCommand { get; }
@@ -76,6 +86,7 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<RentLedgerRowViewModel> LedgerRows { get; }
         public ObservableCollection<DepositLedgerRowViewModel> DepositLedgerRows { get; }
         public ObservableCollection<House> Houses { get; }
+        public ObservableCollection<string> StatusFilterOptions { get; }
 
         public int SelectedYear
         {
@@ -175,7 +186,7 @@ namespace Daryva.MVVM.ViewModels
                 }
 
                 decimal rentGivenToLandlord = 0m;
-                var input = _dialogService.ShowInputDialog("Enter Rent Given to Landlord (leave blank for 0):", "Rent Settlement", "0");
+                var input = await _dialogService.ShowInputDialogAsync("Enter Rent Given to Landlord (leave blank for 0):", "Rent Settlement", "0");
                 if (!string.IsNullOrWhiteSpace(input))
                 {
                     decimal.TryParse(input, NumberStyles.Any, CultureInfo.InvariantCulture, out rentGivenToLandlord);
@@ -224,7 +235,7 @@ namespace Daryva.MVVM.ViewModels
                 var houses = await Task.Run(async () => await _houseService.GetAllHousesAsync()).ConfigureAwait(false);
                 
                 // Update UI on UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Houses.Clear();
                     Houses.Add(new House { HouseId = 0, AddressLine1 = "All Houses" }); // Placeholder for "All"
@@ -255,12 +266,16 @@ namespace Daryva.MVVM.ViewModels
                     StatusFilter == "All" ? null : StatusFilter,
                     string.IsNullOrWhiteSpace(SearchTerm) ? null : SearchTerm)).ConfigureAwait(false);
 
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                DateTimeFormatProvider.DateFormat = dateFormat;
+
                 // Update UI on UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     LedgerRows.Clear();
                     foreach (var row in rows)
                     {
+                        row.DueDateDisplay = DateTimeFormatProvider.FormatDate(row.DueDate);
                         LedgerRows.Add(row);
                     }
                 });
@@ -270,7 +285,7 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _dialogService.ShowMessage($"Error loading ledger: {ex.Message}", "Error");
                 });
@@ -291,7 +306,7 @@ namespace Daryva.MVVM.ViewModels
                     string.IsNullOrWhiteSpace(SearchTerm) ? null : SearchTerm)).ConfigureAwait(false);
 
                 // Update UI on UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     DepositLedgerRows.Clear();
                     foreach (var row in rows)
@@ -302,7 +317,7 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _dialogService.ShowMessage($"Error loading deposit ledger: {ex.Message}", "Error");
                 });
@@ -329,15 +344,24 @@ namespace Daryva.MVVM.ViewModels
                 viewModel.SetPreselectedTenancy(SelectedRow.TenancyId, SelectedYear, SelectedMonth);
                 
                 var dialog = new MVVM.Views.RecordPaymentDialog(viewModel);
-                dialog.Owner = System.Windows.Application.Current.MainWindow;
-                if (dialog.ShowDialog() == true)
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
+                if (mainWindow != null)
                 {
-                    // Reload ledger after payment is recorded
-                    LoadLedgerCommand.Execute(null);
-                    
-                    // Refresh dashboard if it's currently displayed
-                    RefreshDashboardIfActive();
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    dialog.ShowDialog(mainWindow);
                 }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+                // Reload ledger after payment is recorded
+                LoadLedgerCommand.Execute(null);
+                
+                // Refresh dashboard if it's currently displayed
+                RefreshDashboardIfActive();
             }
             catch (Exception ex)
             {

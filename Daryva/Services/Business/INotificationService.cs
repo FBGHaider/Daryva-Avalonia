@@ -8,7 +8,11 @@ namespace Daryva.Services.Business
         Task<string> RenderTemplateAsync(string templateBody, string? subjectTemplate, NotificationContext context);
         Task<Notification> QueueNotificationAsync(NotificationDto dto);
         Task<bool> SendNotificationAsync(int notificationId);
+        /// <summary>Send using provided content (one recipient only). Use for Send Now to ensure each tenant gets only their email.</summary>
+        Task<bool> SendNotificationWithContentAsync(int notificationId, string toAddress, string subject, string body);
         Task<bool> SendBatchAsync(IEnumerable<int> notificationIds);
+        /// <summary>Send all pending notifications whose ScheduledFor &lt;= system time. Returns count sent.</summary>
+        Task<int> ProcessDueQueueAsync();
         Task<IEnumerable<Notification>> GetNotificationsAsync(NotificationFilter filter);
         Task<Notification?> GetNotificationByIdAsync(int notificationId);
         Task CancelNotificationAsync(int notificationId);

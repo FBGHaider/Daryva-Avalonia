@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.TenantsView"
+             x:CompileBindings="False">
+    <Border Padding="16">
+        <Grid RowDefinitions="Auto,Auto,*">
+            <!-- Header -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="Tenants" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button Content="Add Tenant" Command="{Binding AddTenantCommand}"/>
+                    <Button Content="Edit Tenant" Command="{Binding EditTenantCommand}"/>
+                    <Button Content="Remove Tenant" Command="{Binding RemoveTenantCommand}"/>
+                    <Button Content="Refresh" Command="{Binding LoadTenantsCommand}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Search -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,16,0,16">
+                <TextBox Width="260"
+                         Watermark="Search by name/email/phone"
+                         Text="{Binding SearchTerm}"/>
+            </StackPanel>
+
+            <!-- Tenants Table -->
+            <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
+                    <!-- Header Row -->
+                    <Border Grid.Row="0" 
+                            Background="#F5F5F5" 
+                            BorderBrush="#E0E0E0" 
+                            BorderThickness="0,0,0,1"
+                            Padding="8,10">
+                        <Grid ColumnDefinitions="200,250,150,200,*">
+                            <TextBlock Grid.Column="0" Text="Name" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Grid.Column="1" Text="Email" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Grid.Column="2" Text="Phone" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Grid.Column="3" Text="University" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Grid.Column="4" Text="Current House" FontWeight="Bold" FontSize="14"/>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Data Rows -->
+                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto">
+                        <ListBox ItemsSource="{Binding Tenants}"
+                                 SelectedItem="{Binding SelectedTenant}"
+                                 SelectionMode="Single"
+                                 Background="White"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#E0E0E0" 
+                                            BorderThickness="0,0,0,1"
+                                            Padding="8,8"
+                                            Background="Transparent"
+                                            Cursor="Hand">
+                                        <Grid ColumnDefinitions="200,250,150,200,*">
+                                            <TextBlock Grid.Column="0" Text="{Binding FullName}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Email}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding PhoneNumber}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding UniversityName}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding CurrentHouseAddress}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Background" Value="White"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="#E3F2FD"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

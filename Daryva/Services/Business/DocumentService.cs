@@ -34,6 +34,12 @@ namespace Daryva.Services.Business
             },
             ["House"] = new[]
             {
+                "Contract",
+                "CouncilTax",
+                "Bills",
+                "Insurance",
+                "GasSafety",
+                "Epc",
                 "Other"
             }
         };
@@ -49,12 +55,21 @@ namespace Daryva.Services.Business
             ["InventoryCheckIn"] = "Inventory & Check-in",
             ["DepositProtectionCertificate"] = "Deposit Protection Certificate",
             ["NoticeToLeave"] = "Notice to Leave",
+            ["Contract"] = "Contract",
+            ["CouncilTax"] = "Council Tax",
+            ["Bills"] = "Bills",
+            ["Insurance"] = "Insurance",
+            ["GasSafety"] = "Gas Safety",
+            ["Epc"] = "EPC",
             ["Other"] = "Other"
         };
 
-        public DocumentService(IDocumentRepository documentRepository, IConfigurationService? configurationService = null)
+        private readonly ISettingsService _settingsService;
+
+        public DocumentService(IDocumentRepository documentRepository, IConfigurationService? configurationService, ISettingsService settingsService)
         {
             _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             
             // Get storage path from configuration or use default
             var configService = configurationService ?? new ConfigurationService();
@@ -98,6 +113,13 @@ namespace Daryva.Services.Business
             return await _documentRepository.GetExpiringDocumentsAsync(daysAhead);
         }
 
+        public IEnumerable<string> GetDocumentTypesForOwner(string owner)
+        {
+            if (string.IsNullOrWhiteSpace(owner)) return Array.Empty<string>();
+            var key = owner.Trim();
+            return DocumentTypesByOwner.TryGetValue(key, out var types) ? types : Array.Empty<string>();
+        }
+
         public async Task<IEnumerable<DocumentStatusItem>> GetDocumentStatusChecklistAsync(int? tenantId = null, int? tenancyId = null, int? houseId = null)
         {
             // Determine owner type
@@ -108,10 +130,12 @@ namespace Daryva.Services.Business
                 ? new[] { "PhotoId", "StudentConfirmationLetter", "RightToRent" }
                 : ownerType == "Tenancy"
                 ? new[] { "TenancyAgreementSigned" }
-                : Array.Empty<string>();
+                : DocumentTypesByOwner.TryGetValue("House", out var houseTypes) ? houseTypes : Array.Empty<string>();
 
             var checklist = new List<DocumentStatusItem>();
             var addedTypes = new HashSet<string>(); // Track types we've already added
+
+            var notifyBeforeExpiryDays = await _settingsService.GetSettingAsync<int>("NotifyBeforeExpiryDays", 30) ?? 30;
 
             // First, add important document types (always shown, even if missing)
             foreach (var docType in importantTypes)
@@ -128,7 +152,7 @@ namespace Daryva.Services.Business
                     ValidTo = existingDoc?.ValidTo
                 };
 
-                // Calculate status
+                // Calculate status (ExpiringSoon uses Settings → Documents → Notify Before Expiry)
                 if (existingDoc == null)
                 {
                     statusItem.Status = "Missing";
@@ -140,7 +164,7 @@ namespace Daryva.Services.Business
                     {
                         statusItem.Status = "Expired";
                     }
-                    else if (daysUntilExpiry <= 30)
+                    else if (daysUntilExpiry <= notifyBeforeExpiryDays)
                     {
                         statusItem.Status = "ExpiringSoon";
                     }
@@ -182,7 +206,7 @@ namespace Daryva.Services.Business
                     ValidTo = uploadedDoc.ValidTo
                 };
 
-                // Calculate status for uploaded documents
+                // Calculate status for uploaded documents (uses NotifyBeforeExpiryDays from settings)
                 if (uploadedDoc.ValidTo.HasValue)
                 {
                     var daysUntilExpiry = (uploadedDoc.ValidTo.Value - DateTime.Now).Days;
@@ -190,7 +214,7 @@ namespace Daryva.Services.Business
                     {
                         statusItem.Status = "Expired";
                     }
-                    else if (daysUntilExpiry <= 30)
+                    else if (daysUntilExpiry <= notifyBeforeExpiryDays)
                     {
                         statusItem.Status = "ExpiringSoon";
                     }

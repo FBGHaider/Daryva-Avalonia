@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.Services;
@@ -19,6 +20,7 @@ namespace Daryva.MVVM.ViewModels
         private string _smtpPassword = string.Empty;
         private bool _enableSsl = true;
         private string _fromAddress = string.Empty;
+        private string _testEmailAddress = string.Empty;
         private string _emailStatus = "NotConfigured";
         private DateTime? _lastTestTime;
 
@@ -34,7 +36,7 @@ namespace Daryva.MVVM.ViewModels
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
             SaveCommand = new RelayCommand(async _ => await SaveAsync());
-            TestEmailCommand = new RelayCommand(async _ => await TestEmailAsync());
+            TestEmailCommand = new RelayCommand(async _ => await TestEmailAsync(), _ => CanTestEmail());
             ResetCommand = new RelayCommand(async _ => await LoadAsync());
 
             _ = LoadAsync();
@@ -47,25 +49,50 @@ namespace Daryva.MVVM.ViewModels
         public string SmtpServer
         {
             get => _smtpServer;
-            set => SetProperty(ref _smtpServer, value);
+            set
+            {
+                if (SetProperty(ref _smtpServer, value))
+                {
+                    UpdateEmailStatus();
+                    ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public int SmtpPort
         {
             get => _smtpPort;
-            set => SetProperty(ref _smtpPort, value);
+            set
+            {
+                if (SetProperty(ref _smtpPort, value))
+                    ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
+            }
         }
 
         public string SmtpUsername
         {
             get => _smtpUsername;
-            set => SetProperty(ref _smtpUsername, value);
+            set
+            {
+                if (SetProperty(ref _smtpUsername, value))
+                {
+                    UpdateEmailStatus();
+                    ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public string SmtpPassword
         {
             get => _smtpPassword;
-            set => SetProperty(ref _smtpPassword, value);
+            set
+            {
+                if (SetProperty(ref _smtpPassword, value))
+                {
+                    UpdateEmailStatus();
+                    ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public bool EnableSsl
@@ -77,7 +104,21 @@ namespace Daryva.MVVM.ViewModels
         public string FromAddress
         {
             get => _fromAddress;
-            set => SetProperty(ref _fromAddress, value);
+            set
+            {
+                if (SetProperty(ref _fromAddress, value))
+                    ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
+            }
+        }
+
+        public string TestEmailAddress
+        {
+            get => _testEmailAddress;
+            set
+            {
+                if (SetProperty(ref _testEmailAddress, value))
+                    ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
+            }
         }
 
         public string EmailStatus
@@ -104,6 +145,7 @@ namespace Daryva.MVVM.ViewModels
                 var sslStr = _configurationService.GetValue("SmtpEnableSsl");
                 EnableSsl = sslStr != null && bool.TryParse(sslStr, out var ssl) && ssl;
                 FromAddress = _configurationService.GetValue("SmtpFromAddress") ?? string.Empty;
+                TestEmailAddress = await _settingsService.GetSettingAsync("EmailTestAddress") ?? string.Empty;
 
                 EmailStatus = await _settingsService.GetSettingAsync("EmailStatus", "NotConfigured") ?? "NotConfigured";
                 var lastTestStr = await _settingsService.GetSettingAsync("EmailLastTestTime");
@@ -113,11 +155,26 @@ namespace Daryva.MVVM.ViewModels
                 }
 
                 UpdateEmailStatus();
+                ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
             }
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error loading settings: {ex.Message}", "Error");
             }
+        }
+
+        private bool CanTestEmail()
+        {
+            if (string.IsNullOrWhiteSpace(SmtpServer) || string.IsNullOrWhiteSpace(SmtpUsername) || string.IsNullOrWhiteSpace(SmtpPassword))
+                return false;
+            if (SmtpPort < 1 || SmtpPort > 65535)
+                return false;
+            if (string.IsNullOrWhiteSpace(FromAddress) || string.IsNullOrWhiteSpace(TestEmailAddress))
+                return false;
+            var trimmed = TestEmailAddress.Trim();
+            if (!Regex.IsMatch(trimmed, @"^[^@]+@[^@]+\.[^@]+$", RegexOptions.IgnoreCase))
+                return false;
+            return true;
         }
 
         private void UpdateEmailStatus()
@@ -174,12 +231,15 @@ namespace Daryva.MVVM.ViewModels
                 // Reload configuration
                 _configurationService.ReloadLocalConfig();
 
+                await _settingsService.SetSettingAsync("EmailTestAddress", TestEmailAddress.Trim());
+
                 UpdateEmailStatus();
                 await _settingsService.SetSettingAsync("EmailStatus", EmailStatus);
-                
+                ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
+
                 _dialogService.ShowMessage(
                     "SMTP settings have been saved successfully!\n\n" +
-                    "You can now test the email configuration using the 'Test Email' button.",
+                    "Ensure 'Test email address' is set, then use 'Test Email' to send a test message.",
                     "Settings Saved");
             }
             catch (Exception ex)
@@ -192,16 +252,15 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                var testEmail = _dialogService.ShowInputDialog(
-                    "Enter your email address to send a test email:",
-                    "Test Email",
-                    SmtpUsername);
-
-                if (string.IsNullOrWhiteSpace(testEmail))
+                var toAddress = TestEmailAddress.Trim();
+                if (string.IsNullOrWhiteSpace(toAddress) || !Regex.IsMatch(toAddress, @"^[^@]+@[^@]+\.[^@]+$", RegexOptions.IgnoreCase))
+                {
+                    _dialogService.ShowMessage("Please enter a valid test email address in the settings above, then save.", "Invalid Test Email");
                     return;
+                }
 
                 var success = await _emailSender.SendEmailAsync(
-                    testEmail,
+                    toAddress,
                     "Daryva - Test Email",
                     "This is a test email from Daryva. If you received this, your email configuration is working correctly.");
 
@@ -211,7 +270,7 @@ namespace Daryva.MVVM.ViewModels
                     LastTestTime = DateTime.UtcNow;
                     await _settingsService.SetSettingAsync("EmailStatus", EmailStatus);
                     await _settingsService.SetSettingAsync("EmailLastTestTime", LastTestTime.Value);
-                    _dialogService.ShowMessage("Test email sent successfully!", "Success");
+                    _dialogService.ShowMessage($"Test email sent successfully to {toAddress}.\n\nCheck your inbox (and spam folder).", "Success");
                 }
                 else
                 {

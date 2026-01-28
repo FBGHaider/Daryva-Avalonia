@@ -17,7 +17,7 @@ namespace Daryva.MVVM.ViewModels
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
-            NavigateToSectionCommand = new RelayCommand<string>(section => NavigateToSection(section));
+            NavigateToSectionCommand = new RelayCommand<string>(section => NavigateToSection(section ?? "General"));
 
             // Initialize with General section
             NavigateToSection("General");

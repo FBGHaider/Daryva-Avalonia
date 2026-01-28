@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Custom Dark Theme Resources -->
+    <!-- Colors -->
+    <Color x:Key="PrimaryBackground">#202020</Color>
+    <Color x:Key="SecondaryBackground">#2D2D2D</Color>
+    <Color x:Key="NavigationBackground">#1E1E1E</Color>
+    <Color x:Key="ControlBackground">#323232</Color>
+    <Color x:Key="ControlBackgroundHover">#3D3D3D</Color>
+    <Color x:Key="BorderColor">#505050</Color>
+    <Color x:Key="PrimaryText">#FFFFFF</Color>
+    <Color x:Key="SecondaryText">#CCCCCC</Color>
+    <Color x:Key="AccentColor">#4A9EFF</Color>
+    <Color x:Key="AccentColorHover">#6BADFF</Color>
+    
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="PrimaryBackgroundBrush" Color="{StaticResource PrimaryBackground}"/>
+    <SolidColorBrush x:Key="SecondaryBackgroundBrush" Color="{StaticResource SecondaryBackground}"/>
+    <SolidColorBrush x:Key="NavigationBackgroundBrush" Color="{StaticResource NavigationBackground}"/>
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{StaticResource ControlBackground}"/>
+    <SolidColorBrush x:Key="ControlBackgroundHoverBrush" Color="{StaticResource ControlBackgroundHover}"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}"/>
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="{StaticResource PrimaryText}"/>
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="{StaticResource SecondaryText}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentColorHover}"/>
+</ResourceDictionary>

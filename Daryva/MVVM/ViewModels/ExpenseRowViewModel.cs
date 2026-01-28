@@ -4,6 +4,7 @@ namespace Daryva.MVVM.ViewModels
     {
         public int ExpenseId { get; set; }
         public DateTime DateIncurred { get; set; }
+        public string DateIncurredDisplay { get; set; } = string.Empty;
         public string HouseAddress { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public string Vendor { get; set; } = string.Empty;

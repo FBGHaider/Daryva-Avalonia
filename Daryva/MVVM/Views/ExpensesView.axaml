@@ -1,0 +1,346 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.ExpensesView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <UserControl.Resources>
+        <converters:BoolToCheckConverter x:Key="BoolToCheckConverter"/>
+    </UserControl.Resources>
+    <Grid RowDefinitions="Auto,*">
+        <!-- Fixed header: buttons follow right edge; hide when too narrow -->
+        <Border Grid.Row="0" Padding="16,0,16,0" Margin="0,0,0,8" x:Name="HeaderBorder">
+            <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
+                <TextBlock Grid.Column="0" Text="Expenses" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" Margin="0,16,0,16"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,12,0,12"
+                            IsVisible="{Binding IsHeaderButtonsVisible, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                    <Button Content="+ Add Expense" Command="{Binding AddExpenseCommand}"/>
+                    <Button Content="Export CSV" Command="{Binding ExportCsvCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Scrollable content -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <Border Padding="16,0,16,16">
+                <Grid RowDefinitions="*">
+                <TabControl Grid.Row="0" SelectedIndex="{Binding SelectedTabIndex}" Margin="0,8,0,0">
+                    <!-- Expenses List tab -->
+                    <TabItem Header="Expenses List">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Grid RowDefinitions="Auto,*">
+                            <!-- Filters -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,16,0,12">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Date Range:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                    <ComboBox Width="140"
+                                              ItemsSource="{Binding DateRangeFilterOptions}"
+                                              SelectedItem="{Binding DateRangeFilter}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="House:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox Width="200"
+                                          ItemsSource="{Binding Houses}"
+                                          SelectedValue="{Binding SelectedHouseId}"
+                                          SelectedValueBinding="{Binding HouseId}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding AddressLine1}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Category:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox Width="140"
+                                          ItemsSource="{Binding CategoryFilterOptions}"
+                                          SelectedItem="{Binding CategoryFilter}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox Width="200" Text="{Binding SearchTerm}" Watermark="Search vendor/notes"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                            <!-- Expenses Table -->
+                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1100">
+                                        <!-- Header Row -->
+                                        <Border Grid.Row="0" 
+                                                Background="#F5F5F5" 
+                                                BorderBrush="#E0E0E0" 
+                                                BorderThickness="0,0,0,1"
+                                                Padding="8,10">
+                                            <Grid ColumnDefinitions="120,200,120,150,200,120,100,200">
+                                                <TextBlock Grid.Column="0" Text="Date" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="1" Text="House" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="2" Text="Category" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="3" Text="Vendor" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="4" Text="Description" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="5" Text="Amount" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="6" Text="Receipt" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14"/>
+                                            </Grid>
+                                        </Border>
+                                        
+                                        <!-- Data Rows -->
+                                        <ListBox Grid.Row="1"
+                                        ItemsSource="{Binding Expenses}"
+                                        SelectedItem="{Binding SelectedExpense}"
+                                                 SelectionMode="Single"
+                                                 Background="White"
+                                                 BorderThickness="0">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#E0E0E0" 
+                                                            BorderThickness="0,0,0,1"
+                                                            Padding="8,8"
+                                                            Background="Transparent"
+                                                            Cursor="Hand">
+                                                        <Grid ColumnDefinitions="120,200,120,150,200,120,100,200">
+                                                            <TextBlock Grid.Column="0" Text="{Binding DateIncurredDisplay}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Category}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Vendor}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding Description}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding Amount, StringFormat='£{0:N2}'}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="6" Text="{Binding HasReceipt, Converter={StaticResource BoolToCheckConverter}}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                            <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4">
+                                                                <Button Content="Edit" 
+                                                                        Command="{Binding DataContext.EditExpenseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="8,4"
+                                                                        FontSize="12"
+                                                                        Width="60"/>
+                                                                <Button Content="Recei" 
+                                                                        Command="{Binding DataContext.AttachReceiptCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="8,4"
+                                                                        FontSize="12"
+                                                                        Width="60"/>
+                                                                <Button Content="Dele" 
+                                                                        Command="{Binding DataContext.DeleteExpenseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="8,4"
+                                                                        FontSize="12"
+                                                                        Width="60"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                            <ListBox.Styles>
+                                                <Style Selector="ListBoxItem">
+                                                    <Setter Property="Background" Value="White"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:selected">
+                                                    <Setter Property="Background" Value="#E3F2FD"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:pointerover">
+                                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                                </Style>
+                                            </ListBox.Styles>
+                                        </ListBox>
+                                    </Grid>
+                                </ScrollViewer>
+                            </Border>
+                    </Grid>
+                        </ScrollViewer>
+                </TabItem>
+
+                    <!-- Summary & Reports tab -->
+                    <TabItem Header="Summary &amp; Reports">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="16" Margin="0,16,0,0">
+                                <!-- Filters -->
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Date Range:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <ComboBox Width="140"
+                                                  ItemsSource="{Binding DateRangeFilterOptions}"
+                                                  SelectedItem="{Binding DateRangeFilter}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="House:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <ComboBox Width="200"
+                                                  ItemsSource="{Binding Houses}"
+                                                  SelectedValue="{Binding SelectedHouseId}"
+                                                  SelectedValueBinding="{Binding HouseId}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding AddressLine1}"/>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Category:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <ComboBox Width="140"
+                                                  ItemsSource="{Binding CategoryFilterOptions}"
+                                                  SelectedItem="{Binding CategoryFilter}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox Width="200" Text="{Binding SearchTerm}" Watermark="Search vendor/notes"/>
+                                    </StackPanel>
+                                    <Button Content="Refresh Summary" Command="{Binding LoadSummaryCommand}" Margin="12,0,0,0"/>
+                        </StackPanel>
+
+                                <!-- Summary Cards -->
+                                <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto">
+                                    <Border Grid.Column="0" Background="#2196F3" CornerRadius="8" Padding="16" MinWidth="200" Margin="0,0,12,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Total Expenses" Foreground="White" FontSize="14" Opacity="0.9"/>
+                                            <TextBlock Text="{Binding Summary.TotalAmount, StringFormat='£{0:N2}'}" Foreground="White" FontSize="24" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Background="#9C27B0" CornerRadius="8" Padding="16" MinWidth="200" Margin="0,0,12,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Average Monthly" Foreground="White" FontSize="14" Opacity="0.9"/>
+                                            <TextBlock Text="{Binding Summary.AverageMonthlyAmount, StringFormat='£{0:N2}'}" Foreground="White" FontSize="24" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="2" Background="#4CAF50" CornerRadius="8" Padding="16" MinWidth="200" Margin="0,0,12,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Biggest Category" Foreground="White" FontSize="14" Opacity="0.9"/>
+                                            <TextBlock Text="{Binding Summary.BiggestCategory}" Foreground="White" FontSize="18" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding Summary.BiggestCategoryAmount, StringFormat='£{0:N2}'}" Foreground="White" FontSize="20" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="3" Background="#FF9800" CornerRadius="8" Padding="16" MinWidth="200">
+                                        <StackPanel>
+                                            <TextBlock Text="Highest Single" Foreground="White" FontSize="14" Opacity="0.9"/>
+                                            <TextBlock Text="{Binding Summary.HighestSingleExpense, StringFormat='£{0:N2}'}" Foreground="White" FontSize="24" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <!-- By House Table -->
+                                <TextBlock Text="By House" FontSize="18" FontWeight="Bold" Margin="0,8,0,8"/>
+                                <Border BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="300">
+                                        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="600">
+                                            <!-- Header Row -->
+                                            <Border Grid.Row="0" 
+                                                    Background="#F5F5F5" 
+                                                    BorderBrush="#E0E0E0" 
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="8,10">
+                                                <Grid ColumnDefinitions="300,120,100,100">
+                                                    <TextBlock Grid.Column="0" Text="House" FontWeight="Bold" FontSize="14"/>
+                                                    <TextBlock Grid.Column="1" Text="Total" FontWeight="Bold" FontSize="14"/>
+                                                    <TextBlock Grid.Column="2" Text="%" FontWeight="Bold" FontSize="14"/>
+                                                    <TextBlock Grid.Column="3" Text="Count" FontWeight="Bold" FontSize="14"/>
+                                                </Grid>
+                                            </Border>
+                                            
+                                            <!-- Data Rows -->
+                                            <ListBox Grid.Row="1"
+                                                     ItemsSource="{Binding Summary.ByHouse}"
+                                                     Background="White"
+                                                     BorderThickness="0">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="#E0E0E0" 
+                                                                BorderThickness="0,0,0,1"
+                                                                Padding="8,8"
+                                                                Background="Transparent">
+                                                            <Grid ColumnDefinitions="300,120,100,100">
+                                                                <TextBlock Grid.Column="0" Text="{Binding HouseAddress}" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Total, StringFormat='£{0:N2}'}" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding PercentageOfTotal, StringFormat='{}{0:F1}%'}" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="3" Text="{Binding Count}" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                                <ListBox.Styles>
+                                                    <Style Selector="ListBoxItem">
+                                                        <Setter Property="Background" Value="White"/>
+                                                        <Setter Property="Padding" Value="0"/>
+                                                    </Style>
+                                                    <Style Selector="ListBoxItem:pointerover">
+                                                        <Setter Property="Background" Value="#F5F5F5"/>
+                                                    </Style>
+                                                </ListBox.Styles>
+                                            </ListBox>
+                                        </Grid>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- By Category Table -->
+                                <TextBlock Text="By Category" FontSize="18" FontWeight="Bold" Margin="0,8,0,8"/>
+                                <Border BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="300">
+                                        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="600">
+                                            <!-- Header Row -->
+                                            <Border Grid.Row="0" 
+                                                    Background="#F5F5F5" 
+                                                    BorderBrush="#E0E0E0" 
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="8,10">
+                                                <Grid ColumnDefinitions="150,120,100,120">
+                                                    <TextBlock Grid.Column="0" Text="Category" FontWeight="Bold" FontSize="14"/>
+                                                    <TextBlock Grid.Column="1" Text="Total" FontWeight="Bold" FontSize="14"/>
+                                                    <TextBlock Grid.Column="2" Text="Count" FontWeight="Bold" FontSize="14"/>
+                                                    <TextBlock Grid.Column="3" Text="Average" FontWeight="Bold" FontSize="14"/>
+                                                </Grid>
+                                            </Border>
+                                            
+                                            <!-- Data Rows -->
+                                            <ListBox Grid.Row="1"
+                                                     ItemsSource="{Binding Summary.ByCategory}"
+                                                     Background="White"
+                                                     BorderThickness="0">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="#E0E0E0" 
+                                                                BorderThickness="0,0,0,1"
+                                                                Padding="8,8"
+                                                                Background="Transparent">
+                                                            <Grid ColumnDefinitions="150,120,100,120">
+                                                                <TextBlock Grid.Column="0" Text="{Binding Category}" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Total, StringFormat='£{0:N2}'}" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding Count}" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="3" Text="{Binding Average, StringFormat='£{0:N2}'}" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                                <ListBox.Styles>
+                                                    <Style Selector="ListBoxItem">
+                                                        <Setter Property="Background" Value="White"/>
+                                                        <Setter Property="Padding" Value="0"/>
+                                                    </Style>
+                                                    <Style Selector="ListBoxItem:pointerover">
+                                                        <Setter Property="Background" Value="#F5F5F5"/>
+                                                    </Style>
+                                                </ListBox.Styles>
+                                            </ListBox>
+                                        </Grid>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- Monthly Trend Section -->
+                                <TextBlock Text="Monthly Trend" FontSize="18" FontWeight="Bold" Margin="0,8,0,8"/>
+                                <Border BorderThickness="1" CornerRadius="6" Padding="16" Background="White" MinHeight="200">
+                                    <TextBlock Text="Monthly trend chart will be displayed here" 
+                                               Foreground="Gray" 
+                                               FontSize="14"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                </TabItem>
+            </TabControl>
+                </Grid>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

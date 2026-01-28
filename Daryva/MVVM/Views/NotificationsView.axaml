@@ -1,0 +1,283 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="750"
+             x:Class="Daryva.MVVM.Views.NotificationsView"
+             x:CompileBindings="False">
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <Border Padding="16">
+            <Grid RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Text="Notifications" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" Margin="0,16,0,0">
+                    <!-- Compose -->
+                    <TabItem Header="Compose">
+                        <Grid RowDefinitions="*,Auto">
+                            <!-- Two-column: Recipients (left) | Message (right) -->
+                            <Grid Grid.Row="0" ColumnDefinitions="*,*" Margin="0,24,0,16">
+                                <!-- LEFT: Recipients -->
+                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="Recipients" FontWeight="Bold" FontSize="16" Margin="0,0,0,6"/>
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Target Type:" VerticalAlignment="Center"/>
+                                            <ComboBox Width="180" ItemsSource="{Binding TargetTypeOptions}" SelectedItem="{Binding TargetType}"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="6" IsVisible="{Binding IsTenantAndStatusVisible}">
+                                            <TextBlock Text="Status:" VerticalAlignment="Center"/>
+                                            <ComboBox Width="180" ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding StatusFilter}"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="6" IsVisible="{Binding IsTenantAndStatusVisible}">
+                                            <TextBlock Text="Tenant:" VerticalAlignment="Center"/>
+                                            <ComboBox Width="280"
+                                                      ItemsSource="{Binding Tenants}"
+                                                      SelectedValue="{Binding SelectedTenantId}"
+                                                      SelectedValueBinding="{Binding TenantId}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding FullName}"/>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Spacing="6" IsVisible="{Binding IsHouseFilterVisible}">
+                                            <TextBlock Text="House:" VerticalAlignment="Center"/>
+                                            <ComboBox Width="280"
+                                                      ItemsSource="{Binding Houses}"
+                                                      SelectedValue="{Binding SelectedHouseId}"
+                                                      SelectedValueBinding="{Binding HouseId}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock>
+                                                            <Run Text="{Binding AddressLine1}"/>
+                                                            <Run Text=", "/>
+                                                            <Run Text="{Binding City}"/>
+                                                        </TextBlock>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <Button Content="Load Recipients" Command="{Binding LoadRecipientsCommand}" Padding="12,8" HorizontalAlignment="Left"/>
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Recipients:" FontWeight="Bold"/>
+                                            <Border BorderThickness="1" BorderBrush="#808080" CornerRadius="4" MinHeight="200" MaxHeight="280" Padding="8">
+                                                <ListBox ItemsSource="{Binding Recipients}"
+                                                         SelectedItem="{Binding SelectedRecipient}"
+                                                         SelectionMode="Single"
+                                                         Background="Transparent"
+                                                         BorderThickness="0">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding RecipientLine}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,2"/>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                    <ListBox.Styles>
+                                                        <Style Selector="ListBoxItem">
+                                                            <Setter Property="Padding" Value="4,2"/>
+                                                        </Style>
+                                                        <Style Selector="ListBoxItem:selected">
+                                                            <Setter Property="Background" Value="#E3F2FD"/>
+                                                        </Style>
+                                                        <Style Selector="ListBoxItem:pointerover">
+                                                            <Setter Property="Background" Value="#F5F5F5"/>
+                                                        </Style>
+                                                    </ListBox.Styles>
+                                                </ListBox>
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+
+                                <!-- RIGHT: Message composition -->
+                                <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="10">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Channel:" VerticalAlignment="Center"/>
+                                            <ComboBox Width="180" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Template:" VerticalAlignment="Center"/>
+                                            <ComboBox Width="280"
+                                                      ItemsSource="{Binding Templates}"
+                                                      SelectedValue="{Binding SelectedTemplateId}"
+                                                      SelectedValueBinding="{Binding TemplateId}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Name}"/>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Subject:" VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding Subject}" Watermark="Subject"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Body:" VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding Body}"
+                                                     TextWrapping="Wrap"
+                                                     AcceptsReturn="True"
+                                                     MinHeight="140"
+                                                     Watermark="Body"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Variables: {Currency}, {TenantName}, {HouseAddress}, {AmountDue}, {DueDate}, {Month}. Use {Currency}{AmountDue} for money. Currency from Settings → General."
+                                                   FontSize="12"
+                                                   Foreground="#808080"
+                                                   Margin="0,0,0,4"/>
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Preview:" VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding PreviewText}"
+                                                     IsReadOnly="True"
+                                                     TextWrapping="Wrap"
+                                                     AcceptsReturn="True"
+                                                     MinHeight="120"
+                                                     Watermark="Preview output"/>
+                                            <Button Content="Preview" Command="{Binding PreviewMessageCommand}" Padding="12,8" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+
+                            <!-- Bottom action bar -->
+                            <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="#E0E0E0" Padding="12,14,12,12">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                                        <Button Content="Send Now" Command="{Binding SendNowCommand}" Padding="12,8"/>
+                                        <DatePicker SelectedDate="{Binding ScheduledFor, Mode=TwoWay}" MinWidth="180" Width="180"/>
+                                        <TimePicker SelectedTime="{Binding ScheduledTime, Mode=TwoWay}" MinWidth="140" Width="140" ClockIdentifier="24HourClock"/>
+                                        <Button Content="Queue" Command="{Binding QueueCommand}" Padding="12,8"/>
+                                        <Button Content="Send Test" Command="{Binding SendTestCommand}" Padding="12,8"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Queue -->
+                    <TabItem Header="Queue">
+                        <Grid RowDefinitions="Auto,*">
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,24,0,12">
+                                <TextBlock Text="Status:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox Width="140" ItemsSource="{Binding QueueStatusOptions}" SelectedItem="{Binding QueueStatusFilter}"/>
+                                <Button Content="Refresh" Command="{Binding LoadQueueCommand}" Padding="12,6"/>
+                            </StackPanel>
+                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" BorderBrush="#E0E0E0">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                                    <Grid RowDefinitions="Auto,*" MinWidth="1100">
+                                        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="8,10">
+                                            <Grid ColumnDefinitions="140,130,200,70,80,70,100">
+                                                <TextBlock Grid.Column="0" Text="Scheduled For" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="2" Text="House" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="3" Text="Channel" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="4" Text="Type" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="5" Text="Status" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="6" Text="Actions" FontWeight="Bold" FontSize="14"/>
+                                            </Grid>
+                                        </Border>
+                                        <ListBox Grid.Row="1" ItemsSource="{Binding QueueNotifications}"
+                                                 SelectedItem="{Binding SelectedNotification}"
+                                                 SelectionMode="Single" Background="White" BorderThickness="0">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="8,8" Background="Transparent" Cursor="Hand">
+                                                        <Grid ColumnDefinitions="140,130,200,70,80,70,100">
+                                                            <TextBlock Grid.Column="0" Text="{Binding ScheduledDisplay}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Channel}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding Type}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding Status}" VerticalAlignment="Center"/>
+                                                            <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6">
+                                                                <Button Content="Send" Command="{Binding DataContext.SendQueueItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="8,4" FontSize="12"/>
+                                                                <Button Content="Cancel" Command="{Binding DataContext.CancelQueueItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="8,4" FontSize="12"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                            <ListBox.Styles>
+                                                <Style Selector="ListBoxItem">
+                                                    <Setter Property="Background" Value="White"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:selected">
+                                                    <Setter Property="Background" Value="#E3F2FD"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:pointerover">
+                                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                                </Style>
+                                            </ListBox.Styles>
+                                        </ListBox>
+                                    </Grid>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- History -->
+                    <TabItem Header="History">
+                        <Grid RowDefinitions="Auto,*">
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,24,0,12">
+                                <TextBlock Text="Status:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox Width="140" ItemsSource="{Binding HistoryStatusOptions}" SelectedItem="{Binding HistoryStatusFilter}"/>
+                                <Button Content="Refresh" Command="{Binding LoadHistoryCommand}" Padding="12,6"/>
+                            </StackPanel>
+                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" BorderBrush="#E0E0E0">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                                    <Grid RowDefinitions="Auto,*" MinWidth="1100">
+                                        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="8,10">
+                                            <Grid ColumnDefinitions="140,130,200,70,80,*,70,80">
+                                                <TextBlock Grid.Column="0" Text="Sent At" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="2" Text="House" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="3" Text="Channel" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="4" Text="Type" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="5" Text="Subject" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="6" Text="Status" FontWeight="Bold" FontSize="14"/>
+                                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14"/>
+                                            </Grid>
+                                        </Border>
+                                        <ListBox Grid.Row="1" ItemsSource="{Binding HistoryNotifications}"
+                                                 SelectedItem="{Binding SelectedNotification}"
+                                                 SelectionMode="Single" Background="White" BorderThickness="0">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="8,8" Background="Transparent" Cursor="Hand">
+                                                        <Grid ColumnDefinitions="140,130,200,70,80,*,70,80">
+                                                            <TextBlock Grid.Column="0" Text="{Binding SentDisplay}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Channel}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding Type}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding Subject}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="6" Text="{Binding Status}" VerticalAlignment="Center"/>
+                                                            <Button Grid.Column="7" Content="View" Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                            <ListBox.Styles>
+                                                <Style Selector="ListBoxItem">
+                                                    <Setter Property="Background" Value="White"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:selected">
+                                                    <Setter Property="Background" Value="#E3F2FD"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:pointerover">
+                                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                                </Style>
+                                            </ListBox.Styles>
+                                        </ListBox>
+                                    </Grid>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Border>
+    </ScrollViewer>
+</UserControl>

@@ -1,5 +1,6 @@
 using System.Globalization;
-using System.Windows.Data;
+using Avalonia;
+using Avalonia.Data.Converters;
 
 namespace Daryva.MVVM.Converters
 {
@@ -11,14 +12,12 @@ namespace Daryva.MVVM.Converters
         public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value == null || parameter == null)
-                return System.Windows.Visibility.Collapsed;
+                return false;
 
             string valueStr = value.ToString() ?? string.Empty;
             string paramStr = parameter.ToString() ?? string.Empty;
 
-            return valueStr.Equals(paramStr, StringComparison.OrdinalIgnoreCase)
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
+            return valueStr.Equals(paramStr, StringComparison.OrdinalIgnoreCase);
         }
 
         public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

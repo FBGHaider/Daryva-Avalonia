@@ -9,7 +9,7 @@ namespace Daryva.Services.Business
         Task<HouseExpense> CreateExpenseAsync(HouseExpense expense);
         Task UpdateExpenseAsync(HouseExpense expense);
         Task DeleteExpenseAsync(int expenseId);
-        Task<ExpenseSummary> GetExpenseSummaryAsync(int? houseId = null, DateTime? startDate = null, DateTime? endDate = null);
+        Task<ExpenseSummary> GetExpenseSummaryAsync(int? houseId = null, DateTime? startDate = null, DateTime? endDate = null, string? category = null, string? searchTerm = null);
         Task<string> ExportExpensesToCsvAsync(int? houseId = null, DateTime? startDate = null, DateTime? endDate = null, string? category = null);
     }
 

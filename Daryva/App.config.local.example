@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <configuration>
+  <!-- Optional: override connection string to use local SQL Server instead of Docker -->
+  <!-- Uncomment and set Server/Database/credentials for your local instance -->
+  <!--
+  <connectionStrings>
+    <add name="DefaultConnection"
+         connectionString="Server=(localdb)\MSSQLLocalDB;Database=DaryvaDB;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=True;"
+         providerName="Microsoft.Data.SqlClient" />
+  </connectionStrings>
+  -->
+  <!-- SQL Server Express example (default instance on port 1433):
+  <connectionStrings>
+    <add name="DefaultConnection"
+         connectionString="Server=localhost;Database=DaryvaDB;User Id=sa;Password=YourPassword;TrustServerCertificate=True;Encrypt=True;MultipleActiveResultSets=True;"
+         providerName="Microsoft.Data.SqlClient" />
+  </connectionStrings>
+  -->
   <appSettings>
     <!-- SMTP Email Configuration -->
     <!-- Copy this file to App.config.local and configure your settings -->

@@ -13,5 +13,7 @@ namespace Daryva.MVVM.ViewModels
         public decimal? AmountDue { get; set; }
         public DateTime? DueDate { get; set; }
         public bool IsSelected { get; set; }
+
+        public string RecipientLine => $"{TenantName} – {Email} – {HouseAddress}";
     }
 }

@@ -1,5 +1,4 @@
 using System.IO;
-using System.Windows.Forms;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.Services.Business;
@@ -80,20 +79,10 @@ namespace Daryva.MVVM.ViewModels
 
         private void BrowseStoragePath()
         {
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            var selectedPath = _dialogService.ShowFolderBrowserDialog("Select folder for document storage");
+            if (!string.IsNullOrEmpty(selectedPath))
             {
-                Description = "Select folder for document storage",
-                ShowNewFolderButton = true
-            };
-
-            if (!string.IsNullOrWhiteSpace(DocumentStoragePath) && Directory.Exists(DocumentStoragePath))
-            {
-                dialog.SelectedPath = DocumentStoragePath;
-            }
-
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                DocumentStoragePath = dialog.SelectedPath;
+                DocumentStoragePath = selectedPath;
             }
         }
 

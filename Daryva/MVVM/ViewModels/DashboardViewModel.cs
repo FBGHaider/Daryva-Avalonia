@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Business;
+using Daryva.Services.Dialog;
 using Daryva.Services.Navigation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +19,8 @@ namespace Daryva.MVVM.ViewModels
         private readonly IPaymentService _paymentService;
         private readonly IServiceProvider _serviceProvider;
         private readonly INavigationService _navigationService;
+        private readonly IDialogService _dialogService;
+        private readonly ISettingsService _settingsService;
 
         private int _housesCount;
         private int _activeTenantsCount;
@@ -30,13 +35,15 @@ namespace Daryva.MVVM.ViewModels
         private EventHandler<BaseViewModel?>? _navigationHandler;
         private EventHandler? _paymentDataHandler;
 
-        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService)
+        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService)
         {
             _houseService = houseService;
             _tenantService = tenantService;
             _paymentService = paymentService;
             _serviceProvider = serviceProvider;
             _navigationService = navigationService;
+            _dialogService = dialogService;
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
             RentDueInNext7Days = new ObservableCollection<RentDueItem>();
             OverdueRent = new ObservableCollection<OverdueRentItem>();
@@ -50,8 +57,7 @@ namespace Daryva.MVVM.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"Error loading dashboard: {ex.Message}", "Error", 
-                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    _dialogService.ShowMessage($"Error loading dashboard: {ex.Message}", "Error");
                 }
             });
             
@@ -98,20 +104,14 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 // Ensure we're on the UI thread
-                var dispatcher = System.Windows.Application.Current.Dispatcher;
-                if (dispatcher == null)
-                {
-                    return;
-                }
-                
-                if (dispatcher.CheckAccess())
+                if (Dispatcher.UIThread.CheckAccess())
                 {
                     // Call LoadDashboardDataAsync directly - fire and forget
                     _ = LoadDashboardDataAsync();
                 }
                 else
                 {
-                    dispatcher.InvokeAsync(async () =>
+                    Dispatcher.UIThread.Post(async () =>
                     {
                         await LoadDashboardDataAsync();
                     });
@@ -119,8 +119,7 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error refreshing dashboard: {ex.Message}", "Error", 
-                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error refreshing dashboard: {ex.Message}", "Error");
             }
         }
 
@@ -142,18 +141,24 @@ namespace Daryva.MVVM.ViewModels
             // Call LoadDashboardDataAsync directly instead of through the command
             _ = Task.Run(async () =>
             {
-                try
+            try
+            {
+                if (Dispatcher.UIThread.CheckAccess())
                 {
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+                    await LoadDashboardDataAsync();
+                }
+                else
+                {
+                    await Dispatcher.UIThread.InvokeAsync(async () =>
                     {
                         await LoadDashboardDataAsync();
                     });
                 }
-                catch (Exception ex)
-                {
-                    System.Windows.MessageBox.Show($"Error refreshing dashboard: {ex.Message}", "Error", 
-                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error refreshing dashboard: {ex.Message}", "Error");
+            }
             });
         }
         public ICommand AddHouseCommand => new RelayCommand(_ => ShowAddHouseDialog());
@@ -205,7 +210,9 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                // Load basic counts - call services directly (they handle async properly)
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                DateTimeFormatProvider.DateFormat = dateFormat;
+
                 var houses = await _houseService.GetAllHousesAsync();
                 var houseCount = houses.Count();
                 
@@ -288,13 +295,15 @@ namespace Daryva.MVVM.ViewModels
                 
                 foreach (var row in allRowsFor7Days)
                 {
-                    rentDueInNext7DaysList.Add(new RentDueItem
+                    var item = new RentDueItem
                     {
                         TenantName = row.TenantName,
                         HouseAddress = row.HouseAddress,
                         Amount = row.Balance,
                         DueDate = row.DueDate
-                    });
+                    };
+                    item.DueDateDisplay = "Due " + DateTimeFormatProvider.FormatDate(row.DueDate);
+                    rentDueInNext7DaysList.Add(item);
                 }
 
                 // Calculate overdue rent - only show tenants whose MOST RECENT period is unpaid/overdue
@@ -345,8 +354,7 @@ namespace Daryva.MVVM.ViewModels
                 }
                 
                 // Update ALL UI properties on UI thread in a single dispatcher call
-                var dispatcher = System.Windows.Application.Current.Dispatcher;
-                if (dispatcher.CheckAccess())
+                if (Dispatcher.UIThread.CheckAccess())
                 {
                     // Already on UI thread - update directly
                     UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue);
@@ -354,7 +362,7 @@ namespace Daryva.MVVM.ViewModels
                 else
                 {
                     // Need to marshal to UI thread
-                    await dispatcher.InvokeAsync(() =>
+                    await Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue);
                     });
@@ -362,8 +370,7 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error loading dashboard data: {ex.Message}", "Error", 
-                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error loading dashboard data: {ex.Message}", "Error");
             }
         }
 
@@ -406,56 +413,73 @@ namespace Daryva.MVVM.ViewModels
             OnPropertyChanged(nameof(OverdueRent));
         }
 
-        private void ShowAddHouseDialog()
+        private async void ShowAddHouseDialog()
         {
             var viewModel = _serviceProvider.GetRequiredService<AddHouseViewModel>();
             var dialog = new MVVM.Views.AddHouseDialog(viewModel);
-            dialog.Owner = System.Windows.Application.Current.MainWindow;
-            if (dialog.ShowDialog() == true)
+            var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                ? desktop.MainWindow 
+                : null;
+            if (mainWindow != null)
             {
-                LoadDashboardDataCommand.Execute(null);
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                await dialog.ShowDialog(mainWindow);
             }
+            else
+            {
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                dialog.Show();
+            }
+            LoadDashboardDataCommand.Execute(null);
         }
 
-        private void ShowAddTenantDialog()
+        private async void ShowAddTenantDialog()
         {
             var viewModel = _serviceProvider.GetRequiredService<AddTenantViewModel>();
             var dialog = new MVVM.Views.AddTenantDialog(viewModel);
-            dialog.Owner = System.Windows.Application.Current.MainWindow;
-            if (dialog.ShowDialog() == true)
+            var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                ? desktop.MainWindow 
+                : null;
+            if (mainWindow != null)
             {
-                LoadDashboardDataCommand.Execute(null);
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                await dialog.ShowDialog(mainWindow);
             }
+            else
+            {
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                dialog.Show();
+            }
+            LoadDashboardDataCommand.Execute(null);
         }
 
-        private void ShowRecordPaymentDialog()
+        private async void ShowRecordPaymentDialog()
         {
             try
             {
                 var viewModel = _serviceProvider.GetRequiredService<RecordPaymentViewModel>();
                 var dialog = new MVVM.Views.RecordPaymentDialog(viewModel);
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
                 
-                if (System.Windows.Application.Current.MainWindow != null)
+                if (mainWindow != null)
                 {
-                    dialog.Owner = System.Windows.Application.Current.MainWindow;
-                    dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    await dialog.ShowDialog(mainWindow);
                 }
                 else
                 {
-                    dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
                 }
                 
-                var result = dialog.ShowDialog();
-                
-                if (result == true)
-                {
-                    // Refresh dashboard data after payment is recorded
-                    LoadDashboardDataCommand.Execute(null);
-                }
+                // Refresh dashboard data after payment is recorded
+                LoadDashboardDataCommand.Execute(null);
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                _dialogService.ShowMessage($"Error: {ex.Message}", "Error");
             }
         }
 
@@ -471,6 +495,7 @@ namespace Daryva.MVVM.ViewModels
         public string HouseAddress { get; set; } = string.Empty;
         public decimal Amount { get; set; }
         public DateTime DueDate { get; set; }
+        public string DueDateDisplay { get; set; } = string.Empty;
     }
 
     public class OverdueRentItem

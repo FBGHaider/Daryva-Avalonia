@@ -28,6 +28,10 @@ namespace Daryva.Services.Business
             if (string.IsNullOrWhiteSpace(backupPath))
             {
                 var defaultLocation = await _settingsService.GetSettingAsync("BackupLocation", GetDefaultBackupLocation());
+                if (string.IsNullOrWhiteSpace(defaultLocation))
+                {
+                    defaultLocation = GetDefaultBackupLocation();
+                }
                 backupPath = Path.Combine(defaultLocation, fileName);
             }
             else

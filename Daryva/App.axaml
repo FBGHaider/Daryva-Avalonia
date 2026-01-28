@@ -1,0 +1,67 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Daryva"
+             x:Class="Daryva.App"
+             RequestedThemeVariant="Light"
+             xmlns:views="clr-namespace:Daryva.MVVM.Views;assembly=Daryva"
+             xmlns:viewModels="clr-namespace:Daryva.MVVM.ViewModels;assembly=Daryva">
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Daryva/Themes/LightTheme.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.DataTemplates>
+        <!-- ViewModel to View DataTemplates -->
+        <DataTemplate DataType="viewModels:DashboardViewModel">
+            <views:DashboardView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:HousesViewModel">
+            <views:HousesView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:TenantsViewModel">
+            <views:TenantsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:RentPaymentsViewModel">
+            <views:RentPaymentsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:ExpensesViewModel">
+            <views:ExpensesView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:DocumentsViewModel">
+            <views:DocumentsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:NotificationsViewModel">
+            <views:NotificationsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:SettingsViewModel">
+            <views:SettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:ThemeSettingsViewModel">
+            <views:ThemeSettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:GeneralSettingsViewModel">
+            <views:GeneralSettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:RentSettingsViewModel">
+            <views:RentSettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:DocumentSettingsViewModel">
+            <views:DocumentSettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:NotificationSettingsViewModel">
+            <views:NotificationSettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:EmailSettingsViewModel">
+            <views:EmailSettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:BackupSettingsViewModel">
+            <views:BackupSettingsView />
+        </DataTemplate>
+    </Application.DataTemplates>
+</Application>

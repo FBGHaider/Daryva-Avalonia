@@ -43,18 +43,14 @@ namespace Daryva.MVVM.Commands
         /// <summary>
         /// Occurs when changes occur that affect whether or not the command should execute.
         /// </summary>
-        public event EventHandler? CanExecuteChanged
-        {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
-        }
+        public event EventHandler? CanExecuteChanged;
 
         /// <summary>
         /// Raises the CanExecuteChanged event to notify that the command's ability to execute has changed.
         /// </summary>
         public void RaiseCanExecuteChanged()
         {
-            CommandManager.InvalidateRequerySuggested();
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -113,10 +109,14 @@ namespace Daryva.MVVM.Commands
         /// <summary>
         /// Occurs when changes occur that affect whether or not the command should execute.
         /// </summary>
-        public event EventHandler? CanExecuteChanged
+        public event EventHandler? CanExecuteChanged;
+
+        /// <summary>
+        /// Raises the CanExecuteChanged event to notify that the command's ability to execute has changed.
+        /// </summary>
+        public void RaiseCanExecuteChanged()
         {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }

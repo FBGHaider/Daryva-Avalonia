@@ -3,8 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Data;
 using Daryva.Services.Dialog;
@@ -19,8 +21,10 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDocumentService _documentService;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
+        private readonly ISettingsService _settingsService;
 
         private string _selectedTab = "List"; // "List" or "Summary"
+        private int _selectedTabIndex = 0;
         private string _dateRangeFilter = "This Month";
         private int? _selectedHouseId = 0; // 0 = All Houses
         private string _categoryFilter = "All";
@@ -33,25 +37,50 @@ namespace Daryva.MVVM.ViewModels
             IHouseService houseService,
             IDocumentService documentService,
             IDialogService dialogService,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            ISettingsService settingsService)
         {
             _expenseService = expenseService ?? throw new ArgumentNullException(nameof(expenseService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
             Expenses = new ObservableCollection<ExpenseRowViewModel>();
             Houses = new ObservableCollection<House>();
             Summary = new ExpenseSummary();
+            DateRangeFilterOptions = new ObservableCollection<string> { "This Month", "Last 3 Months", "This Year", "All" };
+            CategoryFilterOptions = new ObservableCollection<string> { "All", "Repairs", "Bills", "CouncilTax", "Internet", "Furniture", "Cleaning", "Maintenance", "Other" };
 
             LoadExpensesCommand = new RelayCommand(async _ => await LoadExpensesAsync());
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             LoadSummaryCommand = new RelayCommand(async _ => await LoadSummaryAsync());
             AddExpenseCommand = new RelayCommand(_ => ShowAddExpenseDialog());
-            EditExpenseCommand = new RelayCommand(_ => ShowEditExpenseDialog(), _ => SelectedExpense != null);
-            DeleteExpenseCommand = new RelayCommand(async _ => await DeleteExpenseAsync(), _ => SelectedExpense != null);
-            AttachReceiptCommand = new RelayCommand(async _ => await AttachReceiptAsync(), _ => SelectedExpense != null);
+            EditExpenseCommand = new RelayCommand(parameter => 
+            {
+                if (parameter is ExpenseRowViewModel expense)
+                {
+                    SelectedExpense = expense;
+                }
+                ShowEditExpenseDialog();
+            }, _ => SelectedExpense != null);
+            DeleteExpenseCommand = new RelayCommand(async parameter => 
+            {
+                if (parameter is ExpenseRowViewModel expense)
+                {
+                    SelectedExpense = expense;
+                }
+                await DeleteExpenseAsync();
+            }, _ => SelectedExpense != null);
+            AttachReceiptCommand = new RelayCommand(async parameter => 
+            {
+                if (parameter is ExpenseRowViewModel expense)
+                {
+                    SelectedExpense = expense;
+                }
+                await AttachReceiptAsync();
+            }, _ => SelectedExpense != null);
             ViewReceiptCommand = new RelayCommand(async _ => await ViewReceiptAsync(), _ => SelectedExpense != null && SelectedExpense.HasReceipt);
             ExportCsvCommand = new RelayCommand(async _ => await ExportCsvAsync());
 
@@ -71,6 +100,8 @@ namespace Daryva.MVVM.ViewModels
 
         public ObservableCollection<ExpenseRowViewModel> Expenses { get; }
         public ObservableCollection<House> Houses { get; }
+        public ObservableCollection<string> DateRangeFilterOptions { get; }
+        public ObservableCollection<string> CategoryFilterOptions { get; }
 
         public string SelectedTab
         {
@@ -79,7 +110,24 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedTab, value))
                 {
+                    SelectedTabIndex = value == "List" ? 0 : 1;
                     if (value == "Summary")
+                    {
+                        LoadSummaryCommand.Execute(null);
+                    }
+                }
+            }
+        }
+
+        public int SelectedTabIndex
+        {
+            get => _selectedTabIndex;
+            set
+            {
+                if (SetProperty(ref _selectedTabIndex, value))
+                {
+                    SelectedTab = value == 0 ? "List" : "Summary";
+                    if (value == 1)
                     {
                         LoadSummaryCommand.Execute(null);
                     }
@@ -127,6 +175,8 @@ namespace Daryva.MVVM.ViewModels
                 if (SetProperty(ref _categoryFilter, value))
                 {
                     LoadExpensesCommand.Execute(null);
+                    if (SelectedTab == "Summary")
+                        LoadSummaryCommand.Execute(null);
                 }
             }
         }
@@ -139,6 +189,8 @@ namespace Daryva.MVVM.ViewModels
                 if (SetProperty(ref _searchTerm, value))
                 {
                     LoadExpensesCommand.Execute(null);
+                    if (SelectedTab == "Summary")
+                        LoadSummaryCommand.Execute(null);
                 }
             }
         }
@@ -177,7 +229,7 @@ namespace Daryva.MVVM.ViewModels
                 var houses = await _houseService.GetAllHousesAsync();
                 
                 // Ensure UI updates happen on the UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Houses.Clear();
                     Houses.Add(new House { HouseId = 0, AddressLine1 = "All Houses" });
@@ -226,15 +278,16 @@ namespace Daryva.MVVM.ViewModels
                 string? searchFilter = string.IsNullOrWhiteSpace(SearchTerm) ? null : SearchTerm;
 
                 var expenses = await _expenseService.GetExpensesAsync(houseIdFilter, startDate, endDate, categoryFilter, searchFilter);
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                DateTimeFormatProvider.DateFormat = dateFormat;
 
-                // Ensure UI updates happen on the UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Expenses.Clear();
                     foreach (var expense in expenses)
                     {
                         var houseAddress = expense.House != null ? $"{expense.House.AddressLine1}, {expense.House.City}" : "Unknown";
-                        Expenses.Add(new ExpenseRowViewModel
+                        var row = new ExpenseRowViewModel
                         {
                             ExpenseId = expense.HouseExpenseId,
                             DateIncurred = expense.DateIncurred,
@@ -246,7 +299,9 @@ namespace Daryva.MVVM.ViewModels
                             HasReceipt = expense.ReceiptDocumentId.HasValue,
                             ReceiptDocumentId = expense.ReceiptDocumentId,
                             HouseId = expense.HouseId
-                        });
+                        };
+                        row.DateIncurredDisplay = DateTimeFormatProvider.FormatDate(expense.DateIncurred);
+                        Expenses.Add(row);
                     }
                 });
             }
@@ -285,8 +340,10 @@ namespace Daryva.MVVM.ViewModels
                 }
 
                 int? houseIdFilter = (SelectedHouseId == null || SelectedHouseId == 0) ? null : SelectedHouseId;
+                string? categoryFilter = CategoryFilter == "All" ? null : CategoryFilter;
+                string? searchFilter = string.IsNullOrWhiteSpace(SearchTerm) ? null : SearchTerm;
 
-                var summary = await _expenseService.GetExpenseSummaryAsync(houseIdFilter, startDate, endDate);
+                var summary = await _expenseService.GetExpenseSummaryAsync(houseIdFilter, startDate, endDate, categoryFilter, searchFilter);
                 Summary = summary;
             }
             catch (Exception ex)
@@ -302,14 +359,23 @@ namespace Daryva.MVVM.ViewModels
                 var viewModel = _serviceProvider.GetRequiredService<AddEditExpenseViewModel>();
                 viewModel.IsEditMode = false;
                 var dialog = new MVVM.Views.AddEditExpenseDialog(viewModel);
-                dialog.Owner = System.Windows.Application.Current.MainWindow;
-                if (dialog.ShowDialog() == true)
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
+                if (mainWindow != null)
                 {
-                    LoadExpensesCommand.Execute(null);
-                    if (SelectedTab == "Summary")
-                    {
-                        LoadSummaryCommand.Execute(null);
-                    }
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    dialog.ShowDialog(mainWindow);
+                }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+                LoadExpensesCommand.Execute(null);
+                if (SelectedTab == "Summary")
+                {
+                    LoadSummaryCommand.Execute(null);
                 }
             }
             catch (Exception ex)
@@ -318,7 +384,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void ShowEditExpenseDialog()
+    private async void ShowEditExpenseDialog()
         {
             if (SelectedExpense == null) return;
 
@@ -326,16 +392,25 @@ namespace Daryva.MVVM.ViewModels
             {
                 var viewModel = _serviceProvider.GetRequiredService<AddEditExpenseViewModel>();
                 viewModel.IsEditMode = true;
-                viewModel.LoadExpense(SelectedExpense.ExpenseId);
+                await viewModel.LoadExpense(SelectedExpense.ExpenseId);
                 var dialog = new MVVM.Views.AddEditExpenseDialog(viewModel);
-                dialog.Owner = System.Windows.Application.Current.MainWindow;
-                if (dialog.ShowDialog() == true)
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
+            if (mainWindow != null)
+            {
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                await dialog.ShowDialog(mainWindow);
+            }
+            else
+            {
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                dialog.Show();
+            }
+                LoadExpensesCommand.Execute(null);
+                if (SelectedTab == "Summary")
                 {
-                    LoadExpensesCommand.Execute(null);
-                    if (SelectedTab == "Summary")
-                    {
-                        LoadSummaryCommand.Execute(null);
-                    }
+                    LoadSummaryCommand.Execute(null);
                 }
             }
             catch (Exception ex)
@@ -348,7 +423,8 @@ namespace Daryva.MVVM.ViewModels
         {
             if (SelectedExpense == null) return;
 
-            var confirmed = _dialogService.ShowConfirmation(
+            var requireConfirm = await _settingsService.GetSettingAsync<bool>("ConfirmDestructiveActions", true) ?? true;
+            var confirmed = !requireConfirm || await _dialogService.ShowConfirmationAsync(
                 $"Are you sure you want to delete this expense of £{SelectedExpense.Amount:N2}?\n\nThis action cannot be undone.",
                 "Confirm Delete");
 

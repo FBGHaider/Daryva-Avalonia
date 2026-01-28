@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/Daryva/bin/Debug/net8.0-windows/Daryva.dll",
+            "program": "${workspaceFolder}/Daryva/bin/Debug/net8.0/Daryva.dll",
             "args": [],
             "cwd": "${workspaceFolder}/Daryva",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console

@@ -68,3 +68,16 @@ Server=localhost,1433;Database=DaryvaDB;User Id=sa;Password=YourStrong@Password1
 ```
 
 **Security Note:** The default password is for development only. Please change it for production use!
+
+## Don't want to use Docker?
+
+You can connect **directly** to a local SQL Server (LocalDB or SQL Server Express) instead—no Docker needed.  
+See **[README-DirectDB.md](README-DirectDB.md)** for setup.
+
+## Check database & Docker status
+
+From the repo root, run:
+```powershell
+.\check-database.ps1
+```
+This reports whether the Docker container is running, if port 1433 is reachable, and which connection config is in use.

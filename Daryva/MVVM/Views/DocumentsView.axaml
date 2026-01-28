@@ -1,0 +1,249 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.DocumentsView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <UserControl.Resources>
+        <converters:IsNotNullConverter x:Key="IsNotNullConverter"/>
+        <converters:DateTimeToDisplayConverter x:Key="DateTimeToDisplayConverter"/>
+    </UserControl.Resources>
+    <Grid RowDefinitions="Auto,*">
+        <!-- Fixed header: follows right edge; hide Upload when too narrow -->
+        <Border Grid.Row="0" Padding="16,0,16,0" Margin="0,0,0,8" x:Name="HeaderBorder">
+            <Grid ColumnDefinitions="*,Auto" x:Name="HeaderGrid" HorizontalAlignment="Stretch">
+                <TextBlock Grid.Column="0" Text="Documents" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" Margin="0,16,0,16"/>
+                <Button Grid.Column="1" Content="Upload Document" Command="{Binding UploadDocumentCommand}"
+                        IsVisible="{Binding IsUploadButtonVisible, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Margin="0,12,0,12" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Scrollable content -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <Border Padding="16,0,16,16">
+                <Grid RowDefinitions="Auto,Auto,*">
+                <!-- Filters -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,16">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Owner Type:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox Width="140" 
+                                  ItemsSource="{Binding OwnerTypeOptions}"
+                                  SelectedItem="{Binding OwnerFilter}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsTenantFilterVisible}">
+                        <TextBlock Text="Tenant:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox Width="180"
+                                  ItemsSource="{Binding Tenants}"
+                                  SelectedValue="{Binding SelectedTenantId}"
+                                  SelectedValueBinding="{Binding TenantId}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding FullName}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsHouseFilterVisible}">
+                        <TextBlock Text="House:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox Width="200"
+                                  ItemsSource="{Binding Houses}"
+                                  SelectedValue="{Binding SelectedHouseId}"
+                                  SelectedValueBinding="{Binding HouseId}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding AddressLine1}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsTypeFilterVisible}">
+                        <TextBlock Text="Type:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox Width="180"
+                                  ItemsSource="{Binding DocumentTypesForUpload}"
+                                  SelectedItem="{Binding SelectedDocumentTypeForUpload}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Status Filter:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox Width="140"
+                                  ItemsSource="{Binding TypeFilterOptions}"
+                                  SelectedItem="{Binding TypeFilter}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Document Status Checklist -->
+                <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,16">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Document Status Checklist" FontWeight="Bold" FontSize="16" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                            <Button Content="View" 
+                                    Command="{Binding ViewDocumentCommand}"
+                                    Padding="8,4"
+                                    FontSize="12"
+                                    Width="80"/>
+                            <Button Content="Download" 
+                                    Command="{Binding DownloadDocumentCommand}"
+                                    Padding="8,4"
+                                    FontSize="12"
+                                    Width="90"/>
+                            <Button Content="Delete" 
+                                    Command="{Binding DeleteDocumentCommand}"
+                                    Padding="8,4"
+                                    FontSize="12"
+                                    Width="80"/>
+                            <Button Content="View History" 
+                                    Command="{Binding ViewHistoryCommand}"
+                                    Padding="8,4"
+                                    FontSize="12"
+                                    Width="110"/>
+                        </StackPanel>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="400">
+                            <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="900">
+                                <!-- Header Row -->
+                                <Border Grid.Row="0" 
+                                        Background="#F5F5F5" 
+                                        BorderBrush="#E0E0E0" 
+                                        BorderThickness="0,0,0,1"
+                                        Padding="8,10">
+                                    <Grid ColumnDefinitions="250,120,120,120,80">
+                                        <TextBlock Grid.Column="0" Text="Document Type" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="1" Text="Status" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="2" Text="Uploaded" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="3" Text="Valid To" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="4" Text="Version" FontWeight="Bold" FontSize="14"/>
+                                    </Grid>
+                                </Border>
+                                
+                                <!-- Data Rows -->
+                                <ListBox Grid.Row="1"
+                                         ItemsSource="{Binding DocumentStatusChecklist}"
+                                         SelectedItem="{Binding SelectedDocumentStatus}"
+                                         SelectionMode="Single"
+                                         Background="White"
+                                         BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#E0E0E0" 
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="8,8"
+                                                    Background="Transparent"
+                                                    Cursor="Hand">
+                                                <Grid ColumnDefinitions="250,120,120,120,80">
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Status}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding UploadedDate, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding ValidTo, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding Version}" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                    <ListBox.Styles>
+                                        <Style Selector="ListBoxItem">
+                                            <Setter Property="Background" Value="White"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                        </Style>
+                                        <Style Selector="ListBoxItem:selected">
+                                            <Setter Property="Background" Value="#E3F2FD"/>
+                                        </Style>
+                                        <Style Selector="ListBoxItem:pointerover">
+                                            <Setter Property="Background" Value="#F5F5F5"/>
+                                        </Style>
+                                    </ListBox.Styles>
+                                </ListBox>
+                            </Grid>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+
+                <!-- All Documents -->
+                <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="All Documents" FontWeight="Bold" FontSize="16" Margin="0,0,0,8"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                <TextBlock Text="Type:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox Width="180"
+                                          ItemsSource="{Binding AllDocumentsTypeFilterOptions}"
+                                          SelectedItem="{Binding AllDocumentsTypeFilter}"
+                                          Margin="0,0,8,0"/>
+                                <Button Content="Delete Document" 
+                                        Command="{Binding DeleteSelectedDocumentCommand}"
+                                        Padding="8,4"
+                                        FontSize="12"/>
+                                <Button Content="Delete All Documents (Test)" 
+                                        Command="{Binding DeleteAllDocumentsCommand}"
+                                        Padding="8,4"
+                                        FontSize="12"/>
+                            </StackPanel>
+                        </Grid>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="400">
+                            <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1100">
+                                <!-- Header Row -->
+                                <Border Grid.Row="0" 
+                                        Background="#F5F5F5" 
+                                        BorderBrush="#E0E0E0" 
+                                        BorderThickness="0,0,0,1"
+                                        Padding="8,10">
+                                    <Grid ColumnDefinitions="150,180,250,120,120,80,100">
+                                        <TextBlock Grid.Column="0" Text="Type" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="1" Text="Tenant Name" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="2" Text="File Name" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="3" Text="Uploaded" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="4" Text="Valid To" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="5" Text="Version" FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Grid.Column="6" Text="Source" FontWeight="Bold" FontSize="14"/>
+                                    </Grid>
+                                </Border>
+                                
+                                <!-- Data Rows -->
+                                <ListBox Grid.Row="1"
+                                         ItemsSource="{Binding Documents}"
+                                         SelectedItem="{Binding SelectedDocument}"
+                                         SelectionMode="Single"
+                                         Background="White"
+                                         BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#E0E0E0" 
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="8,8"
+                                                    Background="Transparent"
+                                                    Cursor="Hand">
+                                                <Grid ColumnDefinitions="150,180,250,120,120,80,100">
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding FileName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding UploadedAt, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding ValidTo, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="5" Text="{Binding Version}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="6" Text="{Binding Source}" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                    <ListBox.Styles>
+                                        <Style Selector="ListBoxItem">
+                                            <Setter Property="Background" Value="White"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                        </Style>
+                                        <Style Selector="ListBoxItem:selected">
+                                            <Setter Property="Background" Value="#E3F2FD"/>
+                                        </Style>
+                                        <Style Selector="ListBoxItem:pointerover">
+                                            <Setter Property="Background" Value="#F5F5F5"/>
+                                        </Style>
+                                    </ListBox.Styles>
+                                </ListBox>
+                            </Grid>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

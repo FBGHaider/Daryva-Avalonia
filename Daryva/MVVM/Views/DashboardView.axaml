@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Daryva.MVVM.Views.DashboardView"
+             x:CompileBindings="False"
+             Padding="16">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <!-- Header with actions -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0"
+                       Text="Dashboard"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Content="Add House" Command="{Binding AddHouseCommand}"/>
+                <Button Content="Add Tenant" Command="{Binding AddTenantCommand}"/>
+                <Button Content="Record Payment" Command="{Binding RecordPaymentCommand}"/>
+                <Button Content="Documents" Command="{Binding UploadDocumentCommand}"/>
+                <Button Content="Refresh" Command="{Binding LoadDashboardDataCommand}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Summary cards -->
+        <UniformGrid Grid.Row="1" Columns="4" Rows="1" Margin="0,12,0,12">
+            <Border BorderThickness="1" Padding="12" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Houses" FontWeight="Bold" />
+                    <TextBlock Text="{Binding HousesCount}" FontSize="18" FontWeight="Bold"/>
+                </StackPanel>
+            </Border>
+            <Border BorderThickness="1" Padding="12" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Active Tenants" FontWeight="Bold" />
+                    <TextBlock Text="{Binding ActiveTenantsCount}" FontSize="18" FontWeight="Bold"/>
+                </StackPanel>
+            </Border>
+            <Border BorderThickness="1" Padding="12" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Rent Due (This Month)" FontWeight="Bold" />
+                    <TextBlock Text="{Binding RentDueThisMonth, StringFormat='£{0:N2}'}" FontSize="18" FontWeight="Bold"/>
+                </StackPanel>
+            </Border>
+            <Border BorderThickness="1" Padding="12" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Overdue Rent" FontWeight="Bold" />
+                    <TextBlock Text="{Binding OverdueRentAmount, StringFormat='£{0:N2}'}" FontSize="18" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding OverdueRentCount, StringFormat='Tenancies: {0}'}" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Lists -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,0,0,0">
+            <!-- Rent due in next 7 days -->
+            <Border BorderThickness="1" Padding="10" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Rent Due in Next 7 Days" FontWeight="Bold" FontSize="16" Margin="0,0,0,8"/>
+                    <ItemsControl ItemsSource="{Binding RentDueInNext7Days}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderThickness="0,0,0,1" Padding="6,4">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding TenantName}" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding HouseAddress}" FontSize="12"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Amount, StringFormat='£{0:N2}'}" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding DueDateDisplay}" FontSize="12"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Overdue rent -->
+            <Border Grid.Column="1" BorderThickness="1" Padding="10" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Overdue Rent" FontWeight="Bold" FontSize="16" Margin="0,0,0,8"/>
+                    <ItemsControl ItemsSource="{Binding OverdueRent}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderThickness="0,0,0,1" Padding="6,4">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding TenantName}" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding HouseAddress}" FontSize="12"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Amount, StringFormat='£{0:N2}'}" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding DaysLate, StringFormat='{}{0} days late'}" FontSize="12"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

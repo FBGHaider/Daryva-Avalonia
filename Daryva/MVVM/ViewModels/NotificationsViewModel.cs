@@ -1,7 +1,9 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
@@ -16,8 +18,10 @@ namespace Daryva.MVVM.ViewModels
         private readonly ITenantService _tenantService;
         private readonly IDialogService _dialogService;
         private readonly IEmailSender _emailSender;
+        private readonly IQueueProcessedNotifier _queueProcessedNotifier;
+        private readonly ISettingsService _settingsService;
 
-        private string _selectedTab = "Compose";
+        private int _selectedTabIndex;
         private string _targetType = "Single";
         private int? _selectedTenantId;
         private int? _selectedHouseId;
@@ -28,22 +32,30 @@ namespace Daryva.MVVM.ViewModels
         private int? _selectedTemplateId;
         private string _subject = string.Empty;
         private string _body = string.Empty;
-        private DateTime _scheduledFor = DateTime.Now;
+        private DateTimeOffset? _scheduledFor = DateTimeOffset.Now;
+        private TimeSpan? _scheduledTime = new TimeSpan(15, 0, 0);
         private RecipientViewModel? _selectedRecipient;
         private NotificationRowViewModel? _selectedNotification;
+        private string _queueStatusFilter = "Pending";
+        private string _historyStatusFilter = "Sent";
+        private bool _isLoadingRecipients;
 
         public NotificationsViewModel(
             INotificationService notificationService,
             IHouseService houseService,
             ITenantService tenantService,
             IDialogService dialogService,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IQueueProcessedNotifier queueProcessedNotifier,
+            ISettingsService settingsService)
         {
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
+            _queueProcessedNotifier = queueProcessedNotifier ?? throw new ArgumentNullException(nameof(queueProcessedNotifier));
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
             Recipients = new ObservableCollection<RecipientViewModel>();
             Templates = new ObservableCollection<NotificationTemplate>();
@@ -52,22 +64,62 @@ namespace Daryva.MVVM.ViewModels
             QueueNotifications = new ObservableCollection<NotificationRowViewModel>();
             HistoryNotifications = new ObservableCollection<NotificationRowViewModel>();
 
+            TargetTypeOptions = new ObservableCollection<string> { "Single", "All", "House" };
+            StatusFilterOptions = new ObservableCollection<string> { "Due", "Overdue", "All" };
+            ChannelOptions = new ObservableCollection<string> { "Email", "SMS", "WhatsApp" };
+            QueueStatusOptions = new ObservableCollection<string> { "Pending", "Failed", "Cancelled", "All" };
+            HistoryStatusOptions = new ObservableCollection<string> { "Sent", "Failed", "All" };
+
             LoadRecipientsCommand = new RelayCommand(async _ => await LoadRecipientsAsync());
             LoadTemplatesCommand = new RelayCommand(async _ => await LoadTemplatesAsync());
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             LoadQueueCommand = new RelayCommand(async _ => await LoadQueueAsync());
             LoadHistoryCommand = new RelayCommand(async _ => await LoadHistoryAsync());
-            PreviewMessageCommand = new RelayCommand(_ => PreviewMessage());
+            PreviewMessageCommand = new RelayCommand(async _ => await PreviewMessageAsync());
             SendNowCommand = new RelayCommand(async _ => await SendNowAsync(), _ => CanSend());
             QueueCommand = new RelayCommand(async _ => await QueueAsync(), _ => CanSend());
             SendTestCommand = new RelayCommand(async _ => await SendTestAsync());
-            SendQueueItemCommand = new RelayCommand(async _ => await SendQueueItemAsync(), _ => SelectedNotification != null);
-            CancelQueueItemCommand = new RelayCommand(async _ => await CancelQueueItemAsync(), _ => SelectedNotification != null);
-            ViewDetailsCommand = new RelayCommand(_ => ViewDetails(), _ => SelectedNotification != null);
+            SendQueueItemCommand = new RelayCommand(async p => await SendQueueItemAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
+            CancelQueueItemCommand = new RelayCommand(async p => await CancelQueueItemAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
+            ViewDetailsCommand = new RelayCommand(async p => await ViewDetailsAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
 
-            // Don't load here - let the view's Loaded event handle it
-            // This prevents duplicate loading
+            _queueProcessedNotifier.QueueProcessed += OnQueueProcessed;
+
+            LoadTemplatesCommand.Execute(null);
+            LoadHousesCommand.Execute(null);
+            LoadTenantsCommand.Execute(null);
+            LoadRecipientsCommand.Execute(null);
+            _ = LoadDefaultNotificationChannelAsync();
+        }
+
+        private async Task LoadDefaultNotificationChannelAsync()
+        {
+            try
+            {
+                var ch = await _settingsService.GetSettingAsync("DefaultNotificationChannel", "Email") ?? "Email";
+                if (string.IsNullOrWhiteSpace(ch)) return;
+                var v = ch.Trim();
+                if (!ChannelOptions.Contains(v))
+                    return;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _selectedChannel = v;
+                    OnPropertyChanged(nameof(SelectedChannel));
+                    ((RelayCommand)SendNowCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)QueueCommand).RaiseCanExecuteChanged();
+                });
+            }
+            catch { /* ignore */ }
+        }
+
+        private void OnQueueProcessed(object? sender, int count)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                LoadQueueCommand.Execute(null);
+                LoadHistoryCommand.Execute(null);
+            });
         }
 
         public ICommand LoadRecipientsCommand { get; }
@@ -91,16 +143,34 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<NotificationRowViewModel> QueueNotifications { get; }
         public ObservableCollection<NotificationRowViewModel> HistoryNotifications { get; }
 
-        public string SelectedTab
+        public ObservableCollection<string> TargetTypeOptions { get; }
+        public ObservableCollection<string> StatusFilterOptions { get; }
+        public ObservableCollection<string> ChannelOptions { get; }
+        public ObservableCollection<string> QueueStatusOptions { get; }
+        public ObservableCollection<string> HistoryStatusOptions { get; }
+
+        public string QueueStatusFilter
         {
-            get => _selectedTab;
+            get => _queueStatusFilter;
+            set { var v = value ?? "Pending"; if (SetProperty(ref _queueStatusFilter, v)) LoadQueueCommand.Execute(null); }
+        }
+
+        public string HistoryStatusFilter
+        {
+            get => _historyStatusFilter;
+            set { var v = value ?? "Sent"; if (SetProperty(ref _historyStatusFilter, v)) LoadHistoryCommand.Execute(null); }
+        }
+
+        public int SelectedTabIndex
+        {
+            get => _selectedTabIndex;
             set
             {
-                if (SetProperty(ref _selectedTab, value))
+                if (SetProperty(ref _selectedTabIndex, value))
                 {
-                    if (value == "Queue")
+                    if (value == 1)
                         LoadQueueCommand.Execute(null);
-                    else if (value == "History")
+                    else if (value == 2)
                         LoadHistoryCommand.Execute(null);
                 }
             }
@@ -113,10 +183,18 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _targetType, value))
                 {
+                    OnPropertyChanged(nameof(IsTenantAndStatusVisible));
+                    OnPropertyChanged(nameof(IsHouseFilterVisible));
                     LoadRecipientsCommand.Execute(null);
                 }
             }
         }
+
+        /// <summary>True when TargetType is Single only. Use to show/hide Tenant and Status.</summary>
+        public bool IsTenantAndStatusVisible => string.Equals(TargetType, "Single", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>True when TargetType is House. Use to show House filter.</summary>
+        public bool IsHouseFilterVisible => string.Equals(TargetType, "House", StringComparison.OrdinalIgnoreCase);
 
         public int? SelectedTenantId
         {
@@ -147,10 +225,9 @@ namespace Daryva.MVVM.ViewModels
             get => _statusFilter;
             set
             {
-                if (SetProperty(ref _statusFilter, value))
-                {
+                var v = value ?? "Due";
+                if (SetProperty(ref _statusFilter, v))
                     LoadRecipientsCommand.Execute(null);
-                }
             }
         }
 
@@ -205,19 +282,33 @@ namespace Daryva.MVVM.ViewModels
         public string Subject
         {
             get => _subject;
-            set => SetProperty(ref _subject, value);
+            set
+            {
+                if (SetProperty(ref _subject, value))
+                    RaiseSendCommandsCanExecuteChanged();
+            }
         }
 
         public string Body
         {
             get => _body;
-            set => SetProperty(ref _body, value);
+            set
+            {
+                if (SetProperty(ref _body, value))
+                    RaiseSendCommandsCanExecuteChanged();
+            }
         }
 
-        public DateTime ScheduledFor
+        public DateTimeOffset? ScheduledFor
         {
             get => _scheduledFor;
-            set => SetProperty(ref _scheduledFor, value);
+            set => SetProperty(ref _scheduledFor, value ?? DateTimeOffset.Now);
+        }
+
+        public TimeSpan? ScheduledTime
+        {
+            get => _scheduledTime;
+            set => SetProperty(ref _scheduledTime, value ?? new TimeSpan(15, 0, 0));
         }
 
         public string PreviewText { get; set; } = string.Empty;
@@ -250,14 +341,18 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task LoadRecipientsAsync()
         {
+            if (_isLoadingRecipients) return;
+            _isLoadingRecipients = true;
             try
             {
+                var isHouse = string.Equals(TargetType, "House", StringComparison.OrdinalIgnoreCase);
+                var isSingle = string.Equals(TargetType, "Single", StringComparison.OrdinalIgnoreCase);
                 var filter = new RecipientFilter
                 {
                     TargetType = TargetType,
-                    TenantId = SelectedTenantId,
-                    HouseId = SelectedHouseId == 0 ? null : SelectedHouseId,
-                    StatusFilter = StatusFilter,
+                    TenantId = isSingle ? SelectedTenantId : null,
+                    HouseId = isHouse && SelectedHouseId.HasValue && SelectedHouseId.Value > 0 ? SelectedHouseId : null,
+                    StatusFilter = isSingle ? StatusFilter : null,
                     Month = SelectedMonth,
                     Year = SelectedYear
                 };
@@ -287,10 +382,16 @@ namespace Daryva.MVVM.ViewModels
                 {
                     SelectedRecipient = Recipients.First();
                 }
+
+                RaiseSendCommandsCanExecuteChanged();
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error loading recipients: {ex.Message}", "Error");
+                await _dialogService.ShowMessageAsync($"Error loading recipients: {ex.Message}", "Error");
+            }
+            finally
+            {
+                _isLoadingRecipients = false;
             }
         }
 
@@ -367,16 +468,19 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                Daryva.Services.DateTimeFormatProvider.DateFormat = dateFormat;
+
                 var filter = new NotificationFilter
                 {
-                    Status = "Pending"
+                    Status = string.Equals(QueueStatusFilter, "All", StringComparison.OrdinalIgnoreCase) ? null : QueueStatusFilter
                 };
                 var notifications = await _notificationService.GetNotificationsAsync(filter);
                 
                 QueueNotifications.Clear();
                 foreach (var notification in notifications)
                 {
-                    QueueNotifications.Add(new NotificationRowViewModel
+                    var row = new NotificationRowViewModel
                     {
                         NotificationId = notification.NotificationId,
                         ScheduledFor = notification.ScheduledFor,
@@ -389,7 +493,9 @@ namespace Daryva.MVVM.ViewModels
                         Subject = notification.Subject ?? "",
                         BodyPreview = notification.Body.Length > 60 ? notification.Body.Substring(0, 60) + "..." : notification.Body,
                         Status = notification.Status
-                    });
+                    };
+                    row.ScheduledDisplay = Daryva.Services.DateTimeFormatProvider.FormatDateTime(notification.ScheduledFor);
+                    QueueNotifications.Add(row);
                 }
             }
             catch (Exception ex)
@@ -402,16 +508,19 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
+                var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+                Daryva.Services.DateTimeFormatProvider.DateFormat = dateFormat;
+
                 var filter = new NotificationFilter
                 {
-                    Status = "Sent"
+                    Status = string.Equals(HistoryStatusFilter, "All", StringComparison.OrdinalIgnoreCase) ? null : HistoryStatusFilter
                 };
                 var notifications = await _notificationService.GetNotificationsAsync(filter);
                 
                 HistoryNotifications.Clear();
                 foreach (var notification in notifications.OrderByDescending(n => n.SentAt ?? n.ScheduledFor).Take(100))
                 {
-                    HistoryNotifications.Add(new NotificationRowViewModel
+                    var row = new NotificationRowViewModel
                     {
                         NotificationId = notification.NotificationId,
                         ScheduledFor = notification.ScheduledFor,
@@ -426,7 +535,12 @@ namespace Daryva.MVVM.ViewModels
                         BodyPreview = notification.Body.Length > 60 ? notification.Body.Substring(0, 60) + "..." : notification.Body,
                         Status = notification.Status,
                         Error = notification.Error
-                    });
+                    };
+                    row.ScheduledDisplay = Daryva.Services.DateTimeFormatProvider.FormatDateTime(notification.ScheduledFor);
+                    row.SentDisplay = notification.SentAt.HasValue 
+                        ? Daryva.Services.DateTimeFormatProvider.FormatDateTime(notification.SentAt.Value) 
+                        : "-";
+                    HistoryNotifications.Add(row);
                 }
             }
             catch (Exception ex)
@@ -443,13 +557,13 @@ namespace Daryva.MVVM.ViewModels
                 if (template != null)
                 {
                     Subject = template.SubjectTemplate ?? "";
-                    Body = template.BodyTemplate;
+                    Body = template.BodyTemplate ?? "";
                     PreviewMessageCommand.Execute(null);
                 }
             }
         }
 
-        private void PreviewMessage()
+        private async Task PreviewMessageAsync()
         {
             if (SelectedRecipient == null) return;
 
@@ -463,30 +577,38 @@ namespace Daryva.MVVM.ViewModels
                 PayInstructions = "Please contact your landlord for payment instructions."
             };
 
-            var renderedSubject = _notificationService.RenderTemplateAsync(Subject, null, context).Result;
-            var renderedBody = _notificationService.RenderTemplateAsync(Body, null, context).Result;
+            var renderedSubject = await _notificationService.RenderTemplateAsync(Subject, null, context);
+            var renderedBody = await _notificationService.RenderTemplateAsync(Body, null, context);
 
             PreviewText = $"Subject: {renderedSubject}\n\n{renderedBody}";
             OnPropertyChanged(nameof(PreviewText));
         }
 
+        private void RaiseSendCommandsCanExecuteChanged()
+        {
+            ((RelayCommand)SendNowCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)QueueCommand).RaiseCanExecuteChanged();
+        }
+
         private bool CanSend()
         {
-            return Recipients.Any(r => r.IsSelected) && !string.IsNullOrWhiteSpace(Body);
+            return Recipients.Any(r => r.IsSelected)
+                && !string.IsNullOrWhiteSpace(Subject)
+                && !string.IsNullOrWhiteSpace(Body);
         }
 
         private async Task SendNowAsync()
         {
             if (!CanSend())
             {
-                _dialogService.ShowMessage("Please select recipients and enter a message.", "Validation Error");
+                _dialogService.ShowMessage("Please select a target (e.g. Single + Tenant, or All), ensure recipients are loaded, enter Subject and Body, then try again.", "Validation Error");
                 return;
             }
 
             var selectedRecipients = Recipients.Where(r => r.IsSelected).ToList();
             var count = selectedRecipients.Count;
 
-            var confirmed = _dialogService.ShowConfirmation(
+            var confirmed = await _dialogService.ShowConfirmationAsync(
                 $"Send {count} notification(s) now?",
                 "Confirm Send");
 
@@ -523,9 +645,17 @@ namespace Daryva.MVVM.ViewModels
                     };
 
                     var notification = await _notificationService.QueueNotificationAsync(dto);
-                    if (await _notificationService.SendNotificationAsync(notification.NotificationId))
+
+                    if (SelectedChannel == "Email")
                     {
-                        successCount++;
+                        var toAddress = (recipient.Email ?? "").Trim();
+                        if (await _notificationService.SendNotificationWithContentAsync(notification.NotificationId, toAddress, renderedSubject, renderedBody))
+                            successCount++;
+                    }
+                    else
+                    {
+                        if (await _notificationService.SendNotificationAsync(notification.NotificationId))
+                            successCount++;
                     }
                 }
 
@@ -543,7 +673,7 @@ namespace Daryva.MVVM.ViewModels
         {
             if (!CanSend())
             {
-                _dialogService.ShowMessage("Please select recipients and enter a message.", "Validation Error");
+                _dialogService.ShowMessage("Please select a target (e.g. Single + Tenant, or All), ensure recipients are loaded, enter Subject and Body, then try again.", "Validation Error");
                 return;
             }
 
@@ -552,6 +682,10 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
+                var d = ScheduledFor?.DateTime.Date ?? DateTime.Today;
+                var t = ScheduledTime ?? new TimeSpan(15, 0, 0);
+                var dt = d.Add(t);
+
                 foreach (var recipient in selectedRecipients)
                 {
                     var context = new NotificationContext
@@ -575,14 +709,14 @@ namespace Daryva.MVVM.ViewModels
                         Type = GetNotificationType(),
                         Subject = renderedSubject,
                         Body = renderedBody,
-                        ScheduledFor = ScheduledFor,
+                        ScheduledFor = dt,
                         TemplateId = SelectedTemplateId
                     };
 
                     await _notificationService.QueueNotificationAsync(dto);
                 }
 
-                _dialogService.ShowMessage($"Queued {count} notification(s) for {ScheduledFor:g}.", "Queued");
+                _dialogService.ShowMessage($"Queued {count} notification(s) for {dt:g}.", "Queued");
                 LoadQueueCommand.Execute(null);
             }
             catch (Exception ex)
@@ -600,7 +734,7 @@ namespace Daryva.MVVM.ViewModels
             }
 
             // Prompt for email address
-            var emailAddress = _dialogService.ShowInputDialog(
+            var emailAddress = await _dialogService.ShowInputDialogAsync(
                 "Enter your email address to receive the test message:",
                 "Send Test Email",
                 "");
@@ -656,13 +790,14 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private async Task SendQueueItemAsync()
+        private async Task SendQueueItemAsync(object? parameter)
         {
-            if (SelectedNotification == null) return;
+            var row = (parameter as NotificationRowViewModel) ?? SelectedNotification;
+            if (row == null) return;
 
             try
             {
-                if (await _notificationService.SendNotificationAsync(SelectedNotification.NotificationId))
+                if (await _notificationService.SendNotificationAsync(row.NotificationId))
                 {
                     _dialogService.ShowMessage("Notification sent successfully.", "Success");
                     LoadQueueCommand.Execute(null);
@@ -679,11 +814,12 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private async Task CancelQueueItemAsync()
+        private async Task CancelQueueItemAsync(object? parameter)
         {
-            if (SelectedNotification == null) return;
+            var row = (parameter as NotificationRowViewModel) ?? SelectedNotification;
+            if (row == null) return;
 
-            var confirmed = _dialogService.ShowConfirmation(
+            var confirmed = await _dialogService.ShowConfirmationAsync(
                 "Cancel this queued notification?",
                 "Confirm Cancel");
 
@@ -691,7 +827,7 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
-                await _notificationService.CancelNotificationAsync(SelectedNotification.NotificationId);
+                await _notificationService.CancelNotificationAsync(row.NotificationId);
                 _dialogService.ShowMessage("Notification cancelled.", "Success");
                 LoadQueueCommand.Execute(null);
             }
@@ -701,11 +837,12 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void ViewDetails()
+        private async Task ViewDetailsAsync(object? parameter)
         {
-            if (SelectedNotification == null) return;
+            var row = (parameter as NotificationRowViewModel) ?? SelectedNotification;
+            if (row == null) return;
 
-            var notification = _notificationService.GetNotificationByIdAsync(SelectedNotification.NotificationId).Result;
+            var notification = await _notificationService.GetNotificationByIdAsync(row.NotificationId);
             if (notification != null)
             {
                 var details = $"Subject: {notification.Subject}\n\nBody:\n{notification.Body}";
@@ -713,7 +850,7 @@ namespace Daryva.MVVM.ViewModels
                 {
                     details += $"\n\nError: {notification.Error}";
                 }
-                _dialogService.ShowMessage(details, "Notification Details");
+                await _dialogService.ShowMessageAsync(details, "Notification Details");
             }
         }
 

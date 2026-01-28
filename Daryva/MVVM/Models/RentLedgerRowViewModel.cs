@@ -8,6 +8,7 @@ namespace Daryva.MVVM.Models
         public string HouseAddress { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
         public DateTime DueDate { get; set; }
+        public string DueDateDisplay { get; set; } = string.Empty;
         public decimal AmountDue { get; set; }
         public decimal AmountPaid { get; set; }
         public decimal Balance => AmountDue - AmountPaid;

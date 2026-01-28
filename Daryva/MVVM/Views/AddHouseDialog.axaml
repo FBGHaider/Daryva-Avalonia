@@ -1,0 +1,60 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Daryva.MVVM.Views.AddHouseDialog"
+        x:CompileBindings="False"
+        Title="Add House" 
+        Height="450" 
+        Width="500"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Add New House" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="15">
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Address Line 1:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding AddressLine1}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Address Line 2:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding AddressLine2}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="City:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding City}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Postcode:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding Postcode}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Total Rooms:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding TotalRooms}"/>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" Spacing="10">
+            <Button Content="Cancel" Width="100" Height="35" Click="CancelButton_Click"/>
+            <Button Content="Save" Width="100" Height="35" Command="{Binding SaveCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>

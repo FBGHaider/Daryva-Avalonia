@@ -19,7 +19,7 @@ namespace Daryva.MVVM.ViewModels
         private bool _isEditMode;
         private int _expenseId;
         private int? _selectedHouseId;
-        private DateTime _dateIncurred = DateTime.Today;
+        private DateTimeOffset? _dateIncurred = DateTimeOffset.Now;
         private string _category = "Other";
         private decimal _amount;
         private string _vendor = string.Empty;
@@ -79,7 +79,20 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _selectedHouseId, value);
         }
 
-        public DateTime DateIncurred
+        private House? _selectedHouse;
+        public House? SelectedHouse
+        {
+            get => _selectedHouse;
+            set
+            {
+                if (SetProperty(ref _selectedHouse, value))
+                {
+                    SelectedHouseId = value?.HouseId;
+                }
+            }
+        }
+
+        public DateTimeOffset? DateIncurred
         {
             get => _dateIncurred;
             set => SetProperty(ref _dateIncurred, value);
@@ -164,7 +177,7 @@ namespace Daryva.MVVM.ViewModels
 
                 _expenseId = expense.HouseExpenseId;
                 SelectedHouseId = expense.HouseId;
-                DateIncurred = expense.DateIncurred;
+                DateIncurred = new DateTimeOffset(expense.DateIncurred);
                 Category = expense.Category;
                 Amount = expense.Amount;
                 Vendor = expense.Vendor ?? string.Empty;
@@ -180,14 +193,14 @@ namespace Daryva.MVVM.ViewModels
 
         private bool CanSave()
         {
-            return SelectedHouseId.HasValue && Amount > 0;
+            return SelectedHouseId.HasValue && Amount > 0 && DateIncurred.HasValue;
         }
 
         private async Task SaveAsync()
         {
             if (!CanSave())
             {
-                _dialogService.ShowMessage("Please fill in all required fields (House and Amount).", "Validation Error");
+                _dialogService.ShowMessage("Please fill in all required fields (House, Date, and Amount).", "Validation Error");
                 return;
             }
 
@@ -196,7 +209,7 @@ namespace Daryva.MVVM.ViewModels
                 var expense = new HouseExpense
                 {
                     HouseId = SelectedHouseId!.Value,
-                    DateIncurred = DateIncurred,
+                    DateIncurred = DateIncurred!.Value.DateTime,
                     Category = Category,
                     Amount = Amount,
                     Vendor = string.IsNullOrWhiteSpace(Vendor) ? null : Vendor,
@@ -237,7 +250,7 @@ namespace Daryva.MVVM.ViewModels
                 var expense = new HouseExpense
                 {
                     HouseId = SelectedHouseId!.Value,
-                    DateIncurred = DateIncurred,
+                    DateIncurred = DateIncurred!.Value.DateTime,
                     Category = Category,
                     Amount = Amount,
                     Vendor = string.IsNullOrWhiteSpace(Vendor) ? null : Vendor,
@@ -250,7 +263,7 @@ namespace Daryva.MVVM.ViewModels
 
                 // Reset form for next entry
                 SelectedHouseId = null;
-                DateIncurred = DateTime.Today;
+                DateIncurred = DateTimeOffset.Now;
                 Category = "Other";
                 Amount = 0;
                 Vendor = string.Empty;

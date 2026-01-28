@@ -39,9 +39,9 @@ namespace Daryva.Services.Business
             await _expenseRepository.DeleteExpenseAsync(expenseId);
         }
 
-        public async Task<ExpenseSummary> GetExpenseSummaryAsync(int? houseId = null, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<ExpenseSummary> GetExpenseSummaryAsync(int? houseId = null, DateTime? startDate = null, DateTime? endDate = null, string? category = null, string? searchTerm = null)
         {
-            var expenses = (await _expenseRepository.GetAllExpensesAsync(houseId, startDate, endDate, null, null)).ToList();
+            var expenses = (await _expenseRepository.GetAllExpensesAsync(houseId, startDate, endDate, category, searchTerm)).ToList();
             
             var summary = new ExpenseSummary
             {

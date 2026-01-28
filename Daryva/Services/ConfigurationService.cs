@@ -14,6 +14,7 @@ namespace Daryva.Services
             AppDomain.CurrentDomain.BaseDirectory,
             "App.config.local");
         private static Dictionary<string, string>? _localSettings;
+        private static string? _localConnectionString;
 
         static ConfigurationService()
         {
@@ -26,48 +27,59 @@ namespace Daryva.Services
         private static void LoadLocalConfig()
         {
             _localSettings = new Dictionary<string, string>();
-            
+            _localConnectionString = null;
+
             if (File.Exists(LocalConfigPath))
             {
                 try
                 {
                     var doc = new XmlDocument();
                     doc.Load(LocalConfigPath);
-                    
-                    var nodes = doc.SelectNodes("//configuration/appSettings/add");
-                    if (nodes != null)
+
+                    var appSettingsNodes = doc.SelectNodes("//configuration/appSettings/add");
+                    if (appSettingsNodes != null)
                     {
-                        foreach (XmlNode node in nodes)
+                        foreach (XmlNode node in appSettingsNodes)
                         {
                             var key = node.Attributes?["key"]?.Value;
                             var value = node.Attributes?["value"]?.Value;
                             if (key != null && value != null)
-                            {
                                 _localSettings[key] = value;
-                            }
                         }
+                    }
+
+                    var csNode = doc.SelectSingleNode($"//configuration/connectionStrings/add[@name='{DefaultConnectionStringName}']");
+                    if (csNode != null)
+                    {
+                        var cs = csNode.Attributes?["connectionString"]?.Value;
+                        if (!string.IsNullOrWhiteSpace(cs))
+                            _localConnectionString = cs.Trim();
                     }
                 }
                 catch
                 {
-                    // If local config is invalid, ignore it
                     _localSettings.Clear();
+                    _localConnectionString = null;
                 }
             }
         }
 
         /// <summary>
         /// Gets the database connection string from configuration.
+        /// Uses App.config.local connection string if present, otherwise App.config.
         /// </summary>
         public string GetConnectionString()
         {
+            if (!string.IsNullOrWhiteSpace(_localConnectionString))
+                return _localConnectionString;
+
             var connectionString = ConfigurationManager.ConnectionStrings[DefaultConnectionStringName]?.ConnectionString;
-            
+
             if (string.IsNullOrWhiteSpace(connectionString))
             {
                 throw new InvalidOperationException(
                     $"Connection string '{DefaultConnectionStringName}' is not configured. " +
-                    "Please add it to the App.config file.");
+                    "Please add it to the App.config file, or to App.config.local for a direct (non-Docker) database.");
             }
 
             return connectionString;

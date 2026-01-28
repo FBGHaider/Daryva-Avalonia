@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
@@ -31,7 +33,8 @@ namespace Daryva.MVVM.ViewModels
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             SearchCommand = new RelayCommand(async _ => await SearchHousesAsync());
             AddHouseCommand = new RelayCommand(_ => ShowAddHouseDialog());
-            RemoveHouseCommand = new RelayCommand(_ => RemoveHouseAsync(), _ => SelectedHouse != null);
+            RemoveHouseCommand = new RelayCommand(async _ => await RemoveHouseAsync(), _ => SelectedHouse != null);
+            ExportReportCommand = new RelayCommand(async _ => await ExportHouseReportAsync(), _ => SelectedHouse != null);
             ExportReportCommand = new RelayCommand(async _ => await ExportHouseReportAsync(), _ => SelectedHouse != null);
 
             LoadHousesCommand.Execute(null);
@@ -77,6 +80,8 @@ namespace Daryva.MVVM.ViewModels
                 if (SetProperty(ref _selectedHouse, value))
                 {
                     ((RelayCommand)RemoveHouseCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)ExportReportCommand).RaiseCanExecuteChanged();
+                    System.Diagnostics.Debug.WriteLine($"SelectedHouse changed to: {value?.AddressLine1 ?? "null"}");
                 }
             }
         }
@@ -86,18 +91,27 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 var houses = await _houseService.GetAllHousesAsync();
-                Houses.Clear();
-                foreach (var house in houses)
+                
+                // Clear and reload on UI thread
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    if (!ShowActiveOnly || house.ActiveTenantCount > 0)
+                    Houses.Clear();
+                    foreach (var house in houses)
                     {
-                        Houses.Add(house);
+                        if (!ShowActiveOnly || house.ActiveTenantCount > 0)
+                        {
+                            Houses.Add(house);
+                        }
                     }
-                }
+                });
+                
+                System.Diagnostics.Debug.WriteLine($"Loaded {Houses.Count} houses into the collection");
+                OnPropertyChanged(nameof(Houses));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading houses: {ex.Message}");
+                _dialogService.ShowMessage($"Error loading houses: {ex.Message}\n\nStack trace: {ex.StackTrace}", "Database Error");
+                System.Diagnostics.Debug.WriteLine($"Error loading houses: {ex}");
             }
         }
 
@@ -112,15 +126,18 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 var houses = await _houseService.SearchHousesAsync(SearchTerm);
+                
                 Houses.Clear();
                 foreach (var house in houses)
                 {
                     Houses.Add(house);
                 }
+                OnPropertyChanged(nameof(Houses));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error searching houses: {ex.Message}");
+                _dialogService.ShowMessage($"Error searching houses: {ex.Message}", "Database Error");
+                System.Diagnostics.Debug.WriteLine($"Error searching houses: {ex}");
             }
         }
 
@@ -128,41 +145,145 @@ namespace Daryva.MVVM.ViewModels
         {
             var viewModel = _serviceProvider.GetRequiredService<AddHouseViewModel>();
             var dialog = new MVVM.Views.AddHouseDialog(viewModel);
-            dialog.Owner = System.Windows.Application.Current.MainWindow;
-            if (dialog.ShowDialog() == true)
+            var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                ? desktop.MainWindow 
+                : null;
+            if (mainWindow != null)
             {
-                LoadHousesCommand.Execute(null);
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                dialog.ShowDialog(mainWindow);
             }
+            else
+            {
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                dialog.Show();
+            }
+            LoadHousesCommand.Execute(null);
         }
 
-        private async void RemoveHouseAsync()
+        private async Task RemoveHouseAsync()
         {
             if (SelectedHouse == null) return;
 
+            var selectedHouse = SelectedHouse; // Capture reference before deletion
+
             // Check if house has active tenants
-            if (SelectedHouse.ActiveTenantCount > 0)
+            if (selectedHouse.ActiveTenantCount > 0)
             {
                 _dialogService.ShowMessage(
-                    $"Cannot delete house '{SelectedHouse.AddressLine1}' because it has {SelectedHouse.ActiveTenantCount} active tenant(s). Please end all tenancies first.",
+                    $"Cannot delete house '{selectedHouse.AddressLine1}' because it has {selectedHouse.ActiveTenantCount} active tenant(s). Please end all tenancies first.",
                     "Cannot Delete House");
                 return;
             }
 
-            var confirmed = _dialogService.ShowConfirmation(
-                $"Are you sure you want to delete house '{SelectedHouse.AddressLine1}'?\n\nThis action cannot be undone.",
-                "Delete House");
+            // Show confirmation dialog directly to avoid deadlock with DialogService
+            var confirmed = await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
+
+                if (mainWindow == null) return false;
+
+                var tcs = new System.Threading.Tasks.TaskCompletionSource<bool>();
+
+                var yesButton = new Avalonia.Controls.Button
+                {
+                    Content = "Yes",
+                    Width = 80
+                };
+                var noButton = new Avalonia.Controls.Button
+                {
+                    Content = "No",
+                    Width = 80
+                };
+
+                var msgBox = new Avalonia.Controls.Window
+                {
+                    Title = "Delete House",
+                    Width = 400,
+                    Height = 200,
+                    WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner,
+                    CanResize = false,
+                    ShowInTaskbar = false,
+                    Content = new Avalonia.Controls.StackPanel
+                    {
+                        Margin = new Avalonia.Thickness(20),
+                        Children =
+                        {
+                            new Avalonia.Controls.TextBlock
+                            {
+                                Text = $"Are you sure you want to delete house '{selectedHouse.AddressLine1}'?\n\nThis action cannot be undone.",
+                                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                                Margin = new Avalonia.Thickness(0, 0, 0, 20)
+                            },
+                            new Avalonia.Controls.StackPanel
+                            {
+                                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                                Spacing = 10,
+                                Children =
+                                {
+                                    yesButton,
+                                    noButton
+                                }
+                            }
+                        }
+                    }
+                };
+
+                yesButton.Click += (s, e) => 
+                { 
+                    tcs.TrySetResult(true); 
+                    msgBox.Close(); 
+                };
+                noButton.Click += (s, e) => 
+                { 
+                    tcs.TrySetResult(false); 
+                    msgBox.Close(); 
+                };
+
+                // Show dialog - this will block until closed
+                await msgBox.ShowDialog(mainWindow);
+                
+                // If dialog closed without button click, return false
+                if (!tcs.Task.IsCompleted)
+                    tcs.TrySetResult(false);
+
+                return await tcs.Task;
+            });
 
             if (!confirmed) return;
 
             try
             {
-                await _houseService.DeleteHouseAsync(SelectedHouse.HouseId);
+                var houseId = selectedHouse.HouseId;
+                
+                // Run database operation on background thread to avoid blocking UI
+                await Task.Run(async () =>
+                {
+                    await _houseService.DeleteHouseAsync(houseId).ConfigureAwait(false);
+                }).ConfigureAwait(true); // Return to UI thread after completion
+                
+                // Update UI on UI thread
+                // Remove from collection
+                var houseToRemove = Houses.FirstOrDefault(h => h.HouseId == houseId);
+                if (houseToRemove != null)
+                {
+                    Houses.Remove(houseToRemove);
+                }
+                
+                // Clear selection
+                SelectedHouse = null;
+                
+                // Show success message
                 _dialogService.ShowMessage("House deleted successfully.", "Success");
-                LoadHousesCommand.Execute(null);
             }
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error deleting house: {ex.Message}", "Error");
+                System.Diagnostics.Debug.WriteLine($"Error deleting house: {ex}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 

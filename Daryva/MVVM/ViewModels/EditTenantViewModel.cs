@@ -2,7 +2,9 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
@@ -45,17 +47,16 @@ namespace Daryva.MVVM.ViewModels
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             
             // Load houses asynchronously after construction
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(async () =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                try
+                _ = LoadHousesAsync().ContinueWith(task =>
                 {
-                    await LoadHousesAsync();
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error loading houses in background: {ex.Message}");
-                }
-            }));
+                    if (task.IsFaulted)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error loading houses in background: {task.Exception?.GetBaseException()?.Message}");
+                    }
+                });
+            });
         }
 
         public event EventHandler? CloseRequested;
@@ -172,7 +173,7 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 var houses = await _houseService.GetAllHousesAsync();
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     Houses.Clear();
                     foreach (var house in houses)

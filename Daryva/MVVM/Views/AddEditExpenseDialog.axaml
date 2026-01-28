@@ -1,0 +1,108 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+        x:Class="Daryva.MVVM.Views.AddEditExpenseDialog"
+        x:CompileBindings="False"
+        Title="Add Expense" 
+        Height="550" 
+        Width="500"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <Window.Resources>
+        <converters:BoolToTitleConverter x:Key="BoolToTitleConverter"/>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" 
+                   Text="{Binding IsEditMode, Converter={StaticResource BoolToTitleConverter}, ConverterParameter='Edit Expense|Add Expense'}" 
+                   FontSize="20" FontWeight="Bold" Margin="0,0,0,20"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="15">
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="House:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1" 
+                              ItemsSource="{Binding Houses}"
+                              SelectedItem="{Binding SelectedHouse}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock>
+                                    <Run Text="{Binding AddressLine1}"/>
+                                    <Run Text=", "/>
+                                    <Run Text="{Binding City}"/>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Date Incurred:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <DatePicker Grid.Column="1" SelectedDate="{Binding DateIncurred}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Category:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1" 
+                              SelectedItem="{Binding Category}" 
+                              ItemsSource="{Binding Categories}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Amount:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding Amount}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Vendor:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding Vendor}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Payment Method:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding PaymentMethod}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Reference:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding Reference}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Notes:" VerticalAlignment="Top" Margin="0,5,0,0"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" 
+                             Text="{Binding Notes}" 
+                             TextWrapping="Wrap" 
+                             AcceptsReturn="True"
+                             MinHeight="60"/>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" Spacing="10">
+            <Button Content="Save" 
+                    Command="{Binding SaveCommand}" 
+                    Width="100" 
+                    Height="35"/>
+            <Button Content="Cancel" 
+                    Command="{Binding CancelCommand}" 
+                    Width="100" 
+                    Height="35"/>
+        </StackPanel>
+    </Grid>
+</Window>

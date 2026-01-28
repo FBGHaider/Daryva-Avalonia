@@ -63,6 +63,9 @@ namespace Daryva.Services
             services.AddSingleton<INavigationService, NavigationService>();
             services.AddSingleton<IDialogService, DialogService>();
 
+            services.AddSingleton<IQueueProcessedNotifier, QueueProcessedNotifier>();
+            services.AddSingleton<ScheduledNotificationProcessor>();
+
             return services;
         }
 
@@ -73,6 +76,8 @@ namespace Daryva.Services
         /// <returns>The service collection for method chaining.</returns>
         public static IServiceCollection AddViewModels(this IServiceCollection services)
         {
+            // Main ViewModel for Avalonia shell
+            services.AddSingleton<Daryva.MVVM.ViewModels.MainViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.MainWindowViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.DashboardViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.HousesViewModel>();

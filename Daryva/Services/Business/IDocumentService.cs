@@ -43,6 +43,11 @@ namespace Daryva.Services.Business
         Task<IEnumerable<DocumentStatusItem>> GetDocumentStatusChecklistAsync(int? tenantId = null, int? tenancyId = null, int? houseId = null);
 
         /// <summary>
+        /// Gets document types available for the given owner (Tenant, Tenancy, or House).
+        /// </summary>
+        IEnumerable<string> GetDocumentTypesForOwner(string owner);
+
+        /// <summary>
         /// Uploads a document with file handling.
         /// </summary>
         Task<Document> UploadDocumentAsync(Document document, byte[] fileBytes, string? storageRootPath = null);

@@ -13,14 +13,16 @@ namespace Daryva.MVVM.ViewModels
         private readonly ITenantService _tenantService;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
+        private readonly ISettingsService _settingsService;
         private string _searchTerm = string.Empty;
         private Tenant? _selectedTenant;
 
-        public TenantsViewModel(ITenantService tenantService, IDialogService dialogService, IServiceProvider serviceProvider)
+        public TenantsViewModel(ITenantService tenantService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService)
         {
             _tenantService = tenantService;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             Tenants = new ObservableCollection<Tenant>();
 
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
@@ -78,7 +80,8 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading tenants: {ex.Message}");
+                _dialogService.ShowMessage($"Error loading tenants: {ex.Message}\n\nStack trace: {ex.StackTrace}", "Database Error");
+                System.Diagnostics.Debug.WriteLine($"Error loading tenants: {ex}");
             }
         }
 
@@ -101,21 +104,31 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error searching tenants: {ex.Message}");
+                _dialogService.ShowMessage($"Error searching tenants: {ex.Message}", "Database Error");
+                System.Diagnostics.Debug.WriteLine($"Error searching tenants: {ex}");
             }
         }
 
-        private void ShowAddTenantDialog()
+        private async void ShowAddTenantDialog()
         {
             try
             {
                 var viewModel = _serviceProvider.GetRequiredService<AddTenantViewModel>();
                 var dialog = new MVVM.Views.AddTenantDialog(viewModel);
-                dialog.Owner = System.Windows.Application.Current.MainWindow;
-                if (dialog.ShowDialog() == true)
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
+                if (mainWindow != null)
                 {
-                    LoadTenantsCommand.Execute(null);
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    await dialog.ShowDialog(mainWindow);
                 }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+                await LoadTenantsAsync();
             }
             catch (Exception ex)
             {
@@ -133,11 +146,20 @@ namespace Daryva.MVVM.ViewModels
                 var viewModel = _serviceProvider.GetRequiredService<EditTenantViewModel>();
                 await viewModel.LoadTenantAsync(SelectedTenant);
                 var dialog = new MVVM.Views.EditTenantDialog(viewModel);
-                dialog.Owner = System.Windows.Application.Current.MainWindow;
-                if (dialog.ShowDialog() == true)
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+                    ? desktop.MainWindow 
+                    : null;
+                if (mainWindow != null)
                 {
-                    LoadTenantsCommand.Execute(null);
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    await dialog.ShowDialog(mainWindow);
                 }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+                await LoadTenantsAsync();
             }
             catch (Exception ex)
             {
@@ -150,7 +172,8 @@ namespace Daryva.MVVM.ViewModels
         {
             if (SelectedTenant == null) return;
 
-            var confirmed = _dialogService.ShowConfirmation(
+            var requireConfirm = await _settingsService.GetSettingAsync<bool>("ConfirmDestructiveActions", true) ?? true;
+            var confirmed = !requireConfirm || await _dialogService.ShowConfirmationAsync(
                 $"Are you sure you want to archive tenant '{SelectedTenant.FullName}'?\n\nThis will mark them as archived but keep their data.",
                 "Archive Tenant");
 

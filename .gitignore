@@ -362,6 +362,14 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Local configuration files with sensitive data
+# Local configuration files with sensitive data (SMTP, etc.)
 LandLordBuddy/App.config.local
+Daryva/App.config.local
 *.config.local
+
+# Database backups and scripts with credentials/passwords
+*.bak
+DaryvaDB_backup.bak
+backup-from-container.ps1
+restore-database.ps1
+check-database.ps1
