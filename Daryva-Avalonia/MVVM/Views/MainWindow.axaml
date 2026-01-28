@@ -1,0 +1,109 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Daryva.MVVM.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="Daryva.MVVM.Views.MainWindow"
+        x:CompileBindings="False"
+        Title="Daryva"
+        Width="1200" Height="800"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <converters:BoolToWidthConverter x:Key="BoolToWidthConverter"/>
+        <converters:BoolToChevronConverter x:Key="BoolToChevronConverter"/>
+        <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+        <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter"/>
+    </Window.Resources>
+    <Window.Styles>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+    </Window.Styles>
+    <Grid x:Name="MainGrid" RowDefinitions="*" Background="{DynamicResource PrimaryBackgroundBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToWidthConverter}}"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- Left Navigation Rail -->
+        <Border Grid.Row="0" Grid.Column="0" 
+                Background="{DynamicResource NavigationBackgroundBrush}" 
+                BorderBrush="{DynamicResource BorderBrush}" 
+                BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <!-- App Title -->
+                <TextBlock Grid.Row="0" 
+                          Text="Daryva" 
+                          FontSize="20" 
+                          FontWeight="SemiBold" 
+                          Foreground="{DynamicResource PrimaryTextBrush}"
+                          Margin="16,20,16,24"
+                          HorizontalAlignment="Left"
+                          IsVisible="{Binding IsNavigationCollapsed, Converter={StaticResource InvertBoolConverter}}"/>
+                
+                <!-- Navigation Items -->
+                <ListBox Grid.Row="1" 
+                        ItemsSource="{Binding NavigationItems}"
+                        SelectedItem="{Binding SelectedNavigationItem}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        SelectionMode="Single"
+                        Margin="0,0,0,8">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" 
+                                      Spacing="12"
+                                      HorizontalAlignment="{Binding DataContext.IsNavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToAlignmentConverter}}">
+                                <TextBlock Text="{Binding Icon}" 
+                                          FontSize="18" 
+                                          VerticalAlignment="Center"
+                                          Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Text="{Binding Title}" 
+                                          FontSize="14" 
+                                          VerticalAlignment="Center"
+                                          Foreground="{DynamicResource PrimaryTextBrush}"
+                                          IsVisible="{Binding DataContext.IsNavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InvertBoolConverter}}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Toggle Button -->
+                <Button Grid.Row="2"
+                        Command="{Binding ToggleNavigationCommand}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom"
+                        Margin="8,8,8,8"
+                        Padding="4"
+                        Width="24"
+                        Height="24"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand">
+                    <TextBlock Text="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToChevronConverter}}" 
+                              FontSize="12"
+                              Foreground="{DynamicResource PrimaryTextBrush}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area -->
+        <ContentControl Grid.Row="0" Grid.Column="1" 
+                       Content="{Binding CurrentViewModel}"
+                       Background="{DynamicResource PrimaryBackgroundBrush}"
+                       Margin="0"/>
+    </Grid>
+</Window>

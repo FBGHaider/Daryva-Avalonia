@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:conv="clr-namespace:Daryva.MVVM.Converters;assembly=Daryva"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="500"
+             x:Class="Daryva.MVVM.Views.RentSettingsView"
+             x:CompileBindings="False">
+    <UserControl.Resources>
+        <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+    </UserControl.Resources>
+    <ScrollViewer>
+        <StackPanel Margin="0,0,0,24" Spacing="24">
+            <!-- Header -->
+            <TextBlock Text="Rent &amp; Finance Settings"
+                       FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+            <!-- Rent Defaults -->
+            <Border BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                    Padding="20,16">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="Rent Defaults"
+                               FontSize="13" FontWeight="Medium" Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+
+                    <!-- Default Rent Due Day -->
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
+                        <TextBlock Text="Default Rent Due Day:"
+                                   VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,12,0"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <TextBox Text="{Binding DefaultRentDueDay, Mode=TwoWay, Converter={StaticResource IntToStringConverter}}"
+                                     MinWidth="80"
+                                     Padding="8,6"/>
+                            <TextBlock Text="(1-28)"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Grace Period -->
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
+                        <TextBlock Text="Grace Period (days):"
+                                   VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,12,0"/>
+                        <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="4">
+                            <TextBox Text="{Binding RentGracePeriodDays, Mode=TwoWay, Converter={StaticResource IntToStringConverter}}"
+                                     MinWidth="80"
+                                     Padding="8,6"/>
+                            <TextBlock Text="Overdue starts after: Due date + grace period"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Checkboxes -->
+                    <StackPanel Spacing="12" Margin="0,8,0,0">
+                        <CheckBox IsChecked="{Binding AllowPartialPayments, Mode=TwoWay}"
+                                  Content="Allow partial payments"/>
+                        <CheckBox IsChecked="{Binding AllowOverpayment, Mode=TwoWay}"
+                                  Content="Allow overpayment → credit balance"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Action buttons -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="12">
+                <Button Content="Reset"
+                        Command="{Binding ResetCommand}"
+                        Background="Transparent"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"/>
+                <Button Content="Save"
+                        Command="{Binding SaveCommand}"
+                        Background="#2196F3"
+                        Foreground="White"
+                        BorderThickness="0"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

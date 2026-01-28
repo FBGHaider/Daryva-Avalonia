@@ -1,0 +1,132 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Daryva.MVVM.Views.DashboardView"
+             x:CompileBindings="False"
+             Padding="24">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="20">
+            <!-- Header -->
+            <TextBlock Text="Dashboard"
+                       FontSize="28"
+                       FontWeight="Bold"/>
+
+            <!-- Summary Cards Row -->
+            <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,8,0,0">
+                <Grid.Styles>
+                    <Style Selector="Border.stat-card">
+                        <Setter Property="Padding" Value="16"/>
+                        <Setter Property="CornerRadius" Value="8"/>
+                        <Setter Property="Margin" Value="0,0,12,0"/>
+                    </Style>
+                    <Style Selector="Border.stat-card:last-child">
+                        <Setter Property="Margin" Value="0"/>
+                    </Style>
+                    <Style Selector="TextBlock.stat-label">
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="Margin" Value="0,0,0,8"/>
+                    </Style>
+                    <Style Selector="TextBlock.stat-value">
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="FontSize" Value="28"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                    </Style>
+                    <Style Selector="TextBlock.stat-subvalue">
+                        <Setter Property="Foreground" Value="#CCCCCC"/>
+                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="Margin" Value="0,4,0,0"/>
+                    </Style>
+                </Grid.Styles>
+                
+                <!-- Houses Card -->
+                <Border Grid.Column="0" Classes="stat-card" Background="{DynamicResource CardHousesBackgroundBrush}">
+                    <StackPanel>
+                        <TextBlock Classes="stat-label" Text="Houses"/>
+                        <TextBlock Classes="stat-value" Text="{Binding HousesCount}"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Active Tenants Card -->
+                <Border Grid.Column="1" Classes="stat-card" Background="{DynamicResource CardTenantsBackgroundBrush}">
+                    <StackPanel>
+                        <TextBlock Classes="stat-label" Text="Active Tenants"/>
+                        <TextBlock Classes="stat-value" Text="{Binding ActiveTenantsCount}"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Rent Due This Month Card -->
+                <Border Grid.Column="2" Classes="stat-card" Background="{DynamicResource CardRentDueBackgroundBrush}">
+                    <StackPanel>
+                        <TextBlock Classes="stat-label" Text="Rent Due This Month"/>
+                        <TextBlock Classes="stat-value" Text="{Binding RentDueThisMonth, StringFormat='£{0:N2}'}"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Overdue Rent Card -->
+                <Border Grid.Column="3" Classes="stat-card" Background="{DynamicResource CardOverdueBackgroundBrush}">
+                    <StackPanel>
+                        <TextBlock Classes="stat-label" Text="Overdue Rent"/>
+                        <TextBlock Classes="stat-value" Text="{Binding OverdueRentCount}"/>
+                        <TextBlock Classes="stat-subvalue" Text="{Binding OverdueRentAmount, StringFormat='£{0:N2}'}"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Documents Expiring Card -->
+                <Border Grid.Column="4" Classes="stat-card" Background="{DynamicResource CardDocumentsBackgroundBrush}">
+                    <StackPanel>
+                        <TextBlock Classes="stat-label" Text="Documents Expiring"/>
+                        <TextBlock Classes="stat-value" Text="{Binding DocumentsExpiringSoonCount}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Quick Actions -->
+            <StackPanel Spacing="12" Margin="0,8,0,0">
+                <TextBlock Text="Quick Actions" FontSize="18" FontWeight="SemiBold"/>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Content="Add House" Command="{Binding AddHouseCommand}" 
+                            Padding="16,10" Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                    <Button Content="Add Tenant" Command="{Binding AddTenantCommand}"
+                            Padding="16,10" Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                    <Button Content="Record Payment" Command="{Binding RecordPaymentCommand}"
+                            Padding="16,10" Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                    <Button Content="Upload Document" Command="{Binding UploadDocumentCommand}"
+                            Padding="16,10" Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Rent Due in Next 7 Days Table -->
+            <StackPanel Spacing="12" Margin="0,8,0,0">
+                <TextBlock Text="Rent Due in Next 7 Days" FontSize="18" FontWeight="SemiBold"/>
+                
+                <!-- Table Header -->
+                <Border Background="{DynamicResource TableHeaderBackgroundBrush}" CornerRadius="4,4,0,0" Padding="0">
+                    <Grid ColumnDefinitions="2*,2*,*,*">
+                        <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" Foreground="White" Padding="16,12"/>
+                        <TextBlock Grid.Column="1" Text="House" FontWeight="SemiBold" Foreground="White" Padding="16,12"/>
+                        <TextBlock Grid.Column="2" Text="Amount" FontWeight="SemiBold" Foreground="White" Padding="16,12" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Column="3" Text="Due Date" FontWeight="SemiBold" Foreground="White" Padding="16,12" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Table Rows -->
+                <ItemsControl ItemsSource="{Binding RentDueInNext7Days}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource TableRowEvenBackgroundBrush}" 
+                                    BorderBrush="{DynamicResource BorderBrush}" 
+                                    BorderThickness="0,0,0,1">
+                                <Grid ColumnDefinitions="2*,2*,*,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding TenantName}" Padding="16,10" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" Padding="16,10" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Amount, StringFormat='£{0:N2}'}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding DueDateDisplay}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

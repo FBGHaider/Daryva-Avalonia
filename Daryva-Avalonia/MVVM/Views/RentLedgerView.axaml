@@ -1,0 +1,231 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.RentLedgerView"
+             x:CompileBindings="False">
+    <UserControl.Resources>
+        <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
+        <converters:SubtractOneConverter x:Key="SubtractOneConverter"/>
+    </UserControl.Resources>
+    <Border Padding="12">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+            <!-- Filters -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Month:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                    <ComboBox Width="140" SelectedIndex="{Binding SelectedMonth, Converter={StaticResource SubtractOneConverter}}">
+                        <ComboBoxItem Content="January"/>
+                        <ComboBoxItem Content="February"/>
+                        <ComboBoxItem Content="March"/>
+                        <ComboBoxItem Content="April"/>
+                        <ComboBoxItem Content="May"/>
+                        <ComboBoxItem Content="June"/>
+                        <ComboBoxItem Content="July"/>
+                        <ComboBoxItem Content="August"/>
+                        <ComboBoxItem Content="September"/>
+                        <ComboBoxItem Content="October"/>
+                        <ComboBoxItem Content="November"/>
+                        <ComboBoxItem Content="December"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Year:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                    <ComboBox Width="100"
+                              ItemsSource="{Binding YearOptions}"
+                              SelectedItem="{Binding SelectedYear}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Search:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                    <TextBox Width="200" Watermark="Search tenant/house" Text="{Binding SearchTerm}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                    <ComboBox Width="220"
+                              ItemsSource="{Binding Houses}"
+                              SelectedValue="{Binding SelectedHouseId}"
+                              SelectedValueBinding="{Binding HouseId}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding AddressLine1}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Status:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                    <ComboBox Width="140"
+                              ItemsSource="{Binding StatusFilterOptions}"
+                              SelectedItem="{Binding StatusFilter}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Rent Ledger Table -->
+            <TextBlock Grid.Row="1" Text="Rent Ledger" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+            
+            <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}" Margin="0,0,0,16">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1200">
+                        <!-- Header Row -->
+                        <Border Grid.Row="0" 
+                                Background="{DynamicResource TableHeaderBackgroundBrush}" 
+                                BorderBrush="{DynamicResource BorderBrush}" 
+                                BorderThickness="0,0,0,1"
+                                Padding="8,10">
+                            <Grid ColumnDefinitions="240,240,120,120,120,120,100,120">
+                                <TextBlock Grid.Column="0" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="2" Text="Due Date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="3" Text="Amount Due" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="4" Text="Paid" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="5" Text="Balance" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="6" Text="Status" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Data Rows -->
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding LedgerRows}"
+                                 SelectedItem="{Binding SelectedRow}"
+                                 SelectionMode="Single"
+                                 Background="{DynamicResource SecondaryBackgroundBrush}"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" 
+                                            BorderThickness="0,0,0,1"
+                                            Padding="8,8"
+                                            Background="Transparent"
+                                            Cursor="Hand">
+                                        <Grid ColumnDefinitions="240,240,120,120,120,120,100,120">
+                                            <TextBlock Grid.Column="0" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding DueDateDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding AmountDue, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding AmountPaid, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding Balance, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <Border Grid.Column="6" 
+                                                    Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}"
+                                                    CornerRadius="4"
+                                                    Padding="6,2"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Status}" 
+                                                           Foreground="White" 
+                                                           FontWeight="SemiBold"
+                                                           FontSize="12"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+                                            <Button Grid.Column="7" 
+                                                    Content="Record Payment" 
+                                                    Command="{Binding DataContext.RecordPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalAlignment="Left"
+                                                    Padding="8,4"
+                                                    FontSize="12"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Deposit Ledger Table -->
+            <TextBlock Grid.Row="3" Text="Deposit Ledger" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+            
+            <Border Grid.Row="4" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1120">
+                        <!-- Header Row -->
+                        <Border Grid.Row="0" 
+                                Background="{DynamicResource TableHeaderBackgroundBrush}" 
+                                BorderBrush="{DynamicResource BorderBrush}" 
+                                BorderThickness="0,0,0,1"
+                                Padding="8,10">
+                            <Grid ColumnDefinitions="240,240,150,120,120,100,120">
+                                <TextBlock Grid.Column="0" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="2" Text="Deposit Required" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="3" Text="Paid" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="4" Text="Balance" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="5" Text="Status" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Grid.Column="6" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Data Rows -->
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding DepositLedgerRows}"
+                                 SelectionMode="Single"
+                                 Background="{DynamicResource SecondaryBackgroundBrush}"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" 
+                                            BorderThickness="0,0,0,1"
+                                            Padding="8,8"
+                                            Background="Transparent"
+                                            Cursor="Hand">
+                                        <Grid ColumnDefinitions="240,240,150,120,120,100,120">
+                                            <TextBlock Grid.Column="0" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding DepositRequired, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding AmountPaid, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding Balance, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <Border Grid.Column="5" 
+                                                    Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}"
+                                                    CornerRadius="4"
+                                                    Padding="6,2"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Status}" 
+                                                           Foreground="White" 
+                                                           FontWeight="SemiBold"
+                                                           FontSize="12"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+                                            <Button Grid.Column="6"
+                                                    Content="Record Payment"
+                                                    Command="{Binding DataContext.RecordDepositPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalAlignment="Left"
+                                                    Padding="8,4"
+                                                    FontSize="12"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

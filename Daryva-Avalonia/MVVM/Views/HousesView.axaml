@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:dgrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.HousesView"
+             x:CompileBindings="False">
+    <Border Padding="16">
+        <Grid RowDefinitions="Auto,Auto,*">
+            <!-- Header -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="Houses" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button Content="Add House" Command="{Binding AddHouseCommand}"/>
+                    <Button Content="Remove House" Command="{Binding RemoveHouseCommand}"/>
+                    <Button Content="Export Report" Command="{Binding ExportReportCommand}"/>
+                    <Button Content="Refresh" Command="{Binding LoadHousesCommand}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Filters -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,16,0,16">
+                <TextBox Width="260"
+                         Watermark="Search by address/city/postcode"
+                         Text="{Binding SearchTerm}"/>
+                <CheckBox Content="Active Only"
+                          IsChecked="{Binding ShowActiveOnly}"
+                          VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Houses Table -->
+            <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
+                    <!-- Header Row -->
+                    <Border Grid.Row="0" 
+                            Background="{DynamicResource TableHeaderBackgroundBrush}" 
+                            BorderBrush="{DynamicResource BorderBrush}" 
+                            BorderThickness="0,0,0,1"
+                            Padding="8,10">
+                        <Grid ColumnDefinitions="200,120,100,80,120,120">
+                            <TextBlock Grid.Column="0" Text="Address" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="1" Text="City" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="2" Text="Postcode" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="3" Text="Rooms" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="4" Text="Active Tenants" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="5" Text="Monthly Rent" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Data Rows -->
+                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto">
+                        <ListBox ItemsSource="{Binding Houses}"
+                                 SelectedItem="{Binding SelectedHouse}"
+                                 SelectionMode="Single"
+                                 Background="{DynamicResource SecondaryBackgroundBrush}"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" 
+                                            BorderThickness="0,0,0,1"
+                                            Padding="8,8"
+                                            Background="Transparent"
+                                            Cursor="Hand">
+                                        <Grid ColumnDefinitions="200,120,100,80,120,120">
+                                            <TextBlock Grid.Column="0" Text="{Binding AddressLine1}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding City}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Postcode}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding TotalRooms}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding ActiveTenantCount}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding TotalMonthlyRent, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Template">
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border Name="PART_Border"
+                                                    Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="0">
+                                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                                  Margin="{TemplateBinding Padding}"
+                                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter>
+                                </Style>
+                                <Style Selector="ListBoxItem:selected /template/ Border#PART_Border">
+                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover /template/ Border#PART_Border">
+                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

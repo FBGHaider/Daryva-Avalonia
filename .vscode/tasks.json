@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/Daryva.sln",
+                "${workspaceFolder}/Daryva-Avalonia.sln",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -19,7 +19,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/Daryva.sln",
+                "${workspaceFolder}/Daryva-Avalonia.sln",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -33,7 +33,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/Daryva.sln"
+                "${workspaceFolder}/Daryva-Avalonia.sln"
             ],
             "problemMatcher": "$msCompile"
         }

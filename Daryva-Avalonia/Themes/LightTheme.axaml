@@ -1,0 +1,51 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Custom Light Theme Resources -->
+    <!-- Base Colors -->
+    <Color x:Key="PrimaryBackground">#F6F7F9</Color>
+    <Color x:Key="SecondaryBackground">#FFFFFF</Color>
+    <Color x:Key="NavigationBackground">#ECEFD3</Color>
+    <Color x:Key="ControlBackground">#F3F4F6</Color>
+    <Color x:Key="ControlBackgroundHover">#E5E7EB</Color>
+    <Color x:Key="BorderColor">#E5E7EB</Color>
+    <Color x:Key="PrimaryText">#1F2937</Color>
+    <Color x:Key="SecondaryText">#6B7280</Color>
+    <Color x:Key="AccentColor">#4A9EFF</Color>
+    <Color x:Key="AccentColorHover">#6BADFF</Color>
+    
+    <!-- Dashboard Card Colors (Light Theme) -->
+    <Color x:Key="CardHousesBackground">#3B82F6</Color>
+    <Color x:Key="CardTenantsBackground">#22C55E</Color>
+    <Color x:Key="CardRentDueBackground">#84CC16</Color>
+    <Color x:Key="CardOverdueBackground">#EF4444</Color>
+    <Color x:Key="CardDocumentsBackground">#F59E0B</Color>
+    
+    <!-- Table Colors (Light Theme) -->
+    <Color x:Key="TableHeaderBackground">#E5E7EB</Color>
+    <Color x:Key="TableRowEvenBackground">#FFFFFF</Color>
+    <Color x:Key="TableRowOddBackground">#F9FAFB</Color>
+    
+    <!-- Base Brushes -->
+    <SolidColorBrush x:Key="PrimaryBackgroundBrush" Color="{StaticResource PrimaryBackground}"/>
+    <SolidColorBrush x:Key="SecondaryBackgroundBrush" Color="{StaticResource SecondaryBackground}"/>
+    <SolidColorBrush x:Key="NavigationBackgroundBrush" Color="{StaticResource NavigationBackground}"/>
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{StaticResource ControlBackground}"/>
+    <SolidColorBrush x:Key="ControlBackgroundHoverBrush" Color="{StaticResource ControlBackgroundHover}"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}"/>
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="{StaticResource PrimaryText}"/>
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="{StaticResource SecondaryText}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentColorHover}"/>
+    
+    <!-- Dashboard Card Brushes -->
+    <SolidColorBrush x:Key="CardHousesBackgroundBrush" Color="{StaticResource CardHousesBackground}"/>
+    <SolidColorBrush x:Key="CardTenantsBackgroundBrush" Color="{StaticResource CardTenantsBackground}"/>
+    <SolidColorBrush x:Key="CardRentDueBackgroundBrush" Color="{StaticResource CardRentDueBackground}"/>
+    <SolidColorBrush x:Key="CardOverdueBackgroundBrush" Color="{StaticResource CardOverdueBackground}"/>
+    <SolidColorBrush x:Key="CardDocumentsBackgroundBrush" Color="{StaticResource CardDocumentsBackground}"/>
+    
+    <!-- Table Brushes -->
+    <SolidColorBrush x:Key="TableHeaderBackgroundBrush" Color="{StaticResource TableHeaderBackground}"/>
+    <SolidColorBrush x:Key="TableRowEvenBackgroundBrush" Color="{StaticResource TableRowEvenBackground}"/>
+    <SolidColorBrush x:Key="TableRowOddBackgroundBrush" Color="{StaticResource TableRowOddBackground}"/>
+</ResourceDictionary>

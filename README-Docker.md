@@ -43,13 +43,7 @@ This project uses SQL Server running in a Docker container.
    
    **Option 3: The database will be created automatically when you run the migration scripts in SSMS**
 
-4. **Update connection string if needed:**
-   - The default connection string in `App.config` uses:
-     - Server: `localhost,1433`
-     - Database: `DaryvaDB`
-     - Username: `sa`
-     - Password: `YourStrong@Password123`
-   - **IMPORTANT:** Change the password in both `docker-compose.yml` and `App.config` for production use!
+4. **Connection string:** The default in `App.config` uses `localhost,1433`, `DaryvaDB`, `sa` / `YourStrong@Password123`. See **[CONFIGURATION.md](CONFIGURATION.md)** for details. Change the password in `docker-compose.yml` and your config for production.
 
 ## Docker Commands
 
@@ -60,24 +54,9 @@ This project uses SQL Server running in a Docker container.
 - **Access SQL Server (PowerShell):** `docker exec daryva-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourStrong@Password123" -C`
 - **Access SQL Server (Linux/Mac):** `docker exec -it daryva-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourStrong@Password123" -C`
 
-## Connection String Details
-
-The connection string format for Docker SQL Server:
-```
-Server=localhost,1433;Database=DaryvaDB;User Id=sa;Password=YourStrong@Password123;TrustServerCertificate=True;Encrypt=True;
-```
-
-**Security Note:** The default password is for development only. Please change it for production use!
+See **[CONFIGURATION.md](CONFIGURATION.md)** for connection string format, credentials, and SMTP/other config.
 
 ## Don't want to use Docker?
 
-You can connect **directly** to a local SQL Server (LocalDB or SQL Server Express) instead—no Docker needed.  
-See **[README-DirectDB.md](README-DirectDB.md)** for setup.
-
-## Check database & Docker status
-
-From the repo root, run:
-```powershell
-.\check-database.ps1
-```
-This reports whether the Docker container is running, if port 1433 is reachable, and which connection config is in use.
+Connect **directly** to a local SQL Server (LocalDB or SQL Server Express)—no Docker needed.  
+See **[README-DirectDB.md](README-DirectDB.md)**.

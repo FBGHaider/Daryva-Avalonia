@@ -14,7 +14,7 @@ Daryva can connect to SQL Server **without Docker**. Use a local SQL Server inst
 3. **Override the connection string**  
    Use `App.config.local` so the app uses your local DB instead of Docker:
 
-   - Copy `Daryva/App.config.local.example` to `Daryva/App.config.local`.
+   - Copy `Daryva-Avalonia/App.config.local.example` to `Daryva-Avalonia/App.config.local`.
    - In `App.config.local`, add a `connectionStrings` section and set `DefaultConnection` to your local instance.
 
 ### LocalDB example
@@ -55,22 +55,9 @@ Or with SQL authentication:
 
 - **App.config** defines the default connection (Docker `localhost,1433`).
 - **App.config.local** overrides that when it contains a `DefaultConnection` entry under `connectionStrings`.
-- The app never reads Docker-specific config; it only uses the effective connection string.  
-  So you can switch between Docker and a direct DB by changing config only.
+- You can switch between Docker and a direct DB by changing config only.
 
-## Check database status
-
-Run from the repo root:
-
-```powershell
-.\check-database.ps1
-```
-
-This reports:
-
-- Docker container status (if you use Docker).
-- Whether `localhost:1433` is reachable.
-- Which config (App.config vs App.config.local) is used for the connection string.
+See **[CONFIGURATION.md](CONFIGURATION.md)** for connection examples, SMTP, and other settings.
 
 ## Summary
 

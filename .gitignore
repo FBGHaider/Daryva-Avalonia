@@ -363,8 +363,7 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # Local configuration files with sensitive data (SMTP, etc.)
-LandLordBuddy/App.config.local
-Daryva/App.config.local
+Daryva-Avalonia/App.config.local
 *.config.local
 
 # Database backups and scripts with credentials/passwords
