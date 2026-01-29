@@ -2,9 +2,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters;assembly=Daryva"
              mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="500"
              x:Class="Daryva.MVVM.Views.GeneralSettingsView"
              x:CompileBindings="False">
+    <UserControl.Resources>
+        <converters:IsNotNullConverter x:Key="IsNotNullConverter"/>
+        <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+    </UserControl.Resources>
     <ScrollViewer>
         <StackPanel Margin="0,0,0,24" Spacing="24">
             <!-- Header -->
@@ -94,6 +99,63 @@
                                   Content="Auto-refresh dashboard"
                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Updates (Velopack) -->
+            <Border BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    Padding="20,16"
+                    IsVisible="{Binding IsUpdateCheckAvailable}">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Updates"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto">
+                        <TextBlock Text="Current version:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding CurrentVersion}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="Status:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,12,12,0"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding UpdateStatus}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,12,0,0"/>
+
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    Spacing="12"
+                                    Margin="0,16,0,0">
+                            <Button Content="Check for updates"
+                                    Command="{Binding CheckForUpdatesCommand}"
+                                    IsEnabled="{Binding IsCheckingForUpdates, Converter={StaticResource InvertBoolConverter}}"
+                                    Background="Transparent"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                    BorderThickness="1"/>
+                            <Button Content="Install &amp; Restart"
+                                    Command="{Binding InstallAndRestartCommand}"
+                                    IsVisible="{Binding AvailableUpdateVersion, Converter={StaticResource IsNotNullConverter}}"
+                                    Background="{DynamicResource AccentBrush}"
+                                    Foreground="White"
+                                    BorderThickness="0"/>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 

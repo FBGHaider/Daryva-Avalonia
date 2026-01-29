@@ -200,7 +200,7 @@ namespace Daryva.MVVM.ViewModels
                     }
                     else
                     {
-                        errorMsg += "\n\nTip: Try using C:\\Backups\\Daryva as the backup location, or grant the SQL Server service account write permissions to the selected folder.\n\nSee BACKUP_PERMISSIONS.md for detailed instructions.";
+                        errorMsg += "\n\nTip: Try using C:\\Backups\\Daryva as the backup location, or grant the SQL Server service account write permissions to the selected folder. See README.md for more.";
                     }
                 }
                 _dialogService.ShowMessage($"Error creating backup: {errorMsg}", "Backup Error");

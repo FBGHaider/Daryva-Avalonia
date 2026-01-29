@@ -1,5 +1,6 @@
 using Avalonia;
 using System;
+using Velopack;
 
 namespace Daryva;
 
@@ -11,6 +12,13 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Velopack must run as early as possible to handle install/update hooks.
+        // SetAutoApplyOnStartup(false) = desktop-first: user must click "Install & Restart".
+        VelopackApp.Build()
+            .SetArgs(args)
+            .SetAutoApplyOnStartup(false)
+            .Run();
+
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

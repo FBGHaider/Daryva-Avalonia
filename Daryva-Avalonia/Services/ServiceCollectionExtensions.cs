@@ -5,6 +5,7 @@ using Daryva.Services.Business;
 using Daryva.Services.Navigation;
 using Daryva.Services.Dialog;
 using Daryva.Services.Platform;
+using Daryva.Services.Update;
 
 namespace Daryva.Services
 {
@@ -63,6 +64,9 @@ namespace Daryva.Services
             services.AddScoped<IDocumentService, DocumentService>();
             services.AddScoped<ISettingsService, SettingsService>();
             services.AddScoped<IBackupService, BackupService>();
+
+            // Update Service (UI layer - Velopack)
+            services.AddSingleton<IUpdateService, VelopackUpdateService>();
 
             // Navigation and Dialog Services
             services.AddSingleton<INavigationService, NavigationService>();

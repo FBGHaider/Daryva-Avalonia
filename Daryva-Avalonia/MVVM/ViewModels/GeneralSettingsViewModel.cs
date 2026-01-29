@@ -3,6 +3,7 @@ using Daryva.MVVM.Commands;
 using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
+using Daryva.Services.Update;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -10,6 +11,7 @@ namespace Daryva.MVVM.ViewModels
     {
         private readonly ISettingsService _settingsService;
         private readonly IDialogService _dialogService;
+        private readonly IUpdateService _updateService;
 
         private string _currency = "GBP";
         private string _dateFormat = "dd/MM/yyyy";
@@ -18,19 +20,30 @@ namespace Daryva.MVVM.ViewModels
         private bool _confirmDestructiveActions = true;
         private bool _autoRefreshDashboard = true;
 
-        public GeneralSettingsViewModel(ISettingsService settingsService, IDialogService dialogService)
+        private string _updateStatus = "";
+        private string? _availableUpdateVersion;
+        private bool _isCheckingForUpdates;
+        private bool _isInstallingUpdate;
+
+        public GeneralSettingsViewModel(ISettingsService settingsService, IDialogService dialogService, IUpdateService updateService)
         {
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
 
             SaveCommand = new RelayCommand(async _ => await SaveAsync());
             ResetCommand = new RelayCommand(async _ => await LoadAsync());
+            CheckForUpdatesCommand = new RelayCommand(async _ => await CheckForUpdatesAsync(), _ => !IsCheckingForUpdates && !IsInstallingUpdate);
+            InstallAndRestartCommand = new RelayCommand(async _ => await InstallAndRestartAsync(), _ => !string.IsNullOrEmpty(AvailableUpdateVersion) && !IsInstallingUpdate);
 
             _ = LoadAsync();
+            InitializeUpdateStatus();
         }
 
         public ICommand SaveCommand { get; }
         public ICommand ResetCommand { get; }
+        public ICommand CheckForUpdatesCommand { get; }
+        public ICommand InstallAndRestartCommand { get; }
 
         public string Currency
         {
@@ -71,6 +84,39 @@ namespace Daryva.MVVM.ViewModels
         public List<string> AppStartPageOptions { get; } = new() { "Dashboard", "Houses", "Rent" };
         public List<string> DateFormatOptions { get; } = new() { "dd/MM/yyyy", "MM/dd/yyyy", "yyyy-MM-dd", "dd MMM yyyy" };
 
+        public string CurrentVersion => _updateService.CurrentVersion;
+        public bool IsUpdateCheckAvailable => _updateService.IsInstalled;
+
+        public string UpdateStatus
+        {
+            get => _updateStatus;
+            set => SetProperty(ref _updateStatus, value);
+        }
+
+        public string? AvailableUpdateVersion
+        {
+            get => _availableUpdateVersion;
+            set => SetProperty(ref _availableUpdateVersion, value, RaiseUpdateCommandsCanExecute);
+        }
+
+        public bool IsCheckingForUpdates
+        {
+            get => _isCheckingForUpdates;
+            set => SetProperty(ref _isCheckingForUpdates, value, RaiseUpdateCommandsCanExecute);
+        }
+
+        public bool IsInstallingUpdate
+        {
+            get => _isInstallingUpdate;
+            set => SetProperty(ref _isInstallingUpdate, value, RaiseUpdateCommandsCanExecute);
+        }
+
+        private void RaiseUpdateCommandsCanExecute()
+        {
+            ((Commands.RelayCommand)CheckForUpdatesCommand).RaiseCanExecuteChanged();
+            ((Commands.RelayCommand)InstallAndRestartCommand).RaiseCanExecuteChanged();
+        }
+
         private async Task LoadAsync()
         {
             try
@@ -105,6 +151,78 @@ namespace Daryva.MVVM.ViewModels
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error saving settings: {ex.Message}", "Error");
+            }
+        }
+
+        private void InitializeUpdateStatus()
+        {
+            if (!_updateService.IsInstalled)
+            {
+                UpdateStatus = "Updates not available (running from source or portable build).";
+                return;
+            }
+            UpdateStatus = $"Current version: {_updateService.CurrentVersion}";
+        }
+
+        private async Task CheckForUpdatesAsync()
+        {
+            if (!_updateService.IsInstalled)
+            {
+                UpdateStatus = "Updates not available.";
+                return;
+            }
+
+            IsCheckingForUpdates = true;
+            AvailableUpdateVersion = null;
+            UpdateStatus = "Checking for updates...";
+
+            try
+            {
+                var update = await _updateService.CheckAsync();
+                if (update != null)
+                {
+                    AvailableUpdateVersion = update.Version;
+                    UpdateStatus = $"Update available: {update.Version}";
+                }
+                else
+                {
+                    UpdateStatus = "Up to date";
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus = "Up to date";
+                System.Diagnostics.Debug.WriteLine($"[Update] Check failed: {ex.Message}");
+            }
+            finally
+            {
+                IsCheckingForUpdates = false;
+            }
+        }
+
+        private async Task InstallAndRestartAsync()
+        {
+            if (string.IsNullOrEmpty(AvailableUpdateVersion))
+                return;
+
+            IsInstallingUpdate = true;
+            UpdateStatus = "Downloading update...";
+
+            try
+            {
+                var progress = new Progress<int>(p => UpdateStatus = $"Downloading update... {p}%");
+                await _updateService.DownloadAndApplyAsync(progress);
+                // ApplyUpdatesAndRestart exits the app - we never reach here
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus = "Update failed.";
+                _dialogService.ShowMessage($"Update failed: {ex.Message}", "Update Error");
+                System.Diagnostics.Debug.WriteLine($"[Update] Install failed: {ex.Message}");
+            }
+            finally
+            {
+                IsInstallingUpdate = false;
             }
         }
     }

@@ -2,7 +2,7 @@
 <configuration>
   <!--
     Copy this file to App.config.local and add your overrides.
-    App.config.local is gitignored. See CONFIGURATION.md for full examples.
+    App.config.local is gitignored. See README.md for full examples.
   -->
 
   <!-- Optional: override connection string (e.g. LocalDB, SQL Express, or different Docker credentials) -->
