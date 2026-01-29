@@ -17,13 +17,15 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 SELECT t.*,
-                       (SELECT TOP 1 h.AddressLine1 + ', ' + h.City 
+                       (SELECT h.AddressLine1 || ', ' || h.City 
                         FROM Tenancy tn 
                         INNER JOIN House h ON tn.HouseId = h.HouseId 
-                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active') AS CurrentHouseAddress,
-                       (SELECT TOP 1 tn.TenancyId 
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentHouseAddress,
+                       (SELECT tn.TenancyId 
                         FROM Tenancy tn 
-                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active') AS CurrentTenancyId
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentTenancyId
                 FROM Tenant t
                 WHERE (@IncludeArchived = 1 OR t.IsArchived = 0)
                 ORDER BY t.FullName";
@@ -35,13 +37,15 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 SELECT t.*,
-                       (SELECT TOP 1 h.AddressLine1 + ', ' + h.City 
+                       (SELECT h.AddressLine1 || ', ' || h.City 
                         FROM Tenancy tn 
                         INNER JOIN House h ON tn.HouseId = h.HouseId 
-                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active') AS CurrentHouseAddress,
-                       (SELECT TOP 1 tn.TenancyId 
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentHouseAddress,
+                       (SELECT tn.TenancyId 
                         FROM Tenancy tn 
-                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active') AS CurrentTenancyId
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentTenancyId
                 FROM Tenant t
                 WHERE t.TenantId = @TenantId";
 
@@ -52,8 +56,8 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 INSERT INTO Tenant (FullName, PhoneNumber, Email, UniversityName, CreatedAt, IsArchived)
-                VALUES (@FullName, @PhoneNumber, @Email, @UniversityName, GETUTCDATE(), 0);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                VALUES (@FullName, @PhoneNumber, @Email, @UniversityName, datetime('now'), 0);
+                SELECT last_insert_rowid();";
 
             var tenantId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, tenant));
             return tenantId;
@@ -83,13 +87,15 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 SELECT t.*,
-                       (SELECT TOP 1 h.AddressLine1 + ', ' + h.City 
+                       (SELECT h.AddressLine1 || ', ' || h.City 
                         FROM Tenancy tn 
                         INNER JOIN House h ON tn.HouseId = h.HouseId 
-                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active') AS CurrentHouseAddress,
-                       (SELECT TOP 1 tn.TenancyId 
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentHouseAddress,
+                       (SELECT tn.TenancyId 
                         FROM Tenancy tn 
-                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active') AS CurrentTenancyId
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentTenancyId
                 FROM Tenant t
                 WHERE t.IsArchived = 0
                   AND (t.FullName LIKE @SearchTerm 

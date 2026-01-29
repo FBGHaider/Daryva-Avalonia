@@ -4,6 +4,7 @@ using Daryva.Services.Data;
 using Daryva.Services.Business;
 using Daryva.Services.Navigation;
 using Daryva.Services.Dialog;
+using Daryva.Services.Platform;
 
 namespace Daryva.Services
 {
@@ -19,6 +20,10 @@ namespace Daryva.Services
         /// <returns>The service collection for method chaining.</returns>
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
+            // Platform Services
+            services.AddSingleton<IAppPaths, AppPaths>();
+            services.AddSingleton<ISecureStore, SecureStore>();
+
             // Configuration Services
             services.AddSingleton<IConfigurationService, ConfigurationService>();
 

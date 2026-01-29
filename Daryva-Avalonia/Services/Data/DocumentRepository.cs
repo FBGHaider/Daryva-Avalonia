@@ -18,8 +18,10 @@ namespace Daryva.Services.Data
 
         public async Task<IEnumerable<Document>> GetDocumentsByTenantIdAsync(int tenantId)
         {
+            // Column order must match database: DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, Version, IsActive, UploadedAt, DisplayName, Source
             var sql = @"
-                SELECT * 
+                SELECT DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, 
+                       Version, IsActive, UploadedAt, DisplayName, Source
                 FROM Document 
                 WHERE TenantId = @TenantId
                 ORDER BY UploadedAt DESC";
@@ -29,8 +31,10 @@ namespace Daryva.Services.Data
 
         public async Task<IEnumerable<Document>> GetDocumentsByTenancyIdAsync(int tenancyId)
         {
+            // Column order must match database: DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, Version, IsActive, UploadedAt, DisplayName, Source
             var sql = @"
-                SELECT * 
+                SELECT DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, 
+                       Version, IsActive, UploadedAt, DisplayName, Source
                 FROM Document 
                 WHERE TenancyId = @TenancyId
                 ORDER BY UploadedAt DESC";
@@ -40,8 +44,10 @@ namespace Daryva.Services.Data
 
         public async Task<IEnumerable<Document>> GetDocumentsByHouseIdAsync(int houseId)
         {
+            // Column order must match database: DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, Version, IsActive, UploadedAt, DisplayName, Source
             var sql = @"
-                SELECT * 
+                SELECT DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, 
+                       Version, IsActive, UploadedAt, DisplayName, Source
                 FROM Document 
                 WHERE HouseId = @HouseId
                 ORDER BY UploadedAt DESC";
@@ -79,8 +85,10 @@ namespace Daryva.Services.Data
             }
 
             var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+            // Column order must match database: DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, Version, IsActive, UploadedAt, DisplayName, Source
             var sql = $@"
-                SELECT * 
+                SELECT DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, 
+                       Version, IsActive, UploadedAt, DisplayName, Source
                 FROM Document 
                 {whereClause}
                 ORDER BY UploadedAt DESC";
@@ -90,8 +98,10 @@ namespace Daryva.Services.Data
 
         public async Task<Document?> GetDocumentByIdAsync(int documentId)
         {
+            // Column order must match database: DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, Version, IsActive, UploadedAt, DisplayName, Source
             var sql = @"
-                SELECT * 
+                SELECT DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, 
+                       Version, IsActive, UploadedAt, DisplayName, Source
                 FROM Document 
                 WHERE DocumentId = @DocumentId";
 
@@ -127,8 +137,10 @@ namespace Daryva.Services.Data
             conditions.Add("IsActive = 1");
 
             var whereClause = string.Join(" AND ", conditions);
+            // Column order must match database: DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, Version, IsActive, UploadedAt, DisplayName, Source
             var sql = $@"
-                SELECT * 
+                SELECT DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, 
+                       Version, IsActive, UploadedAt, DisplayName, Source
                 FROM Document 
                 WHERE {whereClause}
                 ORDER BY Version DESC";
@@ -139,9 +151,9 @@ namespace Daryva.Services.Data
         public async Task<int> CreateDocumentAsync(Document document)
         {
             var sql = @"
-                INSERT INTO Document (TenantId, TenancyId, HouseId, Type, DisplayName, FileName, FileMimeType, StoragePath, Source, UploadedAt, ValidFrom, ValidTo, Version, IsActive)
-                OUTPUT INSERTED.DocumentId
-                VALUES (@TenantId, @TenancyId, @HouseId, @Type, @DisplayName, @FileName, @FileMimeType, @StoragePath, @Source, @UploadedAt, @ValidFrom, @ValidTo, @Version, @IsActive)";
+                INSERT INTO Document (TenantId, TenancyId, HouseId, Type, DisplayName, FileName, FileMimeType, StoragePath, Source, UploadedAt, Version, IsActive)
+                VALUES (@TenantId, @TenancyId, @HouseId, @Type, @DisplayName, @FileName, @FileMimeType, @StoragePath, @Source, @UploadedAt, @Version, @IsActive);
+                SELECT last_insert_rowid();";
 
             var parameters = new
             {
@@ -155,8 +167,6 @@ namespace Daryva.Services.Data
                 document.StoragePath,
                 document.Source,
                 UploadedAt = document.UploadedAt,
-                document.ValidFrom,
-                document.ValidTo,
                 document.Version,
                 IsActive = document.IsActive ? 1 : 0
             };
@@ -177,8 +187,6 @@ namespace Daryva.Services.Data
                     FileMimeType = @FileMimeType,
                     StoragePath = @StoragePath,
                     Source = @Source,
-                    ValidFrom = @ValidFrom,
-                    ValidTo = @ValidTo,
                     Version = @Version,
                     IsActive = @IsActive
                 WHERE DocumentId = @DocumentId";
@@ -195,8 +203,6 @@ namespace Daryva.Services.Data
                 document.FileMimeType,
                 document.StoragePath,
                 document.Source,
-                document.ValidFrom,
-                document.ValidTo,
                 document.Version,
                 IsActive = document.IsActive ? 1 : 0
             };
@@ -214,16 +220,9 @@ namespace Daryva.Services.Data
 
         public async Task<IEnumerable<Document>> GetExpiringDocumentsAsync(int daysAhead = 30)
         {
-            var sql = @"
-                SELECT * 
-                FROM Document 
-                WHERE ValidTo IS NOT NULL 
-                  AND ValidTo >= CAST(GETDATE() AS DATE)
-                  AND ValidTo <= CAST(DATEADD(DAY, @DaysAhead, GETDATE()) AS DATE)
-                  AND IsActive = 1
-                ORDER BY ValidTo ASC";
-
-            return await Task.FromResult(_dbContext.Query<Document>(sql, new { DaysAhead = daysAhead }));
+            // ValidFrom and ValidTo columns don't exist in the current SQLite schema
+            // Return empty list until schema is updated
+            return await Task.FromResult(Enumerable.Empty<Document>());
         }
 
         public async Task<IEnumerable<Document>> GetDocumentHistoryAsync(int? tenantId, int? tenancyId, int? houseId, string type)
@@ -253,8 +252,10 @@ namespace Daryva.Services.Data
             parameters.Add("@Type", type);
 
             var whereClause = string.Join(" AND ", conditions);
+            // Column order must match database: DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, Version, IsActive, UploadedAt, DisplayName, Source
             var sql = $@"
-                SELECT * 
+                SELECT DocumentId, TenantId, TenancyId, HouseId, Type, FileName, StoragePath, FileMimeType, 
+                       Version, IsActive, UploadedAt, DisplayName, Source
                 FROM Document 
                 WHERE {whereClause}
                 ORDER BY Version DESC";

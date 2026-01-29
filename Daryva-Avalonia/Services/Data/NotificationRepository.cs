@@ -159,7 +159,7 @@ namespace Daryva.Services.Data
             var sql = @"
                 INSERT INTO Notification (TenantId, TenancyId, Channel, Type, ToAddress, Subject, Body, ScheduledFor, Status, TemplateId)
                 VALUES (@TenantId, @TenancyId, @Channel, @Type, @ToAddress, @Subject, @Body, @ScheduledFor, @Status, @TemplateId);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                SELECT last_insert_rowid();";
 
             var notificationId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, notification));
             return notificationId;
@@ -224,8 +224,9 @@ namespace Daryva.Services.Data
 
             var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
 
+            // Column order must match database: TemplateId, Name, Channel, Type, SubjectTemplate, BodyTemplate, IsDefault, CreatedAt
             var sql = $@"
-                SELECT *
+                SELECT TemplateId, Name, Channel, Type, SubjectTemplate, BodyTemplate, IsDefault, CreatedAt
                 FROM NotificationTemplate
                 {whereClause}
                 ORDER BY IsDefault DESC, Name ASC";
@@ -235,7 +236,8 @@ namespace Daryva.Services.Data
 
         public async Task<NotificationTemplate?> GetTemplateByIdAsync(int templateId)
         {
-            var sql = "SELECT * FROM NotificationTemplate WHERE TemplateId = @TemplateId";
+            // Column order must match database: TemplateId, Name, Channel, Type, SubjectTemplate, BodyTemplate, IsDefault, CreatedAt
+            var sql = "SELECT TemplateId, Name, Channel, Type, SubjectTemplate, BodyTemplate, IsDefault, CreatedAt FROM NotificationTemplate WHERE TemplateId = @TemplateId";
             return await Task.FromResult(_dbContext.Query<NotificationTemplate>(sql, new { TemplateId = templateId }).FirstOrDefault());
         }
 
@@ -243,8 +245,8 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 INSERT INTO NotificationTemplate (Name, Channel, Type, SubjectTemplate, BodyTemplate, IsDefault, CreatedAt)
-                VALUES (@Name, @Channel, @Type, @SubjectTemplate, @BodyTemplate, @IsDefault, @CreatedAt);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                VALUES (@Name, @Channel, @Type, @SubjectTemplate, @BodyTemplate, @IsDefault, datetime('now'));
+                SELECT last_insert_rowid();";
 
             var templateId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, template));
             return templateId;
@@ -270,7 +272,7 @@ namespace Daryva.Services.Data
             var sql = @"
                 INSERT INTO NotificationAttempt (NotificationId, AttemptedAt, Status, Error, ProviderMessageId)
                 VALUES (@NotificationId, @AttemptedAt, @Status, @Error, @ProviderMessageId);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                SELECT last_insert_rowid();";
 
             var attemptId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, attempt));
             return attemptId;

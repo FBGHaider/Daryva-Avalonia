@@ -37,8 +37,8 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 INSERT INTO RentCharge (TenancyId, PeriodYear, PeriodMonth, AmountDue, DueDate, Status, CreatedAt)
-                VALUES (@TenancyId, @PeriodYear, @PeriodMonth, @AmountDue, @DueDate, @Status, GETUTCDATE());
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                VALUES (@TenancyId, @PeriodYear, @PeriodMonth, @AmountDue, @DueDate, @Status, datetime('now'));
+                SELECT last_insert_rowid();";
 
             var chargeId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, charge));
             return chargeId;
@@ -58,7 +58,7 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 SELECT rc.*,
-                       (SELECT ISNULL(SUM(rp.AmountPaid), 0)
+                       (SELECT COALESCE(SUM(rp.AmountPaid), 0)
                         FROM RentPayment rp
                         WHERE rp.RentChargeId = rc.RentChargeId) AS TotalPaid
                 FROM RentCharge rc

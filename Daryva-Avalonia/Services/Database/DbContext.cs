@@ -1,17 +1,28 @@
 using System.Data;
-using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Dapper;
 
 namespace Daryva.Services.Database
 {
     /// <summary>
-    /// Implementation of IDbContext using SQL Server and Dapper.
+    /// Implementation of IDbContext using SQLite and Dapper.
+    /// Cross-platform compatible.
     /// </summary>
     public class DbContext : IDbContext
     {
         private readonly string _connectionString;
         private IDbConnection? _connection;
         private bool _disposed = false;
+
+        static DbContext()
+        {
+            // Register custom type handlers for SQLite date, integer, and boolean handling
+            SqlMapper.AddTypeHandler(new SqliteDateTimeHandler());
+            SqlMapper.AddTypeHandler(new SqliteDateTimeNonNullableHandler());
+            SqlMapper.AddTypeHandler(new SqliteNullableIntHandler());
+            SqlMapper.AddTypeHandler(new SqliteIntHandler());
+            SqlMapper.AddTypeHandler(new SqliteBoolHandler());
+        }
 
         /// <summary>
         /// Initializes a new instance of the DbContext class.
@@ -31,7 +42,7 @@ namespace Daryva.Services.Database
             {
                 if (_connection == null)
                 {
-                    _connection = new SqlConnection(_connectionString);
+                    _connection = new SqliteConnection(_connectionString);
                 }
                 return _connection;
             }
@@ -42,46 +53,14 @@ namespace Daryva.Services.Database
         /// </summary>
         public void OpenConnection()
         {
-            // Handle all non-open states
-            if (_connection == null || _connection.State != ConnectionState.Open)
+            if (_connection == null)
             {
-                // If connection exists but is in a bad state, dispose and recreate it
-                if (_connection != null)
-                {
-                    try
-                    {
-                        if (_connection.State != ConnectionState.Closed)
-                        {
-                            _connection.Close();
-                        }
-                        _connection.Dispose();
-                    }
-                    catch { }
-                    _connection = null;
-                }
-                
-                // Create a fresh connection
-                _connection = new SqlConnection(_connectionString);
-                
-                // Open the connection and wait until it's fully open
-                if (_connection.State != ConnectionState.Open)
-                {
-                    _connection.Open();
-                    
-                    // Wait until connection is fully open (not just connecting)
-                    int retries = 0;
-                    while (_connection.State == ConnectionState.Connecting && retries < 10)
-                    {
-                        System.Threading.Thread.Sleep(50);
-                        retries++;
-                    }
-                    
-                    // If still not open after retries, throw exception
-                    if (_connection.State != ConnectionState.Open)
-                    {
-                        throw new InvalidOperationException($"Connection failed to open. Current state: {_connection.State}");
-                    }
-                }
+                _connection = new SqliteConnection(_connectionString);
+            }
+
+            if (_connection.State != ConnectionState.Open)
+            {
+                _connection.Open();
             }
         }
 
@@ -90,9 +69,9 @@ namespace Daryva.Services.Database
         /// </summary>
         public void CloseConnection()
         {
-            if (Connection.State != ConnectionState.Closed)
+            if (_connection != null && _connection.State != ConnectionState.Closed)
             {
-                Connection.Close();
+                _connection.Close();
             }
         }
 
@@ -108,7 +87,6 @@ namespace Daryva.Services.Database
             }
             finally
             {
-                // Connection pooling handles cleanup, but ensure it's in good state
                 if (_connection?.State == ConnectionState.Broken)
                 {
                     CloseConnection();
@@ -140,9 +118,8 @@ namespace Daryva.Services.Database
         /// </summary>
         public IEnumerable<T> Query<T>(string sql, object? parameters = null)
         {
-            // Use a short-lived connection for read queries to avoid issues
-            // with shared connection state (Connecting, Broken, etc.).
-            using var connection = new SqlConnection(_connectionString);
+            // Use a short-lived connection for read queries
+            using var connection = new SqliteConnection(_connectionString);
             connection.Open();
             var results = connection.Query<T>(sql, parameters).ToList();
             return results;

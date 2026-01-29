@@ -28,7 +28,7 @@ namespace Daryva.Services.Data
         public async Task<decimal> GetTotalRentPaidForChargeAsync(int rentChargeId)
         {
             var sql = @"
-                SELECT ISNULL(SUM(AmountPaid), 0)
+                SELECT COALESCE(SUM(AmountPaid), 0)
                 FROM RentPayment
                 WHERE RentChargeId = @RentChargeId";
 
@@ -40,7 +40,7 @@ namespace Daryva.Services.Data
             var sql = @"
                 INSERT INTO RentPayment (TenancyId, RentChargeId, PaidOn, AmountPaid, Method, Reference, Notes, CollectedBy)
                 VALUES (@TenancyId, @RentChargeId, @PaidOn, @AmountPaid, @Method, @Reference, @Notes, @CollectedBy);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                SELECT last_insert_rowid();";
 
             var paymentId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, payment));
             return paymentId;

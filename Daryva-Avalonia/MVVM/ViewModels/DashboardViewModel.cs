@@ -217,9 +217,6 @@ namespace Daryva.MVVM.ViewModels
                 {
                     attempt++;
 
-                    // Small delay to ensure database connection is fully established
-                    await Task.Delay(100);
-                    
                     var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
                     DateTimeFormatProvider.DateFormat = dateFormat;
 
@@ -237,10 +234,7 @@ namespace Daryva.MVVM.ViewModels
                     var currentMonthLedger = await _paymentService.GetRentLedgerForMonthAsync(
                         currentDate.Year, currentDate.Month, null, null, null);
                     allLedgerRows.AddRange(currentMonthLedger);
-                    
-                    // Small delay to ensure connection is released
-                    await Task.Delay(50);
-                    
+
                     // Get previous 2 months to capture overdue rents
                     for (int i = 1; i <= 2; i++)
                     {
@@ -248,12 +242,6 @@ namespace Daryva.MVVM.ViewModels
                         var monthLedger = await _paymentService.GetRentLedgerForMonthAsync(
                             checkDate.Year, checkDate.Month, null, null, null);
                         allLedgerRows.AddRange(monthLedger);
-                        
-                        // Small delay between queries to ensure connection is released
-                        if (i < 2)
-                        {
-                            await Task.Delay(50);
-                        }
                     }
                     
                     var ledgerList = allLedgerRows.ToList(); // Materialize
@@ -288,8 +276,6 @@ namespace Daryva.MVVM.ViewModels
                     if (endDate.Month != currentDate.Month || endDate.Year != currentDate.Year)
                     {
                         var nextMonthDate = endDate;
-                        // Small delay before next query
-                        await Task.Delay(50);
                         var nextMonthLedger = await _paymentService.GetRentLedgerForMonthAsync(
                             nextMonthDate.Year, nextMonthDate.Month, null, null, null);
                         nextMonthRows = nextMonthLedger.ToList();

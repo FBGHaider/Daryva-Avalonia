@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using Dapper;
 using Daryva.Services.Data;
 using Daryva.Services.Database;
@@ -96,24 +97,46 @@ namespace Daryva.Services.Business
             await _settingsRepository.SetSettingsAsync(settings);
         }
 
-        public async Task<decimal> GetDatabaseSizeAsync()
+        public Task<decimal> GetDatabaseSizeAsync()
         {
-            const string sql = @"
-                SELECT 
-                    CAST(SUM(size) * 8.0 / 1024.0 AS DECIMAL(18,2)) AS SizeMB
-                FROM sys.master_files
-                WHERE database_id = DB_ID()";
-
             try
             {
-                var connection = _dbContext.Connection;
-                var result = await connection.QueryFirstOrDefaultAsync<decimal?>(sql);
-                return result ?? 0;
+                var connectionString = _dbContext.Connection.ConnectionString;
+                
+                // SQLite: Get file size from database file
+                var dbPath = ExtractDatabasePath(connectionString);
+                if (!string.IsNullOrWhiteSpace(dbPath) && File.Exists(dbPath))
+                {
+                    var fileInfo = new FileInfo(dbPath);
+                    var sizeMB = (decimal)fileInfo.Length / (1024 * 1024);
+                    return Task.FromResult(Math.Round(sizeMB, 2));
+                }
+                return Task.FromResult(0m);
             }
             catch
             {
-                return 0;
+                return Task.FromResult(0m);
             }
+        }
+
+        private string? ExtractDatabasePath(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                return null;
+
+            var parts = connectionString.Split(';');
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (trimmed.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.StartsWith("DataSource=", StringComparison.OrdinalIgnoreCase))
+                {
+                    var path = trimmed.Substring(trimmed.IndexOf('=') + 1).Trim();
+                    return path;
+                }
+            }
+
+            return null;
         }
 
         public async Task<bool> IsDatabaseConnectedAsync()

@@ -23,7 +23,7 @@ namespace Daryva.Services.Data
                         WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS ActiveTenantCount,
                        -- Sum only monthly rent, NOT deposit amount
                        -- Only include tenancies for non-archived tenants
-                       (SELECT ISNULL(SUM(t.RentAmountMonthly), 0) 
+                       (SELECT COALESCE(SUM(t.RentAmountMonthly), 0) 
                         FROM Tenancy t 
                         INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
                         WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS TotalMonthlyRent
@@ -43,7 +43,7 @@ namespace Daryva.Services.Data
                         WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS ActiveTenantCount,
                        -- Sum only monthly rent, NOT deposit amount
                        -- Only include tenancies for non-archived tenants
-                       (SELECT ISNULL(SUM(t.RentAmountMonthly), 0) 
+                       (SELECT COALESCE(SUM(t.RentAmountMonthly), 0) 
                         FROM Tenancy t 
                         INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
                         WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS TotalMonthlyRent
@@ -57,8 +57,8 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 INSERT INTO House (AddressLine1, AddressLine2, City, Postcode, TotalRooms, CreatedAt)
-                VALUES (@AddressLine1, @AddressLine2, @City, @Postcode, @TotalRooms, GETUTCDATE());
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                VALUES (@AddressLine1, @AddressLine2, @City, @Postcode, @TotalRooms, datetime('now'));
+                SELECT last_insert_rowid();";
 
             var houseId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, house));
             return houseId;
@@ -94,7 +94,7 @@ namespace Daryva.Services.Data
                         WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS ActiveTenantCount,
                        -- Sum only monthly rent, NOT deposit amount
                        -- Only include tenancies for non-archived tenants
-                       (SELECT ISNULL(SUM(t.RentAmountMonthly), 0) 
+                       (SELECT COALESCE(SUM(t.RentAmountMonthly), 0) 
                         FROM Tenancy t 
                         INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
                         WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS TotalMonthlyRent

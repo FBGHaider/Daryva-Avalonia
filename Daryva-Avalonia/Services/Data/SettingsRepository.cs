@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using Daryva.Services.Database;
@@ -21,9 +22,9 @@ namespace Daryva.Services.Data
         public async Task<string?> GetSettingValueAsync(string key)
         {
             const string sql = @"
-                SELECT [SettingValue]
-                FROM [dbo].[AppSettings]
-                WHERE [SettingKey] = @Key";
+                SELECT SettingValue
+                FROM AppSettings
+                WHERE SettingKey = @Key";
 
             _dbContext.OpenConnection();
             var connection = _dbContext.Connection;
@@ -33,9 +34,9 @@ namespace Daryva.Services.Data
         public async Task<Dictionary<string, string>> GetSettingsByCategoryAsync(string category)
         {
             const string sql = @"
-                SELECT [SettingKey], [SettingValue]
-                FROM [dbo].[AppSettings]
-                WHERE [Category] = @Category";
+                SELECT SettingKey, SettingValue
+                FROM AppSettings
+                WHERE Category = @Category";
 
             _dbContext.OpenConnection();
             var connection = _dbContext.Connection;
@@ -49,8 +50,8 @@ namespace Daryva.Services.Data
         public async Task<Dictionary<string, string>> GetAllSettingsAsync()
         {
             const string sql = @"
-                SELECT [SettingKey], [SettingValue]
-                FROM [dbo].[AppSettings]";
+                SELECT SettingKey, SettingValue
+                FROM AppSettings";
 
             _dbContext.OpenConnection();
             var connection = _dbContext.Connection;
@@ -63,43 +64,72 @@ namespace Daryva.Services.Data
 
         public async Task SetSettingValueAsync(string key, string value, string settingType = "String")
         {
-            const string sql = @"
-                IF EXISTS (SELECT 1 FROM [dbo].[AppSettings] WHERE [SettingKey] = @Key)
-                    UPDATE [dbo].[AppSettings]
-                    SET [SettingValue] = @Value,
-                        [UpdatedAt] = GETUTCDATE()
-                    WHERE [SettingKey] = @Key
-                ELSE
-                    INSERT INTO [dbo].[AppSettings] ([SettingKey], [SettingValue], [SettingType], [Category], [UpdatedAt])
-                    VALUES (@Key, @Value, @Type, 'General', GETUTCDATE())";
+            // SQLite doesn't support IF EXISTS in the same way, so use INSERT OR REPLACE or separate logic
+            const string checkSql = @"
+                SELECT COUNT(*) FROM AppSettings WHERE SettingKey = @Key";
+            
+            const string updateSql = @"
+                UPDATE AppSettings
+                SET SettingValue = @Value,
+                    UpdatedAt = datetime('now')
+                WHERE SettingKey = @Key";
+            
+            const string insertSql = @"
+                INSERT INTO AppSettings (SettingKey, SettingValue, SettingType, Category, UpdatedAt)
+                VALUES (@Key, @Value, @Type, 'General', datetime('now'))";
 
             _dbContext.OpenConnection();
             var connection = _dbContext.Connection;
-            await connection.ExecuteAsync(sql, new { Key = key, Value = value, Type = settingType });
+            var exists = await connection.ExecuteScalarAsync<int>(checkSql, new { Key = key }) > 0;
+            
+            if (exists)
+            {
+                await connection.ExecuteAsync(updateSql, new { Key = key, Value = value });
+            }
+            else
+            {
+                await connection.ExecuteAsync(insertSql, new { Key = key, Value = value, Type = settingType });
+            }
         }
 
         public async Task SetSettingsAsync(Dictionary<string, string> settings)
         {
-            const string sql = @"
-                IF EXISTS (SELECT 1 FROM [dbo].[AppSettings] WHERE [SettingKey] = @Key)
-                    UPDATE [dbo].[AppSettings]
-                    SET [SettingValue] = @Value,
-                        [UpdatedAt] = GETUTCDATE()
-                    WHERE [SettingKey] = @Key
-                ELSE
-                    INSERT INTO [dbo].[AppSettings] ([SettingKey], [SettingValue], [SettingType], [Category], [UpdatedAt])
-                    VALUES (@Key, @Value, 'String', 'General', GETUTCDATE())";
+            const string checkSql = @"
+                SELECT COUNT(*) FROM AppSettings WHERE SettingKey = @Key";
+            
+            const string updateSql = @"
+                UPDATE AppSettings
+                SET SettingValue = @Value,
+                    UpdatedAt = datetime('now')
+                WHERE SettingKey = @Key";
+            
+            const string insertSql = @"
+                INSERT INTO AppSettings (SettingKey, SettingValue, SettingType, Category, UpdatedAt)
+                VALUES (@Key, @Value, 'String', 'General', datetime('now'))";
 
             _dbContext.OpenConnection();
             var connection = _dbContext.Connection;
-            await connection.ExecuteAsync(sql, settings.Select(s => new { Key = s.Key, Value = s.Value }));
+            
+            foreach (var setting in settings)
+            {
+                var exists = await connection.ExecuteScalarAsync<int>(checkSql, new { Key = setting.Key }) > 0;
+                
+                if (exists)
+                {
+                    await connection.ExecuteAsync(updateSql, new { Key = setting.Key, Value = setting.Value });
+                }
+                else
+                {
+                    await connection.ExecuteAsync(insertSql, new { Key = setting.Key, Value = setting.Value });
+                }
+            }
         }
 
         public async Task DeleteSettingAsync(string key)
         {
             const string sql = @"
-                DELETE FROM [dbo].[AppSettings]
-                WHERE [SettingKey] = @Key";
+                DELETE FROM AppSettings
+                WHERE SettingKey = @Key";
 
             _dbContext.OpenConnection();
             var connection = _dbContext.Connection;

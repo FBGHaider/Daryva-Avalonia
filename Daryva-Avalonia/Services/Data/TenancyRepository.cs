@@ -16,7 +16,11 @@ namespace Daryva.Services.Data
         public async Task<IEnumerable<Tenancy>> GetTenanciesByHouseIdAsync(int houseId)
         {
             var sql = @"
-                SELECT t.*, h.*, tn.*
+                SELECT 
+                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
+                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
+                    h.HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
+                    tn.TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
                 FROM Tenancy t
                 INNER JOIN House h ON t.HouseId = h.HouseId
                 INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
@@ -40,7 +44,11 @@ namespace Daryva.Services.Data
         public async Task<IEnumerable<Tenancy>> GetTenanciesByTenantIdAsync(int tenantId)
         {
             var sql = @"
-                SELECT t.*, h.*, tn.*
+                SELECT 
+                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
+                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
+                    h.HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
+                    tn.TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
                 FROM Tenancy t
                 INNER JOIN House h ON t.HouseId = h.HouseId
                 INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
@@ -63,7 +71,11 @@ namespace Daryva.Services.Data
         public async Task<Tenancy?> GetTenancyByIdAsync(int tenancyId)
         {
             var sql = @"
-                SELECT t.*, h.*, tn.*
+                SELECT 
+                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
+                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
+                    h.HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
+                    tn.TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
                 FROM Tenancy t
                 INNER JOIN House h ON t.HouseId = h.HouseId
                 INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
@@ -86,7 +98,11 @@ namespace Daryva.Services.Data
         public async Task<IEnumerable<Tenancy>> GetActiveTenanciesAsync()
         {
             var sql = @"
-                SELECT t.*, h.*, tn.*
+                SELECT 
+                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
+                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
+                    h.HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
+                    tn.TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
                 FROM Tenancy t
                 INNER JOIN House h ON t.HouseId = h.HouseId
                 INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
@@ -111,7 +127,7 @@ namespace Daryva.Services.Data
             var sql = @"
                 INSERT INTO Tenancy (HouseId, TenantId, MoveInDate, MoveOutDate, RentAmountMonthly, DepositAmount, PaymentDueDay, Status, Notes)
                 VALUES (@HouseId, @TenantId, @MoveInDate, @MoveOutDate, @RentAmountMonthly, @DepositAmount, @PaymentDueDay, @Status, @Notes);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                SELECT last_insert_rowid();";
 
             var tenancyId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, tenancy));
             return tenancyId;

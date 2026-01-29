@@ -1,64 +1,86 @@
-using System.Configuration;
 using System.IO;
-using System.Xml;
+using System.Text.Json;
+using Daryva.Services.Platform;
 
 namespace Daryva.Services
 {
     /// <summary>
-    /// Implementation of IConfigurationService that reads from App.config and App.config.local.
+    /// Cross-platform implementation of IConfigurationService that reads from JSON config files.
+    /// Replaces Windows-only ConfigurationManager.
     /// </summary>
     public class ConfigurationService : IConfigurationService
     {
         private const string DefaultConnectionStringName = "DefaultConnection";
+        private static readonly string ConfigPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Daryva",
+            "app.config.json");
         private static readonly string LocalConfigPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "App.config.local");
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Daryva",
+            "app.config.local.json");
+        
+        private static Dictionary<string, string>? _settings;
         private static Dictionary<string, string>? _localSettings;
         private static string? _localConnectionString;
 
         static ConfigurationService()
         {
-            LoadLocalConfig();
+            LoadConfig();
         }
 
         /// <summary>
-        /// Loads settings from App.config.local if it exists.
+        /// Loads settings from app.config.json and app.config.local.json if they exist.
         /// </summary>
-        private static void LoadLocalConfig()
+        private static void LoadConfig()
         {
+            _settings = new Dictionary<string, string>();
             _localSettings = new Dictionary<string, string>();
             _localConnectionString = null;
 
-            if (File.Exists(LocalConfigPath))
+            // Load app.config.json (if exists)
+            if (File.Exists(ConfigPath))
             {
                 try
                 {
-                    var doc = new XmlDocument();
-                    doc.Load(LocalConfigPath);
-
-                    var appSettingsNodes = doc.SelectNodes("//configuration/appSettings/add");
-                    if (appSettingsNodes != null)
+                    var json = File.ReadAllText(ConfigPath);
+                    var config = JsonSerializer.Deserialize<ConfigFile>(json);
+                    if (config?.AppSettings != null)
                     {
-                        foreach (XmlNode node in appSettingsNodes)
-                        {
-                            var key = node.Attributes?["key"]?.Value;
-                            var value = node.Attributes?["value"]?.Value;
-                            if (key != null && value != null)
-                                _localSettings[key] = value;
-                        }
+                        _settings = config.AppSettings;
                     }
-
-                    var csNode = doc.SelectSingleNode($"//configuration/connectionStrings/add[@name='{DefaultConnectionStringName}']");
-                    if (csNode != null)
+                    if (config?.ConnectionStrings != null && 
+                        config.ConnectionStrings.TryGetValue(DefaultConnectionStringName, out var cs))
                     {
-                        var cs = csNode.Attributes?["connectionString"]?.Value;
-                        if (!string.IsNullOrWhiteSpace(cs))
-                            _localConnectionString = cs.Trim();
+                        // Store default connection string if not overridden by local
                     }
                 }
                 catch
                 {
-                    _localSettings.Clear();
+                    _settings = new Dictionary<string, string>();
+                }
+            }
+
+            // Load app.config.local.json (if exists) - takes precedence
+            if (File.Exists(LocalConfigPath))
+            {
+                try
+                {
+                    var json = File.ReadAllText(LocalConfigPath);
+                    var config = JsonSerializer.Deserialize<ConfigFile>(json);
+                    if (config?.AppSettings != null)
+                    {
+                        _localSettings = config.AppSettings;
+                    }
+                    if (config?.ConnectionStrings != null && 
+                        config.ConnectionStrings.TryGetValue(DefaultConnectionStringName, out var cs))
+                    {
+                        _localConnectionString = cs;
+                    }
+                }
+                catch
+                {
+                    _localSettings = new Dictionary<string, string>();
                     _localConnectionString = null;
                 }
             }
@@ -66,28 +88,36 @@ namespace Daryva.Services
 
         /// <summary>
         /// Gets the database connection string from configuration.
-        /// Uses App.config.local connection string if present, otherwise App.config.
+        /// Uses app.config.local.json connection string if present, otherwise app.config.json.
         /// </summary>
         public string GetConnectionString()
         {
             if (!string.IsNullOrWhiteSpace(_localConnectionString))
                 return _localConnectionString;
 
-            var connectionString = ConfigurationManager.ConnectionStrings[DefaultConnectionStringName]?.ConnectionString;
-
-            if (string.IsNullOrWhiteSpace(connectionString))
+            // Check default config
+            if (_settings != null && _settings.TryGetValue($"ConnectionStrings:{DefaultConnectionStringName}", out var connectionString))
             {
-                throw new InvalidOperationException(
-                    $"Connection string '{DefaultConnectionStringName}' is not configured. " +
-                    "Please add it to the App.config file, or to App.config.local for a direct (non-Docker) database.");
+                return connectionString;
             }
 
-            return connectionString;
+            // Default SQLite connection string for cross-platform
+            // Check for custom database location first (OneDrive Documents)
+            var customDbPath = @"C:\Users\Abbas Haider\OneDrive\Documents\DaryvaDB.db";
+            if (File.Exists(customDbPath))
+            {
+                return $"Data Source={customDbPath};";
+            }
+            
+            // Fallback to default AppData location
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var dbPath = Path.Combine(appDataPath, "Daryva", "Database", "DaryvaDB.db");
+            return $"Data Source={dbPath};";
         }
 
         /// <summary>
         /// Gets a configuration value by key from AppSettings.
-        /// Checks App.config.local first, then falls back to App.config.
+        /// Checks app.config.local.json first, then falls back to app.config.json.
         /// </summary>
         public string? GetValue(string key)
         {
@@ -97,90 +127,103 @@ namespace Daryva.Services
                 return localValue;
             }
             
-            // Fall back to App.config
-            return ConfigurationManager.AppSettings[key];
+            // Fall back to default config
+            if (_settings != null && _settings.TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
+            return null;
         }
 
         /// <summary>
-        /// Sets a configuration value in AppSettings.
+        /// Sets a configuration value in app.config.json.
         /// </summary>
         public void SetValue(string key, string value)
         {
-            var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-            config.AppSettings.Settings[key].Value = value;
-            config.Save(ConfigurationSaveMode.Modified);
-            ConfigurationManager.RefreshSection("appSettings");
+            if (_settings == null)
+                _settings = new Dictionary<string, string>();
+
+            _settings[key] = value;
+            SaveConfig();
         }
 
         /// <summary>
-        /// Sets a configuration value in App.config.local.
+        /// Sets a configuration value in app.config.local.json.
         /// Creates the file if it doesn't exist.
         /// </summary>
         public void SetLocalValue(string key, string value)
         {
-            if (!File.Exists(LocalConfigPath))
-            {
-                // Create the file with basic structure
-                var doc = new XmlDocument();
-                var declaration = doc.CreateXmlDeclaration("1.0", "utf-8", null);
-                doc.AppendChild(declaration);
-                
-                var configElement = doc.CreateElement("configuration");
-                doc.AppendChild(configElement);
-                
-                var appSettingsElement = doc.CreateElement("appSettings");
-                configElement.AppendChild(appSettingsElement);
-                
-                doc.Save(LocalConfigPath);
-            }
+            if (_localSettings == null)
+                _localSettings = new Dictionary<string, string>();
 
-            var doc2 = new XmlDocument();
-            doc2.Load(LocalConfigPath);
-            
-            var appSettings = doc2.SelectSingleNode("//configuration/appSettings");
-            if (appSettings == null)
-            {
-                var config = doc2.SelectSingleNode("//configuration");
-                if (config == null)
-                {
-                    var configElement = doc2.CreateElement("configuration");
-                    doc2.AppendChild(configElement);
-                    config = configElement;
-                }
-                appSettings = doc2.CreateElement("appSettings");
-                config.AppendChild(appSettings);
-            }
-
-            // Find existing add node with this key
-            var existingNode = doc2.SelectSingleNode($"//configuration/appSettings/add[@key='{key}']");
-            if (existingNode != null)
-            {
-                var valueAttr = existingNode.Attributes?["value"];
-                if (valueAttr != null)
-                {
-                    valueAttr.Value = value;
-                }
-            }
-            else
-            {
-                var addNode = doc2.CreateElement("add");
-                addNode.SetAttribute("key", key);
-                addNode.SetAttribute("value", value);
-                appSettings.AppendChild(addNode);
-            }
-
-            doc2.Save(LocalConfigPath);
-            
-            // Reload the local settings cache
-            LoadLocalConfig();
+            _localSettings[key] = value;
+            SaveLocalConfig();
         }
 
         /// <summary>
-        /// Reloads the local configuration file.
+        /// Reloads the configuration files.
         /// </summary>
         public void ReloadLocalConfig()
         {
-            LoadLocalConfig();
+            LoadConfig();
+        }
+
+        private void SaveConfig()
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(ConfigPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                var config = new ConfigFile
+                {
+                    AppSettings = _settings ?? new Dictionary<string, string>()
+                };
+
+                var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(ConfigPath, json);
+            }
+            catch
+            {
+                // Silently fail
+            }
+        }
+
+        private void SaveLocalConfig()
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(LocalConfigPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                var config = new ConfigFile
+                {
+                    AppSettings = _localSettings ?? new Dictionary<string, string>(),
+                    ConnectionStrings = _localConnectionString != null
+                        ? new Dictionary<string, string> { [DefaultConnectionStringName] = _localConnectionString }
+                        : new Dictionary<string, string>()
+                };
+
+                var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(LocalConfigPath, json);
+            }
+            catch
+            {
+                // Silently fail
+            }
+        }
+
+        private class ConfigFile
+        {
+            public Dictionary<string, string>? AppSettings { get; set; }
+            public Dictionary<string, string>? ConnectionStrings { get; set; }
         }
     }
 }

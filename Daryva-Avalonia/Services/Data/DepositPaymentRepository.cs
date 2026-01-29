@@ -38,7 +38,7 @@ namespace Daryva.Services.Data
             try
             {
                 var sql = @"
-                    SELECT ISNULL(SUM(AmountPaid), 0)
+                    SELECT COALESCE(SUM(AmountPaid), 0)
                     FROM DepositPayment
                     WHERE TenancyId = @TenancyId";
 
@@ -57,7 +57,7 @@ namespace Daryva.Services.Data
             var sql = @"
                 INSERT INTO DepositPayment (TenancyId, PaidOn, AmountPaid, Method, Reference, Notes, CollectedBy)
                 VALUES (@TenancyId, @PaidOn, @AmountPaid, @Method, @Reference, @Notes, @CollectedBy);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                SELECT last_insert_rowid();";
 
             var paymentId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, payment));
             return paymentId;

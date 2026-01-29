@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.Services.Business;
+using Daryva.Services.Database;
 using Daryva.Services.Dialog;
 
 namespace Daryva.MVVM.ViewModels
@@ -11,23 +12,26 @@ namespace Daryva.MVVM.ViewModels
         private readonly ISettingsService _settingsService;
         private readonly IBackupService _backupService;
         private readonly IDialogService _dialogService;
+        private readonly IDbContext _dbContext;
 
         private string _backupLocation = string.Empty;
         private bool _autoBackupEnabled = false;
         private string _autoBackupFrequency = "Daily";
         private int _backupRetentionCount = 30;
-        private string _databaseType = "SQL Server";
+        private string _databaseType = "Unknown";
         private bool _isDatabaseConnected = false;
         private decimal _databaseSizeMB = 0;
 
         public BackupSettingsViewModel(
             ISettingsService settingsService,
             IBackupService backupService,
-            IDialogService dialogService)
+            IDialogService dialogService,
+            IDbContext dbContext)
         {
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
 
             SaveCommand = new RelayCommand(async _ => await SaveAsync());
             ResetCommand = new RelayCommand(async _ => await LoadAsync());
@@ -104,6 +108,8 @@ namespace Daryva.MVVM.ViewModels
                 AutoBackupFrequency = await _settingsService.GetSettingAsync("AutoBackupFrequency", "Daily") ?? "Daily";
                 BackupRetentionCount = await _settingsService.GetSettingAsync<int>("BackupRetentionCount", 30) ?? 30;
 
+                // Detect database type from connection string
+                DatabaseType = DetectDatabaseType(_dbContext.Connection.ConnectionString);
                 IsDatabaseConnected = await _settingsService.IsDatabaseConnectedAsync();
                 DatabaseSizeMB = await _settingsService.GetDatabaseSizeAsync();
             }
@@ -111,6 +117,29 @@ namespace Daryva.MVVM.ViewModels
             {
                 _dialogService.ShowMessage($"Error loading settings: {ex.Message}", "Error");
             }
+        }
+
+        private string DetectDatabaseType(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                return "Unknown";
+
+            // SQLite connection strings contain "Data Source="
+            if (connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("DataSource=", StringComparison.OrdinalIgnoreCase))
+            {
+                return "SQLite";
+            }
+
+            // SQL Server connection strings typically contain "Server=" or "Data Source=" with server name
+            if (connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("Database=", StringComparison.OrdinalIgnoreCase))
+            {
+                return "SQL Server";
+            }
+
+            return "Unknown";
         }
 
         private async Task SaveAsync()
@@ -165,7 +194,14 @@ namespace Daryva.MVVM.ViewModels
                 var errorMsg = ex.Message;
                 if (errorMsg.Contains("permission") || errorMsg.Contains("Permission"))
                 {
-                    errorMsg += "\n\nTip: Try using C:\\Backups\\Daryva as the backup location, or grant the SQL Server service account write permissions to the selected folder.\n\nSee BACKUP_PERMISSIONS.md for detailed instructions.";
+                    if (DatabaseType == "SQLite")
+                    {
+                        errorMsg += "\n\nTip: Ensure the backup location folder exists and you have write permissions to it.";
+                    }
+                    else
+                    {
+                        errorMsg += "\n\nTip: Try using C:\\Backups\\Daryva as the backup location, or grant the SQL Server service account write permissions to the selected folder.\n\nSee BACKUP_PERMISSIONS.md for detailed instructions.";
+                    }
                 }
                 _dialogService.ShowMessage($"Error creating backup: {errorMsg}", "Backup Error");
             }

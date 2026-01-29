@@ -51,7 +51,9 @@ namespace Daryva.Services.Data
             var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
             
             var sql = $@"
-                SELECT e.*, h.*
+                SELECT 
+                    e.HouseExpenseId, e.HouseId, e.DateIncurred, e.Category, e.Amount, e.Vendor, e.Notes, e.ReceiptDocumentId,
+                    h.HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt
                 FROM HouseExpense e
                 INNER JOIN House h ON e.HouseId = h.HouseId
                 {whereClause}
@@ -73,7 +75,9 @@ namespace Daryva.Services.Data
         public async Task<HouseExpense?> GetExpenseByIdAsync(int expenseId)
         {
             var sql = @"
-                SELECT e.*, h.*
+                SELECT 
+                    e.HouseExpenseId, e.HouseId, e.DateIncurred, e.Category, e.Amount, e.Vendor, e.Notes, e.ReceiptDocumentId,
+                    h.HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt
                 FROM HouseExpense e
                 INNER JOIN House h ON e.HouseId = h.HouseId
                 WHERE e.HouseExpenseId = @ExpenseId";
@@ -96,7 +100,7 @@ namespace Daryva.Services.Data
             var sql = @"
                 INSERT INTO HouseExpense (HouseId, DateIncurred, Category, Amount, Vendor, Notes, ReceiptDocumentId)
                 VALUES (@HouseId, @DateIncurred, @Category, @Amount, @Vendor, @Notes, @ReceiptDocumentId);
-                SELECT CAST(SCOPE_IDENTITY() as int);";
+                SELECT last_insert_rowid();";
 
             var expenseId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, expense));
             return expenseId;
@@ -150,7 +154,7 @@ namespace Daryva.Services.Data
             var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
             
             var sql = $@"
-                SELECT ISNULL(SUM(Amount), 0)
+                SELECT COALESCE(SUM(Amount), 0)
                 FROM HouseExpense
                 {whereClause}";
 
