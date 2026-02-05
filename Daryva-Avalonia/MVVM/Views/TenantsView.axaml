@@ -9,6 +9,7 @@
     <UserControl.Resources>
         <converters:BoolToTitleConverter x:Key="BoolToTitleConverter"/>
         <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+        <converters:DateTimeToDisplayConverter x:Key="DateTimeToDisplayConverter"/>
     </UserControl.Resources>
     <Border Padding="16">
         <Grid RowDefinitions="Auto,Auto,*">
@@ -35,6 +36,11 @@
                     <Button Content="Remove Tenant" 
                             Command="{Binding RemoveTenantCommand}"
                             IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
+                    <Button Content="Recover Tenant" 
+                            Command="{Binding RecoverTenantCommand}"
+                            Background="{DynamicResource AccentBrush}"
+                            Foreground="White"
+                            IsVisible="{Binding ShowArchivedOnly}"/>
                     <Button Content="Delete Permanently" 
                             Command="{Binding DeleteArchivedCommand}"
                             Background="#DC3545"
@@ -60,12 +66,13 @@
                             BorderBrush="{DynamicResource BorderBrush}" 
                             BorderThickness="0,0,0,1"
                             Padding="8,10">
-                        <Grid ColumnDefinitions="200,250,150,200,*">
+                        <Grid ColumnDefinitions="200,250,150,200,*,120">
                             <TextBlock Grid.Column="0" Text="Name" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <TextBlock Grid.Column="1" Text="Email" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <TextBlock Grid.Column="2" Text="Phone" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <TextBlock Grid.Column="3" Text="University" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <TextBlock Grid.Column="4" Text="Current House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="5" Text="Leaving date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}" IsVisible="{Binding ShowArchivedOnly}"/>
                         </Grid>
                     </Border>
                     
@@ -83,12 +90,13 @@
                                             Padding="8,8"
                                             Background="Transparent"
                                             Cursor="Hand">
-                                        <Grid ColumnDefinitions="200,250,150,200,*">
+                                        <Grid ColumnDefinitions="200,250,150,200,*,120">
                                             <TextBlock Grid.Column="0" Text="{Binding FullName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Email}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <TextBlock Grid.Column="2" Text="{Binding PhoneNumber}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <TextBlock Grid.Column="3" Text="{Binding UniversityName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <TextBlock Grid.Column="4" Text="{Binding CurrentHouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding LeaveDate, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" IsVisible="{Binding DataContext.ShowArchivedOnly, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

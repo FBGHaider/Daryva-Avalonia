@@ -25,7 +25,11 @@ namespace Daryva.Services.Data
                        (SELECT tn.TenancyId 
                         FROM Tenancy tn 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
-                        LIMIT 1) AS CurrentTenancyId
+                        LIMIT 1) AS CurrentTenancyId,
+                       (SELECT tn.MoveOutDate 
+                        FROM Tenancy tn 
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Ended' 
+                        ORDER BY tn.MoveOutDate DESC LIMIT 1) AS LeaveDate
                 FROM Tenant t
                 WHERE (@IncludeArchived = 1 OR t.IsArchived = 0)
                 ORDER BY t.FullName";
@@ -80,6 +84,12 @@ namespace Daryva.Services.Data
         public async Task ArchiveTenantAsync(int tenantId)
         {
             var sql = "UPDATE Tenant SET IsArchived = 1 WHERE TenantId = @TenantId";
+            await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { TenantId = tenantId }));
+        }
+
+        public async Task UnarchiveTenantAsync(int tenantId)
+        {
+            var sql = "UPDATE Tenant SET IsArchived = 0 WHERE TenantId = @TenantId";
             await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { TenantId = tenantId }));
         }
 

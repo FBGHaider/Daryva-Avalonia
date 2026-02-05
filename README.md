@@ -59,6 +59,11 @@ sqlite3 ~/Library/Application\ Support/Daryva/Database/DaryvaDB.db < Database/Mi
 
 Run the app once to create the empty database file, then run the migration script using DB Browser or sqlite3.
 
+### Migrations (existing databases)
+
+The app runs migrations automatically on startup. If you prefer to run manually:
+- **016_AddRentStartAndBackfillMoveIn.sql** – Adds RentStartMonth/RentStartYear to Tenancy, backfills MoveInDate from first payment
+
 ---
 
 ## Configuration
@@ -152,6 +157,36 @@ Example:
 
 Upload the `releases/` contents to [GitHub Releases](https://github.com/FBGHaider/Daryva-Updates/releases) for auto-updates.
 
+### Which installer for GitHub updates?
+
+| Installer | GitHub updates | Wizard (terms, options) |
+|-----------|----------------|--------------------------|
+| **`Daryva-Setup-{version}.exe`** (Inno hybrid) | ✅ Yes | Full wizard (Welcome, License, Options, Ready, Installing, Finished) |
+| `FBGHaider.Daryva-win-Setup.exe` | ✅ Yes | Basic (Velopack default) |
+
+**Recommended:** `Daryva-Setup-{version}.exe` gives you both the full wizard and GitHub updates. It runs Velopack Setup.exe during install (with `--silent` to avoid full-screen splash). Velopack installs to `%LocalAppData%\FBGHaider.Daryva`, enabling Check for updates in Settings → General.
+
+**Build:** Run `.\velopack-installer\build-win.ps1 -Version 1.0.0` (full build). Upload `Daryva-Setup-{version}.exe` and the Velopack files to [Daryva-Updates releases](https://github.com/FBGHaider/Daryva-Updates/releases).
+
+### Branded Installer (no updates)
+
+**Windows:** With [Inno Setup 6](https://jrsoftware.org/isinfo.php) installed, the build also produces `Daryva-Setup-{version}.exe` – a full wizard installer that installs directly from published artifacts:
+- **Welcome** – Logo and slogan (Next/Back)
+- **License** – Terms & conditions (I accept / Next / Back)
+- **Destination** – Choose install folder (Next/Back)
+- **Additional Options** – "Create desktop shortcut" checkbox (Next/Back)
+- **Ready** – Review and Install (Install/Back)
+- **Installing** – Progress bar
+- **Finished** – "Open Daryva" checkbox (Finish)
+
+Use `-SkipInnoSetup` to skip the Inno wizard and build only `FBGHaider.Daryva-win-Setup.exe` (recommended for update-enabled distribution).
+
+**macOS:** The `.pkg` installer includes Welcome, License (terms), and Conclusion pages. Users can choose `/Applications` or `~/Applications`.
+
+**Assets:** Customize `velopack-installer/installer-assets/`:
+- `logo.png` or `splash.png` – used to generate `logo-small.bmp` (smaller logo in progress window)
+- `terms.rtf`, `welcome.rtf`, `conclusion.rtf` – macOS pkg pages
+
 ---
 
 ## File Locations
@@ -170,7 +205,7 @@ Exports: `~/Documents/Daryva Exports/` (or user-selected path)
 
 - `Daryva-Avalonia/` – Avalonia app (MVVM, services, themes)
 - `Database/Migrations/` – SQLite schema and migrations
-- `velopack-installer/` – Velopack build scripts (build-win.ps1, build-mac.sh, build-mac-intel.sh)
+- `velopack-installer/` – Velopack build scripts and installer assets (logo, terms, welcome)
 
 ---
 

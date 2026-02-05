@@ -20,7 +20,7 @@ namespace Daryva.MVVM.ViewModels
 
         private Tenancy? _selectedTenancy;
         private DateTimeOffset? _paymentDate = DateTimeOffset.Now;
-        private string _paymentMethod = "BankTransfer";
+        private string _paymentMethod = "Bank Transfer";
         private string? _reference;
         private string? _notes;
         private string _collectedBy = "Abbas";
@@ -43,6 +43,9 @@ namespace Daryva.MVVM.ViewModels
             _dialogService = dialogService;
 
             Tenancies = new ObservableCollection<Tenancy>();
+            PaymentMethodOptions = new ObservableCollection<string> { "Bank Transfer", "Cash", "Card", "Other" };
+            MonthOptions = new ObservableCollection<string> { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+            YearOptions = new ObservableCollection<int>();
             SaveCommand = new RelayCommand(async _ => await SaveAsync(), _ => CanSave());
 
             LoadActiveTenanciesCommand = new RelayCommand(async _ => await LoadActiveTenanciesAsync());
@@ -83,9 +86,40 @@ namespace Daryva.MVVM.ViewModels
                 await loadTask; // Re-await to propagate any exceptions
                 
                 // After loading tenancies, pre-select if a tenancy ID was provided
+                // Populate year options (current year +/- 5)
+                YearOptions.Clear();
+                var currentYear = DateTime.Now.Year;
+                for (int y = currentYear - 5; y <= currentYear + 5; y++)
+                    YearOptions.Add(y);
+                if (!YearOptions.Contains(RentYear))
+                    YearOptions.Add(RentYear);
+
                 if (_preselectedTenancyId.HasValue)
                 {
                     var preselectedTenancy = Tenancies.FirstOrDefault(t => t.TenancyId == _preselectedTenancyId.Value);
+                    if (preselectedTenancy == null)
+                    {
+                        // Tenancy not in active list (e.g. ended) - fetch by ID so deposit ledger row can still be used
+                        preselectedTenancy = await Task.Run(async () =>
+                            await _tenancyRepository.GetTenancyByIdAsync(_preselectedTenancyId.Value).ConfigureAwait(false)).ConfigureAwait(false);
+                        if (preselectedTenancy != null)
+                        {
+                            var dispatcher = Avalonia.Threading.Dispatcher.UIThread;
+                            if (dispatcher.CheckAccess())
+                            {
+                                Tenancies.Add(preselectedTenancy);
+                                SelectedTenancy = preselectedTenancy;
+                            }
+                            else
+                            {
+                                await dispatcher.InvokeAsync(() =>
+                                {
+                                    Tenancies.Add(preselectedTenancy);
+                                    SelectedTenancy = preselectedTenancy;
+                                });
+                            }
+                        }
+                    }
                     if (preselectedTenancy != null)
                     {
                         SelectedTenancy = preselectedTenancy;
@@ -106,6 +140,9 @@ namespace Daryva.MVVM.ViewModels
         public ICommand SaveCommand { get; }
 
         public ObservableCollection<Tenancy> Tenancies { get; }
+        public ObservableCollection<string> PaymentMethodOptions { get; }
+        public ObservableCollection<string> MonthOptions { get; }
+        public ObservableCollection<int> YearOptions { get; }
 
         public Tenancy? SelectedTenancy
         {
@@ -114,10 +151,27 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedTenancy, value))
                 {
+                    RaiseSelectedTenancyDisplayChanged();
                     LoadTenancyDetails();
                     ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
                 }
             }
+        }
+
+        /// <summary>Null-safe display values for bindings when SelectedTenancy is null (avoids binding errors).</summary>
+        public string SelectedTenancyAddress => _selectedTenancy?.House?.AddressLine1 ?? "";
+        public string SelectedTenancyTenantName => _selectedTenancy?.Tenant?.FullName ?? "";
+        public decimal SelectedTenancyRentAmount => _selectedTenancy?.RentAmountMonthly ?? 0;
+        public decimal SelectedTenancyDepositAmount => _selectedTenancy?.DepositAmount ?? 0;
+
+        private void RaiseSelectedTenancyDisplayChanged()
+        {
+            OnPropertyChanged(nameof(SelectedTenancyAddress));
+            OnPropertyChanged(nameof(SelectedTenancyTenantName));
+            OnPropertyChanged(nameof(SelectedTenancyRentAmount));
+            OnPropertyChanged(nameof(SelectedTenancyDepositAmount));
+            OnPropertyChanged(nameof(DepositRemaining));
+            OnPropertyChanged(nameof(RentRemaining));
         }
 
         public DateTimeOffset? PaymentDate
@@ -157,6 +211,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _depositAmount, value))
                 {
+                    OnPropertyChanged(nameof(TotalPayment));
                     ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
                 }
             }
@@ -169,6 +224,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _rentAmount, value))
                 {
+                    OnPropertyChanged(nameof(TotalPayment));
                     ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
                 }
             }

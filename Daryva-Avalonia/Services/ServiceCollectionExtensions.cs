@@ -30,6 +30,7 @@ namespace Daryva.Services
 
             // Database Services
             services.AddScoped<IDbContextFactory, DbContextFactory>();
+            services.AddScoped<DatabaseMigrationRunner>();
             services.AddScoped<IDbContext>(serviceProvider =>
             {
                 var factory = serviceProvider.GetRequiredService<IDbContextFactory>();

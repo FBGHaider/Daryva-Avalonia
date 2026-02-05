@@ -9,6 +9,7 @@ namespace Daryva.Services.Data
         Task<int> CreateTenantAsync(Tenant tenant);
         Task UpdateTenantAsync(Tenant tenant);
         Task ArchiveTenantAsync(int tenantId);
+        Task UnarchiveTenantAsync(int tenantId);
         Task<IEnumerable<Tenant>> SearchTenantsAsync(string searchTerm);
         Task DeleteTenantAsync(int tenantId);
     }

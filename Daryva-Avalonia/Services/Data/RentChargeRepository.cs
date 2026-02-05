@@ -24,6 +24,19 @@ namespace Daryva.Services.Data
             return await Task.FromResult(_dbContext.Query<RentCharge>(sql, new { TenancyId = tenancyId, PeriodYear = periodYear, PeriodMonth = periodMonth }).FirstOrDefault());
         }
 
+        public async Task<IEnumerable<RentCharge>> GetRentChargesForPeriodAsync(int periodYear, int periodMonth)
+        {
+            var sql = @"
+                SELECT rc.*,
+                       CAST((SELECT COALESCE(SUM(rp.AmountPaid), 0)
+                        FROM RentPayment rp
+                        WHERE rp.RentChargeId = rc.RentChargeId) AS REAL) AS TotalPaid
+                FROM RentCharge rc
+                WHERE rc.PeriodYear = @PeriodYear AND rc.PeriodMonth = @PeriodMonth
+                ORDER BY rc.TenancyId";
+            return await Task.FromResult(_dbContext.Query<RentCharge>(sql, new { PeriodYear = periodYear, PeriodMonth = periodMonth }));
+        }
+
         public async Task<RentCharge?> GetRentChargeByIdAsync(int rentChargeId)
         {
             var sql = @"
@@ -58,9 +71,9 @@ namespace Daryva.Services.Data
         {
             var sql = @"
                 SELECT rc.*,
-                       (SELECT COALESCE(SUM(rp.AmountPaid), 0)
+                       CAST((SELECT COALESCE(SUM(rp.AmountPaid), 0)
                         FROM RentPayment rp
-                        WHERE rp.RentChargeId = rc.RentChargeId) AS TotalPaid
+                        WHERE rp.RentChargeId = rc.RentChargeId) AS REAL) AS TotalPaid
                 FROM RentCharge rc
                 WHERE rc.TenancyId = @TenancyId
                 ORDER BY rc.PeriodYear DESC, rc.PeriodMonth DESC";
@@ -74,6 +87,25 @@ namespace Daryva.Services.Data
         {
             var sql = "DELETE FROM RentCharge WHERE TenancyId = @TenancyId";
             await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { TenancyId = tenancyId }));
+        }
+
+        public async Task<IEnumerable<RentCharge>> GetAllRentChargesAsync()
+        {
+            var sql = @"
+                SELECT rc.*,
+                       CAST((SELECT COALESCE(SUM(rp.AmountPaid), 0)
+                        FROM RentPayment rp
+                        WHERE rp.RentChargeId = rc.RentChargeId) AS REAL) AS TotalPaid
+                FROM RentCharge rc
+                ORDER BY rc.TenancyId, rc.PeriodYear, rc.PeriodMonth";
+            return await Task.FromResult(_dbContext.Query<RentCharge>(sql));
+        }
+
+        public async Task<bool> DeleteRentChargeAsync(int rentChargeId)
+        {
+            var sql = "DELETE FROM RentCharge WHERE RentChargeId = @RentChargeId";
+            var rows = await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { RentChargeId = rentChargeId }));
+            return rows > 0;
         }
     }
 }

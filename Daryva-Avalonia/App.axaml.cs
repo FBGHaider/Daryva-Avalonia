@@ -27,6 +27,18 @@ public partial class App : Application
         ConfigureServices(serviceCollection);
         ServiceProvider = serviceCollection.BuildServiceProvider();
 
+        // Run database migrations
+        try
+        {
+            using var scope = ServiceProvider.CreateScope();
+            var migrationRunner = scope.ServiceProvider.GetRequiredService<Daryva.Services.Database.DatabaseMigrationRunner>();
+            migrationRunner.RunMigrations();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Migration failed: {ex.Message}");
+        }
+
         // Initialize theme from saved preference
         InitializeTheme();
 

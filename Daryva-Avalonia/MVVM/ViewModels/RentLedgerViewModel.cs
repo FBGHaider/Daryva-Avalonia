@@ -330,8 +330,9 @@ namespace Daryva.MVVM.ViewModels
                 // Update UI on UI thread
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    SelectedRow = null;
                     LedgerRows.Clear();
-                    foreach (var row in rows)
+                    foreach (var row in rows ?? Enumerable.Empty<RentLedgerRowViewModel>())
                     {
                         row.DueDateDisplay = DateTimeFormatProvider.FormatDate(row.DueDate);
                         LedgerRows.Add(row);
@@ -359,15 +360,18 @@ namespace Daryva.MVVM.ViewModels
                 
                 // Run database query on background thread
                 var rows = await Task.Run(async () => await _paymentService.GetDepositLedgerForMonthAsync(
+                    SelectedYear,
+                    SelectedMonth,
                     houseIdFilter,
                     StatusFilter == "All" ? null : StatusFilter,
                     string.IsNullOrWhiteSpace(SearchTerm) ? null : SearchTerm)).ConfigureAwait(false);
 
-                // Update UI on UI thread
+                // Update UI on UI thread (rows may be null if service threw before returning)
+                var safeRows = rows ?? Enumerable.Empty<DepositLedgerRowViewModel>();
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     DepositLedgerRows.Clear();
-                    foreach (var row in rows)
+                    foreach (var row in safeRows)
                     {
                         DepositLedgerRows.Add(row);
                     }
@@ -390,7 +394,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void RecordPaymentForSelectedRow()
+        private async void RecordPaymentForSelectedRow()
         {
             if (SelectedRow == null) return;
 
@@ -408,17 +412,16 @@ namespace Daryva.MVVM.ViewModels
                 if (mainWindow != null)
                 {
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
-                    dialog.ShowDialog(mainWindow);
+                    await dialog.ShowDialog(mainWindow);
                 }
                 else
                 {
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                     dialog.Show();
                 }
-                // Reload ledger after payment is recorded
+                // Reload both ledgers after dialog closes
                 LoadLedgerCommand.Execute(null);
-                
-                // Refresh dashboard if it's currently displayed
+                LoadDepositLedgerCommand.Execute(null);
                 RefreshDashboardIfActive();
             }
             catch (Exception ex)
@@ -427,7 +430,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void RecordDepositPaymentForRow(DepositLedgerRowViewModel row)
+        private async void RecordDepositPaymentForRow(DepositLedgerRowViewModel row)
         {
             if (row == null) return;
 
@@ -445,7 +448,7 @@ namespace Daryva.MVVM.ViewModels
                 if (mainWindow != null)
                 {
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
-                    dialog.ShowDialog(mainWindow);
+                    await dialog.ShowDialog(mainWindow);
                 }
                 else
                 {
@@ -453,10 +456,8 @@ namespace Daryva.MVVM.ViewModels
                     dialog.Show();
                 }
 
-                // Reload deposit ledger after payment is recorded
+                // Reload both ledgers after dialog closes
                 LoadDepositLedgerCommand.Execute(null);
-
-                // Also refresh rent ledger and dashboard
                 LoadLedgerCommand.Execute(null);
                 RefreshDashboardIfActive();
             }

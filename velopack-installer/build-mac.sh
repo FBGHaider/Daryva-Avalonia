@@ -18,8 +18,21 @@ echo "Building Daryva for macOS (osx-arm64) v$VERSION..."
 # Publish
 dotnet publish "$PROJECT_DIR" -c Release -r osx-arm64 --self-contained -o "$PUBLISH_DIR" -p:Version="$VERSION"
 
-# Velopack pack
+# Velopack pack (with welcome, license, conclusion pages)
+INSTALLER_ASSETS="$SCRIPT_DIR/installer-assets"
+VPK_ARGS=(
+  --packId FBGHaider.Daryva
+  --packVersion "$VERSION"
+  --packDir "$PUBLISH_DIR"
+  --mainExe Daryva
+  --outputDir "$RELEASES_DIR"
+  --packTitle "Daryva"
+)
+[[ -f "$INSTALLER_ASSETS/welcome.rtf" ]] && VPK_ARGS+=(--pkgWelcome "$INSTALLER_ASSETS/welcome.rtf")
+[[ -f "$INSTALLER_ASSETS/terms.rtf" ]] && VPK_ARGS+=(--pkgLicense "$INSTALLER_ASSETS/terms.rtf")
+[[ -f "$INSTALLER_ASSETS/conclusion.rtf" ]] && VPK_ARGS+=(--pkgConclusion "$INSTALLER_ASSETS/conclusion.rtf")
+
 echo "Packaging with Velopack..."
-vpk pack --packId FBGHaider.Daryva --packVersion "$VERSION" --packDir "$PUBLISH_DIR" --mainExe Daryva --outputDir "$RELEASES_DIR"
+vpk pack "${VPK_ARGS[@]}"
 
 echo "Done. Output: $RELEASES_DIR"

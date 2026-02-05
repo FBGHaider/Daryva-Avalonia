@@ -12,6 +12,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly ISettingsService _settingsService;
         private readonly IDialogService _dialogService;
         private readonly IUpdateService _updateService;
+        private readonly IPaymentService _paymentService;
 
         private string _currency = "GBP";
         private string _dateFormat = "dd/MM/yyyy";
@@ -25,16 +26,18 @@ namespace Daryva.MVVM.ViewModels
         private bool _isCheckingForUpdates;
         private bool _isInstallingUpdate;
 
-        public GeneralSettingsViewModel(ISettingsService settingsService, IDialogService dialogService, IUpdateService updateService)
+        public GeneralSettingsViewModel(ISettingsService settingsService, IDialogService dialogService, IUpdateService updateService, IPaymentService paymentService)
         {
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
+            _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
 
             SaveCommand = new RelayCommand(async _ => await SaveAsync());
             ResetCommand = new RelayCommand(async _ => await LoadAsync());
             CheckForUpdatesCommand = new RelayCommand(async _ => await CheckForUpdatesAsync(), _ => !IsCheckingForUpdates && !IsInstallingUpdate);
             InstallAndRestartCommand = new RelayCommand(async _ => await InstallAndRestartAsync(), _ => !string.IsNullOrEmpty(AvailableUpdateVersion) && !IsInstallingUpdate);
+            CleanupDuplicateChargesCommand = new RelayCommand(async _ => await CleanupDuplicateChargesAsync(), _ => !IsCleaningUpDuplicateCharges);
 
             _ = LoadAsync();
             InitializeUpdateStatus();
@@ -44,6 +47,7 @@ namespace Daryva.MVVM.ViewModels
         public ICommand ResetCommand { get; }
         public ICommand CheckForUpdatesCommand { get; }
         public ICommand InstallAndRestartCommand { get; }
+        public ICommand CleanupDuplicateChargesCommand { get; }
 
         public string Currency
         {
@@ -109,6 +113,13 @@ namespace Daryva.MVVM.ViewModels
         {
             get => _isInstallingUpdate;
             set => SetProperty(ref _isInstallingUpdate, value, RaiseUpdateCommandsCanExecute);
+        }
+
+        private bool _isCleaningUpDuplicateCharges;
+        public bool IsCleaningUpDuplicateCharges
+        {
+            get => _isCleaningUpDuplicateCharges;
+            set => SetProperty(ref _isCleaningUpDuplicateCharges, value, () => ((Commands.RelayCommand)CleanupDuplicateChargesCommand).RaiseCanExecuteChanged());
         }
 
         private void RaiseUpdateCommandsCanExecute()
@@ -223,6 +234,27 @@ namespace Daryva.MVVM.ViewModels
             finally
             {
                 IsInstallingUpdate = false;
+            }
+        }
+
+        private async Task CleanupDuplicateChargesAsync()
+        {
+            IsCleaningUpDuplicateCharges = true;
+            try
+            {
+                var removed = await _paymentService.CleanupDuplicateRentChargesAsync();
+                if (removed > 0)
+                    _dialogService.ShowMessage($"Cleanup complete. Removed {removed} duplicate rent charge(s). The rent ledger will show one row per tenant per period.", "Data Cleanup");
+                else
+                    _dialogService.ShowMessage("No duplicate rent charges found. Your data is already clean.", "Data Cleanup");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Cleanup failed: {ex.Message}", "Error");
+            }
+            finally
+            {
+                IsCleaningUpDuplicateCharges = false;
             }
         }
     }

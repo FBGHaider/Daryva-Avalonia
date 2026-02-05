@@ -10,14 +10,17 @@ namespace Daryva.Services.Business
         Task<string> GetDepositStatusAsync(int tenancyId, decimal depositRequired);
         Task<string> GetRentStatusForPeriodAsync(int tenancyId, int year, int month);
         Task<IEnumerable<RentLedgerRowViewModel>> GetRentLedgerForMonthAsync(int year, int month, int? houseId = null, string? statusFilter = null, string? searchTerm = null);
-        Task<IEnumerable<DepositLedgerRowViewModel>> GetDepositLedgerForMonthAsync(int? houseId = null, string? statusFilter = null, string? searchTerm = null);
+        Task<IEnumerable<DepositLedgerRowViewModel>> GetDepositLedgerForMonthAsync(int year, int month, int? houseId = null, string? statusFilter = null, string? searchTerm = null);
         Task<IEnumerable<TransactionRowViewModel>> GetTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null, string? paymentType = null, int? houseId = null, int? tenantId = null, string? method = null);
         Task<IEnumerable<PaymentDetailViewModel>> GetPaymentsForRentChargeAsync(int rentChargeId);
         Task<decimal> GetTotalRentDueThisMonthAsync();
         Task<IEnumerable<DashboardRentDueItem>> GetRentDueInNext7DaysAsync();
         Task<IEnumerable<DashboardOverdueRentItem>> GetOverdueRentAsync();
+        Task<IEnumerable<DepositReturnReminderItem>> GetDepositReturnRemindersAsync();
         Task<bool> UnrecordPaymentAsync(int paymentId, string paymentType);
         Task<bool> DeleteAllTransactionsAsync(); // For testing purposes
+        /// <summary>Merges duplicate rent charges (same tenancy + period), keeps one and removes duplicates. Returns number of duplicate charges removed.</summary>
+        Task<int> CleanupDuplicateRentChargesAsync();
     }
 
     public class DashboardRentDueItem
@@ -36,5 +39,14 @@ namespace Daryva.Services.Business
         public decimal Amount { get; set; }
         public int DaysLate { get; set; }
         public int TenancyId { get; set; }
+    }
+
+    public class DepositReturnReminderItem
+    {
+        public string TenantName { get; set; } = string.Empty;
+        public string HouseAddress { get; set; } = string.Empty;
+        public DateTime LeaveDate { get; set; }
+        public string LeaveDateDisplay { get; set; } = string.Empty;
+        public decimal AmountToReturn { get; set; }
     }
 }

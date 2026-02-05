@@ -18,6 +18,62 @@
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryTextBrush}"/>
 
+            <!-- Updates - always visible; when not Velopack-installed, shows "Updates not available" -->
+            <Border BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    Padding="20,16">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Updates"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto">
+                        <TextBlock Text="Current version:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding CurrentVersion}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="Status:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,12,12,0"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding UpdateStatus}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,12,0,0"/>
+
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal"
+                                    Spacing="12"
+                                    Margin="0,16,0,0">
+                            <Button Content="Check for updates"
+                                    Command="{Binding CheckForUpdatesCommand}"
+                                    IsEnabled="{Binding IsCheckingForUpdates, Converter={StaticResource InvertBoolConverter}}"
+                                    Background="Transparent"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                    BorderThickness="1"/>
+                            <Button Content="Install &amp; Restart"
+                                    Command="{Binding InstallAndRestartCommand}"
+                                    IsVisible="{Binding AvailableUpdateVersion, Converter={StaticResource IsNotNullConverter}}"
+                                    Background="{DynamicResource AccentBrush}"
+                                    Foreground="White"
+                                    BorderThickness="0"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- Appearance & Behavior -->
             <Border BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
@@ -102,60 +158,35 @@
                 </StackPanel>
             </Border>
 
-            <!-- Updates (Velopack) -->
+            <!-- Data maintenance -->
             <Border BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
                     Background="{DynamicResource ControlBackgroundBrush}"
-                    Padding="20,16"
-                    IsVisible="{Binding IsUpdateCheckAvailable}">
-                <StackPanel Spacing="16">
-                    <TextBlock Text="Updates"
+                    Padding="20,16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Data maintenance"
                                FontSize="13"
                                FontWeight="Medium"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                Margin="0,0,0,4"/>
-
-                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto">
-                        <TextBlock Text="Current version:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,0,12,0"/>
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding CurrentVersion}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                        <TextBlock Grid.Row="1"
-                                   Text="Status:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,12,12,0"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1"
-                                   Text="{Binding UpdateStatus}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,12,0,0"/>
-
-                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2"
-                                    Orientation="Horizontal"
-                                    Spacing="12"
-                                    Margin="0,16,0,0">
-                            <Button Content="Check for updates"
-                                    Command="{Binding CheckForUpdatesCommand}"
-                                    IsEnabled="{Binding IsCheckingForUpdates, Converter={StaticResource InvertBoolConverter}}"
-                                    Background="Transparent"
-                                    BorderBrush="{DynamicResource BorderBrush}"
-                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                    BorderThickness="1"/>
-                            <Button Content="Install &amp; Restart"
-                                    Command="{Binding InstallAndRestartCommand}"
-                                    IsVisible="{Binding AvailableUpdateVersion, Converter={StaticResource IsNotNullConverter}}"
-                                    Background="{DynamicResource AccentBrush}"
-                                    Foreground="White"
-                                    BorderThickness="0"/>
-                        </StackPanel>
-                    </Grid>
+                    <TextBlock Text="If the rent ledger shows duplicate rows for the same tenant and period (e.g. one Paid, one Overdue), run this to merge duplicates and keep a single row per tenant per period. Payment history is preserved."
+                               FontSize="12"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,8"/>
+                    <Button Content="Clean up duplicate rent charges"
+                            Command="{Binding CleanupDuplicateChargesCommand}"
+                            IsEnabled="{Binding IsCleaningUpDuplicateCharges, Converter={StaticResource InvertBoolConverter}}"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            Foreground="{DynamicResource PrimaryTextBrush}"
+                            BorderThickness="1"
+                            HorizontalAlignment="Left"/>
+                    <TextBlock Text="Cleaning up..."
+                               IsVisible="{Binding IsCleaningUpDuplicateCharges}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontSize="12"/>
                 </StackPanel>
             </Border>
 

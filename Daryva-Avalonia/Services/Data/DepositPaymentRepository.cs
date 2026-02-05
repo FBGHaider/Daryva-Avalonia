@@ -33,22 +33,35 @@ namespace Daryva.Services.Data
             }
         }
 
-        public async Task<decimal> GetTotalDepositPaidAsync(int tenancyId)
+        public Task<decimal> GetTotalDepositPaidAsync(int tenancyId)
         {
             try
             {
                 var sql = @"
-                    SELECT COALESCE(SUM(AmountPaid), 0)
+                    SELECT CAST(COALESCE(SUM(AmountPaid), 0) AS REAL)
                     FROM DepositPayment
                     WHERE TenancyId = @TenancyId";
 
-                return await Task.FromResult(_dbContext.ExecuteScalar<decimal>(sql, new { TenancyId = tenancyId }));
+                var result = _dbContext.ExecuteScalar<object>(sql, new { TenancyId = tenancyId });
+                return Task.FromResult(ConvertToDecimal(result));
             }
             catch (Exception ex)
             {
-                // If table doesn't exist yet (migration not run), return 0
-                System.Diagnostics.Debug.WriteLine($"Error getting total deposit paid (table may not exist): {ex.Message}");
-                return 0;
+                System.Diagnostics.Debug.WriteLine($"Error getting total deposit paid: {ex.Message}");
+                return Task.FromResult(0m);
+            }
+
+            static decimal ConvertToDecimal(object? value)
+            {
+                if (value == null || value == DBNull.Value) return 0m;
+                if (value is decimal d) return d;
+                if (value is long l) return (decimal)l;
+                if (value is int i) return (decimal)i;
+                if (value is double db) return (decimal)db;
+                if (value is float f) return (decimal)f;
+                if (value is string s && decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                    return parsed;
+                return 0m;
             }
         }
 
@@ -144,6 +157,20 @@ namespace Daryva.Services.Data
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error deleting deposit payments by tenancy (table may not exist): {ex.Message}");
+            }
+        }
+
+        public Task<IEnumerable<int>> GetTenancyIdsWithDepositPaymentsAsync()
+        {
+            try
+            {
+                var sql = "SELECT DISTINCT TenancyId FROM DepositPayment";
+                var ids = _dbContext.Query<int>(sql);
+                return Task.FromResult(ids);
+            }
+            catch
+            {
+                return Task.FromResult(Enumerable.Empty<int>());
             }
         }
     }

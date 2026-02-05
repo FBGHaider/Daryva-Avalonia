@@ -28,6 +28,7 @@ namespace Daryva.MVVM.ViewModels
         private int _overdueRentCount;
         private decimal _overdueRentAmount;
         private int _documentsExpiringSoonCount;
+        private bool _showEmptyDepositMessage = true;
 
         // Static event to notify all DashboardViewModel instances when payment is recorded/unrecorded
         public static event EventHandler? PaymentDataChanged;
@@ -48,6 +49,7 @@ namespace Daryva.MVVM.ViewModels
             RentDueInNext7Days = new ObservableCollection<RentDueItem>();
             OverdueRent = new ObservableCollection<OverdueRentItem>();
             MissingDocuments = new ObservableCollection<MissingDocumentItem>();
+            DepositReturnReminders = new ObservableCollection<DepositReturnReminderItem>();
 
             LoadDashboardDataCommand = new RelayCommand(async _ => 
             {
@@ -205,6 +207,14 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<RentDueItem> RentDueInNext7Days { get; }
         public ObservableCollection<OverdueRentItem> OverdueRent { get; }
         public ObservableCollection<MissingDocumentItem> MissingDocuments { get; }
+        public ObservableCollection<DepositReturnReminderItem> DepositReturnReminders { get; }
+
+        /// <summary>True when there are no deposit return reminders (show placeholder message).</summary>
+        public bool ShowEmptyDepositMessage
+        {
+            get => _showEmptyDepositMessage;
+            private set => SetProperty(ref _showEmptyDepositMessage, value);
+        }
 
         private async Task LoadDashboardDataAsync()
         {
@@ -348,19 +358,21 @@ namespace Daryva.MVVM.ViewModels
                             totalOverdue += row.Balance;
                         }
                     }
+
+                    var depositRemindersList = (await _paymentService.GetDepositReturnRemindersAsync()).ToList();
                     
                     // Update ALL UI properties on UI thread in a single dispatcher call
                     if (Dispatcher.UIThread.CheckAccess())
                     {
                         // Already on UI thread - update directly
-                        UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue);
+                        UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
                     }
                     else
                     {
                         // Need to marshal to UI thread
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue);
+                            UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
                         });
                     }
 
@@ -390,7 +402,7 @@ namespace Daryva.MVVM.ViewModels
 
         private void UpdateDashboardProperties(int houseCount, int activeTenantCount, decimal totalRentDue, 
             List<RentDueItem> rentDueInNext7DaysList, List<OverdueRentItem> overdueRentList, 
-            int overdueCount, decimal overdueAmount)
+            int overdueCount, decimal overdueAmount, List<DepositReturnReminderItem> depositRemindersList)
         {
             // Update basic counts
             HousesCount = houseCount;
@@ -412,6 +424,13 @@ namespace Daryva.MVVM.ViewModels
             {
                 OverdueRent.Add(item);
             }
+
+            DepositReturnReminders.Clear();
+            foreach (var item in depositRemindersList)
+            {
+                DepositReturnReminders.Add(item);
+            }
+            ShowEmptyDepositMessage = depositRemindersList.Count == 0;
             
             OverdueRentCount = overdueCount;
             OverdueRentAmount = overdueAmount;
@@ -425,6 +444,8 @@ namespace Daryva.MVVM.ViewModels
             OnPropertyChanged(nameof(ActiveTenantsCount));
             OnPropertyChanged(nameof(RentDueInNext7Days));
             OnPropertyChanged(nameof(OverdueRent));
+            OnPropertyChanged(nameof(DepositReturnReminders));
+            OnPropertyChanged(nameof(ShowEmptyDepositMessage));
         }
 
         private async void ShowAddHouseDialog()

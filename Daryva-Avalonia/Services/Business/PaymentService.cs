@@ -66,7 +66,7 @@ namespace Daryva.Services.Business
                         PeriodMonth = rentMonth,
                         AmountDue = tenancy.RentAmountMonthly,
                         DueDate = dueDate,
-                        Status = "Unpaid"
+                        Status = "Pending" // DB expects Pending (not Unpaid)
                     };
                     rentCharge.RentChargeId = await _rentChargeRepository.CreateRentChargeAsync(rentCharge);
                 }
@@ -109,7 +109,7 @@ namespace Daryva.Services.Business
                         newStatus = "Unpaid";
                 }
 
-                await _rentChargeRepository.UpdateRentChargeStatusAsync(rentCharge.RentChargeId, newStatus);
+                await _rentChargeRepository.UpdateRentChargeStatusAsync(rentCharge.RentChargeId, ToDbStatus(newStatus));
             }
             
             // Notify dashboard to refresh after payment is recorded
@@ -152,184 +152,400 @@ namespace Daryva.Services.Business
 
         public async Task<IEnumerable<RentLedgerRowViewModel>> GetRentLedgerForMonthAsync(int year, int month, int? houseId = null, string? statusFilter = null, string? searchTerm = null)
         {
-            // Get all active tenancies and materialize the list to close the DataReader
-            var tenancies = (await _tenancyRepository.GetActiveTenanciesAsync()).ToList();
-            
+            // Load by rent charges for this month so history is preserved for removed (ended/archived) tenants
+            var charges = (await _rentChargeRepository.GetRentChargesForPeriodAsync(year, month)).ToList();
             var ledgerRows = new List<RentLedgerRowViewModel>();
-            
-            foreach (var tenancy in tenancies)
+
+            foreach (var charge in charges)
             {
-                // Apply house filter
-                if (houseId.HasValue && tenancy.HouseId != houseId.Value)
-                    continue;
-                
-                // Apply search filter
-                if (!string.IsNullOrWhiteSpace(searchTerm))
+                try
                 {
-                    var searchLower = searchTerm.ToLower();
-                    if (!tenancy.Tenant?.FullName.ToLower().Contains(searchLower) == true &&
-                        !tenancy.House?.AddressLine1.ToLower().Contains(searchLower) == true)
+                    var tenancy = await _tenancyRepository.GetTenancyByIdAsync(charge.TenancyId);
+                    if (tenancy == null) continue;
+
+                    // Exclude ended tenancies only for the move-out month and later (so they don't show as overdue for "current" month).
+                    // Past months (selected period before move-out) must still show for history.
+                    if (tenancy.MoveOutDate.HasValue)
+                    {
+                        var moveOut = tenancy.MoveOutDate.Value;
+                        int selectedPeriod = year * 12 + month;
+                        int moveOutPeriod = moveOut.Year * 12 + moveOut.Month;
+                        if (selectedPeriod >= moveOutPeriod)
+                            continue;
+                    }
+
+                    // Apply house filter
+                    if (houseId.HasValue && tenancy.HouseId != houseId.Value)
                         continue;
-                }
-                
-                // Skip periods before the tenancy start date (MoveInDate)
-                // Tenants don't owe rent for periods before they moved in
-                var periodStartDate = new DateTime(year, month, 1);
-                if (tenancy.MoveInDate > periodStartDate.AddMonths(1).AddDays(-1)) // If MoveInDate is after the last day of this period
-                {
-                    continue; // Skip this period - tenant wasn't renting yet
-                }
-                
-                // Get or create rent charge for this month
-                var rentCharge = await _rentChargeRepository.GetRentChargeAsync(tenancy.TenancyId, year, month);
-                decimal amountDue = rentCharge?.AmountDue ?? tenancy.RentAmountMonthly;
-                decimal amountPaid = 0;
-                DateTime dueDate = rentCharge?.DueDate ?? new DateTime(year, month, Math.Min((int)tenancy.PaymentDueDay, 28));
-                
-                if (rentCharge != null)
-                {
-                    amountPaid = await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(rentCharge.RentChargeId);
-                }
-                
-                // Calculate status
-                string status;
-                if (amountPaid >= amountDue)
-                    status = "Paid";
-                else if (amountPaid > 0)
-                    status = "PartPaid";
-                else if (dueDate < DateTime.Today)
-                    status = "Overdue";
-                else
-                    status = "Unpaid";
-                
-                // Apply status filter
-                if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "All")
-                {
-                    // Normalize status filter values (handle both "Part-paid" and "PartPaid")
-                    string normalizedFilter = statusFilter.Replace("-", "");
-                    string normalizedStatus = status.Replace("-", "");
-                    
-                    if (normalizedFilter.Equals("Unpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Unpaid")
-                        continue;
-                    if (normalizedFilter.Equals("Partpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "PartPaid")
-                        continue;
-                    if (normalizedFilter.Equals("Paid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Paid")
-                        continue;
-                    if (normalizedFilter.Equals("Overdue", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Overdue")
-                        continue;
-                }
-                
-                // Get deposit remaining
-                var depositPaid = await GetTotalDepositPaidAsync(tenancy.TenancyId);
-                var depositRemaining = Math.Max(0, tenancy.DepositAmount - depositPaid);
-                
-                // Get payments for this month
-                var payments = new List<PaymentDetailViewModel>();
-                if (rentCharge != null)
-                {
-                    var rentPayments = (await _rentPaymentRepository.GetRentPaymentsByChargeIdAsync(rentCharge.RentChargeId)).ToList();
-                    payments.AddRange(rentPayments.Select(rp => new PaymentDetailViewModel
+
+                    // Apply search filter (null-safe)
+                    if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        var searchLower = searchTerm.ToLower();
+                        var nameMatch = (tenancy.Tenant?.FullName ?? "").ToLower().Contains(searchLower);
+                        var addressMatch = (tenancy.House?.AddressLine1 ?? "").ToLower().Contains(searchLower);
+                        if (!nameMatch && !addressMatch)
+                            continue;
+                    }
+
+                    decimal amountDue = charge.AmountDue;
+                    // Always get paid amount from RentPayment table so removed/ended tenancies show correct status (not Overdue when already paid)
+                    decimal amountPaid = await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(charge.RentChargeId);
+                    var dueDate = charge.DueDate;
+
+                    // Calculate status
+                    string status;
+                    if (amountPaid >= amountDue)
+                        status = "Paid";
+                    else if (amountPaid > 0)
+                        status = "PartPaid";
+                    else if (dueDate < DateTime.Today)
+                        status = "Overdue";
+                    else
+                        status = "Unpaid";
+
+                    // Apply status filter
+                    if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "All")
+                    {
+                        string normalizedFilter = statusFilter.Replace("-", "");
+                        string normalizedStatus = status.Replace("-", "");
+                        if (normalizedFilter.Equals("Unpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Unpaid")
+                            continue;
+                        if (normalizedFilter.Equals("Partpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "PartPaid")
+                            continue;
+                        if (normalizedFilter.Equals("Paid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Paid")
+                            continue;
+                        if (normalizedFilter.Equals("Overdue", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Overdue")
+                            continue;
+                    }
+
+                    var depositPaid = await GetTotalDepositPaidAsync(tenancy.TenancyId);
+                    var depositRemaining = Math.Max(0, tenancy.DepositAmount - depositPaid);
+
+                    var rentPayments = (await _rentPaymentRepository.GetRentPaymentsByChargeIdAsync(charge.RentChargeId)).ToList();
+                    var payments = rentPayments.Select(rp => new PaymentDetailViewModel
                     {
                         PaidOn = rp.PaidOn,
                         Amount = rp.AmountPaid,
-                        Method = rp.Method,
-                        Reference = rp.Reference,
-                        Notes = rp.Notes,
-                        CollectedBy = rp.CollectedBy
-                    }));
+                        Method = rp.Method ?? "",
+                        Reference = rp.Reference ?? "",
+                        Notes = rp.Notes ?? "",
+                        CollectedBy = rp.CollectedBy ?? ""
+                    }).ToList();
+
+                    ledgerRows.Add(new RentLedgerRowViewModel
+                    {
+                        TenancyId = tenancy.TenancyId,
+                        TenantId = tenancy.TenantId,
+                        HouseAddress = $"{tenancy.House?.AddressLine1 ?? ""}, {tenancy.House?.City ?? ""}".Trim(',', ' '),
+                        TenantName = tenancy.Tenant?.FullName ?? "Unknown",
+                        DueDate = dueDate,
+                        AmountDue = amountDue,
+                        AmountPaid = amountPaid,
+                        Status = status,
+                        DepositRemaining = depositRemaining,
+                        PaymentsForThisMonth = new System.Collections.ObjectModel.ObservableCollection<PaymentDetailViewModel>(payments)
+                    });
                 }
-                
-                ledgerRows.Add(new RentLedgerRowViewModel
+                catch
                 {
-                    TenancyId = tenancy.TenancyId,
-                    HouseAddress = $"{tenancy.House?.AddressLine1}, {tenancy.House?.City}",
-                    TenantName = tenancy.Tenant?.FullName ?? "Unknown",
-                    DueDate = dueDate,
-                    AmountDue = amountDue,
-                    AmountPaid = amountPaid,
-                    Status = status,
-                    DepositRemaining = depositRemaining,
-                    PaymentsForThisMonth = new System.Collections.ObjectModel.ObservableCollection<PaymentDetailViewModel>(payments)
-                });
+                    // Skip this charge/tenancy if any null ref or error (e.g. missing data after tenant removal or recovery)
+                }
             }
-            
+
+            // Deduplicate: only one row per tenancy per period (avoids duplicate rows from duplicate RentCharge records)
+            ledgerRows = ledgerRows
+                .GroupBy(r => r.TenancyId)
+                .Select(g => g.OrderByDescending(r => r.AmountPaid).ThenByDescending(r => r.DueDate).First())
+                .ToList();
+
+            // Ensure active tenancies without a charge for this month still get a row (e.g. current month not yet charged)
+            var tenancyIdsWithRow = ledgerRows.Select(r => r.TenancyId).ToHashSet();
+            var activeTenancies = (await _tenancyRepository.GetActiveTenanciesAsync()).ToList();
+            var rentStartByTenancy = activeTenancies.Count > 0
+                ? await _tenancyRepository.GetRentStartByTenancyIdsAsync(activeTenancies.Select(t => t.TenancyId))
+                : new Dictionary<int, (int Month, int Year)>();
+            var periodStartDate = new DateTime(year, month, 1);
+            int selectedPeriodNum = year * 12 + month;
+
+            foreach (var tenancy in activeTenancies)
+            {
+                try
+                {
+                    if (tenancy == null || tenancyIdsWithRow.Contains(tenancy.TenancyId)) continue;
+
+                    var rentStartYear = rentStartByTenancy.TryGetValue(tenancy.TenancyId, out var rs)
+                        ? rs.Year
+                        : tenancy.MoveInDate.Year;
+                    var rentStartMonth = rentStartByTenancy.TryGetValue(tenancy.TenancyId, out var rsM)
+                        ? rsM.Month
+                        : tenancy.MoveInDate.Month;
+                    var firstRentPeriodStart = new DateTime(rentStartYear, rentStartMonth, 1);
+                    if (periodStartDate < firstRentPeriodStart) continue;
+
+                    if (houseId.HasValue && tenancy.HouseId != houseId.Value) continue;
+                    if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        var searchLower = searchTerm.ToLower();
+                        if (!(tenancy.Tenant?.FullName ?? "").ToLower().Contains(searchLower) &&
+                            !(tenancy.House?.AddressLine1 ?? "").ToLower().Contains(searchLower))
+                            continue;
+                    }
+
+                    var rentCharge = await _rentChargeRepository.GetRentChargeAsync(tenancy.TenancyId, year, month);
+                    decimal amountDue = rentCharge?.AmountDue ?? tenancy.RentAmountMonthly;
+                    decimal amountPaid = rentCharge != null ? await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(rentCharge.RentChargeId) : 0;
+                    var dueDate = rentCharge?.DueDate ?? new DateTime(year, month, Math.Min((int)tenancy.PaymentDueDay, 28));
+                    string status;
+                    if (amountPaid >= amountDue) status = "Paid";
+                    else if (amountPaid > 0) status = "PartPaid";
+                    else if (dueDate < DateTime.Today) status = "Overdue";
+                    else status = "Unpaid";
+                    if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "All")
+                    {
+                        var nf = statusFilter.Replace("-", "");
+                        var ns = status.Replace("-", "");
+                        if (nf.Equals("Unpaid", StringComparison.OrdinalIgnoreCase) && ns != "Unpaid") continue;
+                        if (nf.Equals("Partpaid", StringComparison.OrdinalIgnoreCase) && ns != "PartPaid") continue;
+                        if (nf.Equals("Paid", StringComparison.OrdinalIgnoreCase) && ns != "Paid") continue;
+                        if (nf.Equals("Overdue", StringComparison.OrdinalIgnoreCase) && ns != "Overdue") continue;
+                    }
+                    var depositPaid = await GetTotalDepositPaidAsync(tenancy.TenancyId);
+                    var depositRemaining = Math.Max(0, tenancy.DepositAmount - depositPaid);
+                    var payments = new List<PaymentDetailViewModel>();
+                    if (rentCharge != null)
+                    {
+                        var rps = (await _rentPaymentRepository.GetRentPaymentsByChargeIdAsync(rentCharge.RentChargeId)).ToList();
+                        payments.AddRange(rps.Select(rp => new PaymentDetailViewModel
+                        {
+                            PaidOn = rp.PaidOn,
+                            Amount = rp.AmountPaid,
+                            Method = rp.Method ?? "",
+                            Reference = rp.Reference ?? "",
+                            Notes = rp.Notes ?? "",
+                            CollectedBy = rp.CollectedBy ?? ""
+                        }));
+                    }
+                    ledgerRows.Add(new RentLedgerRowViewModel
+                    {
+                        TenancyId = tenancy.TenancyId,
+                        TenantId = tenancy.TenantId,
+                        HouseAddress = $"{tenancy.House?.AddressLine1 ?? ""}, {tenancy.House?.City ?? ""}".Trim(',', ' '),
+                        TenantName = tenancy.Tenant?.FullName ?? "Unknown",
+                        DueDate = dueDate,
+                        AmountDue = amountDue,
+                        AmountPaid = amountPaid,
+                        Status = status,
+                        DepositRemaining = depositRemaining,
+                        PaymentsForThisMonth = new System.Collections.ObjectModel.ObservableCollection<PaymentDetailViewModel>(payments)
+                    });
+                }
+                catch
+                {
+                    // Skip this tenancy if any null ref or error (e.g. recovered tenant with incomplete data)
+                }
+            }
+
+            // Past months history: include ended tenancies for selected period when period is before their move-out (so history remains)
+            var tenanciesActiveInPeriod = (await _tenancyRepository.GetTenanciesActiveInPeriodAsync(year, month)).ToList();
+            foreach (var tenancy in tenanciesActiveInPeriod)
+            {
+                try
+                {
+                    if (tenancy == null || !tenancy.MoveOutDate.HasValue || tenancyIdsWithRow.Contains(tenancy.TenancyId))
+                        continue;
+                    int moveOutPeriodNum = tenancy.MoveOutDate.Value.Year * 12 + tenancy.MoveOutDate.Value.Month;
+                    if (selectedPeriodNum >= moveOutPeriodNum)
+                        continue;
+                    if (houseId.HasValue && tenancy.HouseId != houseId.Value) continue;
+                    if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        var searchLower = searchTerm.ToLower();
+                        if (!(tenancy.Tenant?.FullName ?? "").ToLower().Contains(searchLower) &&
+                            !(tenancy.House?.AddressLine1 ?? "").ToLower().Contains(searchLower))
+                            continue;
+                    }
+                    var rentCharge = await _rentChargeRepository.GetRentChargeAsync(tenancy.TenancyId, year, month);
+                    decimal amountDue = rentCharge?.AmountDue ?? tenancy.RentAmountMonthly;
+                    decimal amountPaid = rentCharge != null ? await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(rentCharge.RentChargeId) : 0;
+                    var dueDate = rentCharge?.DueDate ?? new DateTime(year, month, Math.Min((int)tenancy.PaymentDueDay, 28));
+                    string status;
+                    if (amountPaid >= amountDue) status = "Paid";
+                    else if (amountPaid > 0) status = "PartPaid";
+                    else if (dueDate < DateTime.Today) status = "Overdue";
+                    else status = "Unpaid";
+                    if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "All")
+                    {
+                        var nf = statusFilter.Replace("-", "");
+                        var ns = status.Replace("-", "");
+                        if (nf.Equals("Unpaid", StringComparison.OrdinalIgnoreCase) && ns != "Unpaid") continue;
+                        if (nf.Equals("Partpaid", StringComparison.OrdinalIgnoreCase) && ns != "PartPaid") continue;
+                        if (nf.Equals("Paid", StringComparison.OrdinalIgnoreCase) && ns != "Paid") continue;
+                        if (nf.Equals("Overdue", StringComparison.OrdinalIgnoreCase) && ns != "Overdue") continue;
+                    }
+                    var depositPaid = await GetTotalDepositPaidAsync(tenancy.TenancyId);
+                    var depositRemaining = Math.Max(0, tenancy.DepositAmount - depositPaid);
+                    var payments = new List<PaymentDetailViewModel>();
+                    if (rentCharge != null)
+                    {
+                        var rps = (await _rentPaymentRepository.GetRentPaymentsByChargeIdAsync(rentCharge.RentChargeId)).ToList();
+                        payments.AddRange(rps.Select(rp => new PaymentDetailViewModel
+                        {
+                            PaidOn = rp.PaidOn,
+                            Amount = rp.AmountPaid,
+                            Method = rp.Method ?? "",
+                            Reference = rp.Reference ?? "",
+                            Notes = rp.Notes ?? "",
+                            CollectedBy = rp.CollectedBy ?? ""
+                        }));
+                    }
+                    ledgerRows.Add(new RentLedgerRowViewModel
+                    {
+                        TenancyId = tenancy.TenancyId,
+                        TenantId = tenancy.TenantId,
+                        HouseAddress = $"{tenancy.House?.AddressLine1 ?? ""}, {tenancy.House?.City ?? ""}".Trim(',', ' '),
+                        TenantName = tenancy.Tenant?.FullName ?? "Unknown",
+                        DueDate = dueDate,
+                        AmountDue = amountDue,
+                        AmountPaid = amountPaid,
+                        Status = status,
+                        DepositRemaining = depositRemaining,
+                        PaymentsForThisMonth = new System.Collections.ObjectModel.ObservableCollection<PaymentDetailViewModel>(payments)
+                    });
+                }
+                catch
+                {
+                    // Skip this tenancy if any null ref or error
+                }
+            }
+
+            // Final dedupe: one row per tenant per property per period (same person can have two tenancy records; show only one row, prefer the one with payments)
+            ledgerRows = ledgerRows
+                .GroupBy(r => new { r.TenantId, r.HouseAddress })
+                .Select(g => g.OrderByDescending(r => r.AmountPaid).ThenByDescending(r => r.DueDate).First())
+                .ToList();
+
             return ledgerRows.OrderBy(r => r.HouseAddress).ThenBy(r => r.TenantName);
         }
 
-        public async Task<IEnumerable<DepositLedgerRowViewModel>> GetDepositLedgerForMonthAsync(int? houseId = null, string? statusFilter = null, string? searchTerm = null)
+        public async Task<IEnumerable<DepositLedgerRowViewModel>> GetDepositLedgerForMonthAsync(int year, int month, int? houseId = null, string? statusFilter = null, string? searchTerm = null)
         {
-            // Get all active tenancies and materialize the list to close the DataReader
-            var tenancies = (await _tenancyRepository.GetActiveTenanciesAsync()).ToList();
-            
-            var ledgerRows = new List<DepositLedgerRowViewModel>();
-            
-            foreach (var tenancy in tenancies)
+            // Include tenancies that were active during this month (keeps history for removed tenants)
+            var periodTenancies = (await _tenancyRepository.GetTenanciesActiveInPeriodAsync(year, month)).ToList();
+            var periodTenancyIds = periodTenancies.Select(t => t.TenancyId).ToHashSet();
+            // Also include any tenancy that has a deposit payment (so tenants with transactions always show in deposit ledger)
+            var tenancyIdsWithDeposits = (await _depositPaymentRepository.GetTenancyIdsWithDepositPaymentsAsync()).ToList();
+            foreach (var tid in tenancyIdsWithDeposits)
             {
-                // Apply house filter
-                if (houseId.HasValue && tenancy.HouseId != houseId.Value)
-                    continue;
-                
-                // Apply search filter
-                if (!string.IsNullOrWhiteSpace(searchTerm))
+                if (periodTenancyIds.Contains(tid)) continue;
+                var t = await _tenancyRepository.GetTenancyByIdAsync(tid);
+                if (t != null && t.MoveInDate != default)
                 {
-                    var searchLower = searchTerm.ToLower();
-                    if (!tenancy.Tenant?.FullName.ToLower().Contains(searchLower) == true &&
-                        !tenancy.House?.AddressLine1.ToLower().Contains(searchLower) == true)
-                        continue;
+                    periodTenancies.Add(t);
+                    periodTenancyIds.Add(tid);
                 }
-                
-                // Get deposit information
-                var depositRequired = tenancy.DepositAmount;
-                var depositPaid = await GetTotalDepositPaidAsync(tenancy.TenancyId);
-                var balance = depositRequired - depositPaid;
-                
-                // Calculate status
-                string status;
-                if (depositPaid >= depositRequired)
-                    status = "Paid";
-                else if (depositPaid > 0)
-                    status = "PartPaid";
-                else
-                    status = "Unpaid";
-                
-                // Apply status filter
-                if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "All")
-                {
-                    string normalizedFilter = statusFilter.Replace("-", "");
-                    string normalizedStatus = status.Replace("-", "");
-                    
-                    if (normalizedFilter.Equals("Unpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Unpaid")
-                        continue;
-                    if (normalizedFilter.Equals("Partpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "PartPaid")
-                        continue;
-                    if (normalizedFilter.Equals("Paid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Paid")
-                        continue;
-                }
-                
-                // Get all deposit payments for this tenancy
-                var depositPayments = (await _depositPaymentRepository.GetDepositPaymentsByTenancyIdAsync(tenancy.TenancyId)).ToList();
-                var payments = depositPayments.Select(dp => new PaymentDetailViewModel
-                {
-                    PaidOn = dp.PaidOn,
-                    Amount = dp.AmountPaid,
-                    Method = dp.Method,
-                    Reference = dp.Reference,
-                    Notes = dp.Notes,
-                    CollectedBy = dp.CollectedBy
-                }).ToList();
-                
-                ledgerRows.Add(new DepositLedgerRowViewModel
-                {
-                    TenancyId = tenancy.TenancyId,
-                    HouseAddress = $"{tenancy.House?.AddressLine1}, {tenancy.House?.City}",
-                    TenantName = tenancy.Tenant?.FullName ?? "Unknown",
-                    DepositRequired = depositRequired,
-                    AmountPaid = depositPaid,
-                    Status = status,
-                    Payments = new System.Collections.ObjectModel.ObservableCollection<PaymentDetailViewModel>(payments)
-                });
             }
-            
+            var withMoveIn = periodTenancies.Where(t => t != null && t.MoveInDate != default).ToList();
+            // Group by (TenantId, HouseId) - deposit is paid once per tenant per house, so we show one row per group
+            var groups = withMoveIn
+                .GroupBy(t => new { t.TenantId, t.HouseId })
+                .ToList();
+
+            var periodStartDate = new DateTime(year, month, 1);
+            var ledgerRows = new List<DepositLedgerRowViewModel>();
+
+            foreach (var group in groups)
+            {
+                try
+                {
+                    var tenanciesInGroup = group.ToList();
+                    if (tenanciesInGroup.Count == 0) continue;
+                    // Prefer active tenancy for the row (so Record Payment uses the right one), else latest MoveInDate
+                    var displayTenancy = tenanciesInGroup
+                        .OrderByDescending(t => string.Equals(t.Status, "Active", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+                        .ThenByDescending(t => t.MoveInDate)
+                        .First();
+                    if (displayTenancy == null) continue;
+
+                    // Skip if move-in is after the selected month
+                    var moveInMonthStart = new DateTime(displayTenancy.MoveInDate.Year, displayTenancy.MoveInDate.Month, 1);
+                    if (periodStartDate < moveInMonthStart)
+                        continue;
+                    // For deposit ledger: show ended tenancies too (they have deposit history); only exclude when viewing a month before they moved in
+
+                    if (houseId.HasValue && displayTenancy.HouseId != houseId.Value)
+                        continue;
+
+                    if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        var searchLower = searchTerm.ToLower();
+                        var nameMatch = (displayTenancy.Tenant?.FullName ?? "").ToLower().Contains(searchLower);
+                        var addressMatch = (displayTenancy.House?.AddressLine1 ?? "").ToLower().Contains(searchLower);
+                        if (!nameMatch && !addressMatch)
+                            continue;
+                    }
+
+                    // Deposit is paid once per tenant per house: sum across ALL tenancies in this group
+                    decimal depositPaid = 0;
+                    var allPaymentsForRow = new List<PaymentDetailViewModel>();
+                    foreach (var t in tenanciesInGroup)
+                    {
+                        depositPaid += await GetTotalDepositPaidAsync(t.TenancyId);
+                        var depositPayments = (await _depositPaymentRepository.GetDepositPaymentsByTenancyIdAsync(t.TenancyId)).ToList();
+                        foreach (var dp in depositPayments)
+                        {
+                            allPaymentsForRow.Add(new PaymentDetailViewModel
+                            {
+                                PaidOn = dp.PaidOn,
+                                Amount = dp.AmountPaid,
+                                Method = dp.Method ?? "",
+                                Reference = dp.Reference ?? "",
+                                Notes = dp.Notes ?? "",
+                                CollectedBy = dp.CollectedBy ?? ""
+                            });
+                        }
+                    }
+                    // Sort by date descending for display
+                    allPaymentsForRow = allPaymentsForRow.OrderByDescending(p => p.PaidOn).ToList();
+
+                    var depositRequired = displayTenancy.DepositAmount;
+                    string status;
+                    if (depositPaid >= depositRequired)
+                        status = "Paid";
+                    else if (depositPaid > 0)
+                        status = "PartPaid";
+                    else
+                        status = "Unpaid";
+
+                    if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "All")
+                    {
+                        string normalizedFilter = statusFilter.Replace("-", "");
+                        string normalizedStatus = status.Replace("-", "");
+                        if (normalizedFilter.Equals("Unpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Unpaid")
+                            continue;
+                        if (normalizedFilter.Equals("Partpaid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "PartPaid")
+                            continue;
+                        if (normalizedFilter.Equals("Paid", StringComparison.OrdinalIgnoreCase) && normalizedStatus != "Paid")
+                            continue;
+                    }
+
+                    ledgerRows.Add(new DepositLedgerRowViewModel
+                    {
+                        TenancyId = displayTenancy.TenancyId,
+                        HouseAddress = $"{displayTenancy.House?.AddressLine1 ?? ""}, {displayTenancy.House?.City ?? ""}".Trim(',', ' '),
+                        TenantName = displayTenancy.Tenant?.FullName ?? "Unknown",
+                        DepositRequired = depositRequired,
+                        AmountPaid = depositPaid,
+                        Status = status,
+                        Payments = new System.Collections.ObjectModel.ObservableCollection<PaymentDetailViewModel>(allPaymentsForRow)
+                    });
+                }
+                catch
+                {
+                    // Skip this group if any error
+                }
+            }
+
             return ledgerRows.OrderBy(r => r.HouseAddress).ThenBy(r => r.TenantName);
         }
 
@@ -340,9 +556,7 @@ namespace Daryva.Services.Business
             // Get rent payments
             if (paymentType == null || paymentType == "All" || paymentType == "Rent")
             {
-                // Get all rent payments (filtering by tenantId will be done in the loop since repository uses tenancyId)
-                var rentPayments = (await _rentPaymentRepository.GetAllRentPaymentsAsync(startDate, endDate, null)).ToList();
-                
+                var rentPayments = (await _rentPaymentRepository.GetAllRentPaymentsAsync(startDate, endDate, null))?.ToList() ?? new List<RentPayment>();
                 foreach (var rp in rentPayments)
                 {
                     var tenancy = await _tenancyRepository.GetTenancyByIdAsync(rp.TenancyId);
@@ -369,7 +583,7 @@ namespace Daryva.Services.Business
                     string periodLabel = "";
                     if (rp.RentChargeId.HasValue)
                     {
-                        var rentCharges = (await _rentChargeRepository.GetRentChargesByTenancyIdAsync(rp.TenancyId)).ToList();
+                        var rentCharges = (await _rentChargeRepository.GetRentChargesByTenancyIdAsync(rp.TenancyId))?.ToList() ?? new List<RentCharge>();
                         var charge = rentCharges.FirstOrDefault(rc => rc.RentChargeId == rp.RentChargeId);
                         if (charge != null)
                         {
@@ -383,7 +597,7 @@ namespace Daryva.Services.Business
                         PaymentType = "Rent",
                         PaidOn = rp.PaidOn,
                         TenantName = tenancy.Tenant?.FullName ?? "Unknown",
-                        HouseAddress = $"{tenancy.House?.AddressLine1}, {tenancy.House?.City}",
+                        HouseAddress = tenancy.House != null ? $"{tenancy.House.AddressLine1}, {tenancy.House.City}" : "—",
                         PeriodLabel = periodLabel,
                         Amount = rp.AmountPaid,
                         Method = rp.Method ?? string.Empty,
@@ -399,9 +613,7 @@ namespace Daryva.Services.Business
             // Get deposit payments
             if (paymentType == null || paymentType == "All" || paymentType == "Deposit")
             {
-                // Get all deposit payments (filtering by tenantId will be done in the loop since repository uses tenancyId)
-                var depositPayments = (await _depositPaymentRepository.GetAllDepositPaymentsAsync(startDate, endDate, null)).ToList();
-                
+                var depositPayments = (await _depositPaymentRepository.GetAllDepositPaymentsAsync(startDate, endDate, null))?.ToList() ?? new List<DepositPayment>();
                 foreach (var dp in depositPayments)
                 {
                     var tenancy = await _tenancyRepository.GetTenancyByIdAsync(dp.TenancyId);
@@ -430,7 +642,7 @@ namespace Daryva.Services.Business
                         PaymentType = "Deposit",
                         PaidOn = dp.PaidOn,
                         TenantName = tenancy.Tenant?.FullName ?? "Unknown",
-                        HouseAddress = $"{tenancy.House?.AddressLine1}, {tenancy.House?.City}",
+                        HouseAddress = tenancy.House != null ? $"{tenancy.House.AddressLine1}, {tenancy.House.City}" : "—",
                         PeriodLabel = "",
                         Amount = dp.AmountPaid,
                         Method = dp.Method ?? string.Empty,
@@ -571,6 +783,35 @@ namespace Daryva.Services.Business
             }
         }
 
+        public async Task<IEnumerable<DepositReturnReminderItem>> GetDepositReturnRemindersAsync()
+        {
+            try
+            {
+                var ended = (await _tenancyRepository.GetEndedTenanciesWithDepositAsync()).ToList();
+                var dateFormat = Daryva.Services.DateTimeFormatProvider.DateFormat ?? "dd/MM/yyyy";
+                var items = new List<DepositReturnReminderItem>();
+                foreach (var t in ended)
+                {
+                    var amountPaid = await GetTotalDepositPaidAsync(t.TenancyId);
+                    if (amountPaid <= 0) continue; // No deposit paid, nothing to return
+                    var leaveDate = t.MoveOutDate ?? t.MoveInDate;
+                    items.Add(new DepositReturnReminderItem
+                    {
+                        TenantName = t.Tenant?.FullName ?? "Unknown",
+                        HouseAddress = t.House != null ? $"{t.House.AddressLine1}, {t.House.City}" : "",
+                        LeaveDate = leaveDate,
+                        LeaveDateDisplay = leaveDate.ToString(dateFormat),
+                        AmountToReturn = amountPaid
+                    });
+                }
+                return items.OrderByDescending(i => i.LeaveDate);
+            }
+            catch
+            {
+                return Enumerable.Empty<DepositReturnReminderItem>();
+            }
+        }
+
         public async Task<bool> UnrecordPaymentAsync(int paymentId, string paymentType)
         {
             try
@@ -620,7 +861,7 @@ namespace Daryva.Services.Business
                                 else
                                     newStatus = "Unpaid";
                             }
-                            await _rentChargeRepository.UpdateRentChargeStatusAsync(rentCharge.RentChargeId, newStatus);
+                            await _rentChargeRepository.UpdateRentChargeStatusAsync(rentCharge.RentChargeId, ToDbStatus(newStatus));
                         }
                     }
 
@@ -682,7 +923,7 @@ namespace Daryva.Services.Business
                             {
                                 newStatus = "Unpaid";
                             }
-                            await _rentChargeRepository.UpdateRentChargeStatusAsync(rentCharge.RentChargeId, newStatus);
+                            await _rentChargeRepository.UpdateRentChargeStatusAsync(rentCharge.RentChargeId, ToDbStatus(newStatus));
                         }
                     }
                     
@@ -714,6 +955,53 @@ namespace Daryva.Services.Business
             {
                 throw;
             }
+        }
+
+        public async Task<int> CleanupDuplicateRentChargesAsync()
+        {
+            var allCharges = (await _rentChargeRepository.GetAllRentChargesAsync()).ToList();
+            var groups = allCharges
+                .GroupBy(c => new { c.TenancyId, c.PeriodYear, c.PeriodMonth })
+                .Where(g => g.Count() > 1)
+                .ToList();
+            int removed = 0;
+            foreach (var group in groups)
+            {
+                var list = group.OrderByDescending(c => c.TotalPaid).ThenBy(c => c.RentChargeId).ToList();
+                var keeper = list[0];
+                for (int i = 1; i < list.Count; i++)
+                {
+                    var duplicate = list[i];
+                    await _rentPaymentRepository.ReassignPaymentsToChargeAsync(duplicate.RentChargeId, keeper.RentChargeId);
+                    var deleted = await _rentChargeRepository.DeleteRentChargeAsync(duplicate.RentChargeId);
+                    if (deleted) removed++;
+                }
+                var totalPaid = await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(keeper.RentChargeId);
+                var charge = await _rentChargeRepository.GetRentChargeByIdAsync(keeper.RentChargeId);
+                if (charge != null)
+                {
+                    string newStatus = totalPaid >= charge.AmountDue ? "Paid" : totalPaid > 0 ? "Partial" : charge.DueDate < DateTime.Today ? "Overdue" : "Pending";
+                    await _rentChargeRepository.UpdateRentChargeStatusAsync(keeper.RentChargeId, newStatus);
+                }
+            }
+            if (removed > 0)
+                DashboardViewModel.NotifyPaymentDataChanged();
+            return removed;
+        }
+
+        /// <summary>
+        /// Maps application status to database status. SQLite RentCharge CHECK constraint allows: Pending, Paid, Overdue, Partial.
+        /// </summary>
+        private static string ToDbStatus(string appStatus)
+        {
+            return appStatus switch
+            {
+                "Unpaid" => "Pending",
+                "PartPaid" => "Partial",
+                "Paid" => "Paid",
+                "Overdue" => "Overdue",
+                _ => appStatus
+            };
         }
     }
 }

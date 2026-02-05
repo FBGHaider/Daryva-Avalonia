@@ -26,6 +26,8 @@ namespace Daryva.MVVM.ViewModels
         private string _phoneNumber = string.Empty;
         private string? _universityName;
         private House? _selectedHouse;
+        private DateTimeOffset _moveInDate = new DateTimeOffset(DateTime.Today);
+        private string _rentStartOption = "Same month as move-in";
         private decimal _rentAmountMonthly = 0;
         private decimal _depositAmount = 0;
         private byte _paymentDueDay = 1;
@@ -107,6 +109,24 @@ namespace Daryva.MVVM.ViewModels
                 ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
             }
         }
+
+        public DateTimeOffset MoveInDate
+        {
+            get => _moveInDate;
+            set => SetProperty(ref _moveInDate, value);
+        }
+
+        public string RentStartOption
+        {
+            get => _rentStartOption;
+            set => SetProperty(ref _rentStartOption, value);
+        }
+
+        public ObservableCollection<string> RentStartOptions { get; } = new ObservableCollection<string>
+        {
+            "Same month as move-in",
+            "Next month after move-in"
+        };
 
         public decimal RentAmountMonthly
         {
@@ -214,12 +234,20 @@ namespace Daryva.MVVM.ViewModels
                 // Create tenancy if house is selected
                 if (SelectedHouse != null)
                 {
+                    var moveIn = MoveInDate.DateTime;
+                    var isNextMonth = string.Equals(RentStartOption?.Trim(), "Next month after move-in", StringComparison.OrdinalIgnoreCase);
+                    var (rentStartMonth, rentStartYear) = isNextMonth
+                        ? (moveIn.AddMonths(1).Month, moveIn.AddMonths(1).Year)
+                        : (moveIn.Month, moveIn.Year);
+
                     var tenancy = new Tenancy
                     {
                         HouseId = SelectedHouse.HouseId,
                         TenantId = createdTenant.TenantId,
-                        MoveInDate = DateTime.Today,
+                        MoveInDate = moveIn.Date,
                         MoveOutDate = null,
+                        RentStartMonth = rentStartMonth,
+                        RentStartYear = rentStartYear,
                         RentAmountMonthly = RentAmountMonthly,
                         DepositAmount = DepositAmount,
                         PaymentDueDay = PaymentDueDay,

@@ -11,5 +11,7 @@ namespace Daryva.Services.Data
         Task<bool> DeleteDepositPaymentAsync(int depositPaymentId);
         Task DeleteDepositPaymentsByTenancyIdAsync(int tenancyId);
         Task<DepositPayment?> GetDepositPaymentByIdAsync(int depositPaymentId);
+        /// <summary>Returns TenancyIds that have at least one deposit payment (so deposit ledger can include them).</summary>
+        Task<IEnumerable<int>> GetTenancyIdsWithDepositPaymentsAsync();
     }
 }

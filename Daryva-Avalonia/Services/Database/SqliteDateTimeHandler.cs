@@ -180,4 +180,47 @@ namespace Daryva.Services.Database
             return false;
         }
     }
+
+    /// <summary>
+    /// Custom Dapper type handler for SQLite numeric columns mapped to decimal.
+    /// SQLite may return INTEGER (Int64) for SUM/COALESCE; this handler accepts long, int, double, float.
+    /// </summary>
+    public class SqliteDecimalHandler : SqlMapper.TypeHandler<decimal>
+    {
+        public override void SetValue(IDbDataParameter parameter, decimal value)
+        {
+            parameter.Value = value;
+        }
+
+        public override decimal Parse(object value)
+        {
+            if (value == null || value == DBNull.Value)
+                return 0m;
+
+            if (value is decimal d)
+                return d;
+
+            if (value is long l)
+                return (decimal)l;
+
+            if (value is int i)
+                return (decimal)i;
+
+            if (value is double db)
+                return (decimal)db;
+
+            if (value is float f)
+                return (decimal)f;
+
+            if (value is string str)
+            {
+                if (string.IsNullOrWhiteSpace(str) || str.Equals("NULL", StringComparison.OrdinalIgnoreCase))
+                    return 0m;
+                if (decimal.TryParse(str, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                    return parsed;
+            }
+
+            return 0m;
+        }
+    }
 }

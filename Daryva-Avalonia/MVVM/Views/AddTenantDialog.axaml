@@ -60,6 +60,12 @@
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
 
                 <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Move-in Date:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <DatePicker Grid.Column="1" SelectedDate="{Binding MoveInDate}"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
                     <TextBlock Grid.Column="0" Text="House:" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                     <ComboBox Grid.Column="1" 
@@ -75,6 +81,12 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Rent starts from:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding RentStartOptions}" SelectedItem="{Binding RentStartOption}"/>
                 </Grid>
 
                 <Grid ColumnDefinitions="120,*">

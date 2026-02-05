@@ -27,6 +27,8 @@ namespace Daryva.MVVM.ViewModels
         private string _phoneNumber = string.Empty;
         private string? _universityName;
         private House? _selectedHouse;
+        private DateTimeOffset _moveInDate = new DateTimeOffset(DateTime.Today);
+        private string _rentStartOption = "Same month as move-in";
         private decimal _rentAmountMonthly = 0;
         private decimal _depositAmount = 0;
         private byte _paymentDueDay = 1;
@@ -118,6 +120,24 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
+        public DateTimeOffset MoveInDate
+        {
+            get => _moveInDate;
+            set => SetProperty(ref _moveInDate, value);
+        }
+
+        public string RentStartOption
+        {
+            get => _rentStartOption;
+            set => SetProperty(ref _rentStartOption, value);
+        }
+
+        public ObservableCollection<string> RentStartOptions { get; } = new ObservableCollection<string>
+        {
+            "Same month as move-in",
+            "Next month after move-in"
+        };
+
         public decimal RentAmountMonthly
         {
             get => _rentAmountMonthly;
@@ -147,8 +167,9 @@ namespace Daryva.MVVM.ViewModels
             UniversityName = tenant.UniversityName;
 
             // Load current tenancy if exists
-            var tenancies = await _tenancyRepository.GetTenanciesByTenantIdAsync(tenant.TenantId);
-            var activeTenancy = tenancies.FirstOrDefault(t => t.Status == "Active" && t.MoveOutDate == null);
+            var tenancies = (await _tenancyRepository.GetTenanciesByTenantIdAsync(tenant.TenantId)).ToList();
+            var activeTenancy = tenancies.FirstOrDefault(t =>
+                string.Equals(t.Status, "Active", StringComparison.OrdinalIgnoreCase) && t.MoveOutDate == null);
             
             if (activeTenancy != null)
             {
@@ -162,6 +183,8 @@ namespace Daryva.MVVM.ViewModels
                 
                 // Find and select the house
                 SelectedHouse = Houses.FirstOrDefault(h => h.HouseId == activeTenancy.HouseId);
+                MoveInDate = new DateTimeOffset(activeTenancy.MoveInDate);
+                RentStartOption = GetRentStartOptionFromTenancy(activeTenancy);
                 RentAmountMonthly = activeTenancy.RentAmountMonthly;
                 DepositAmount = activeTenancy.DepositAmount;
                 PaymentDueDay = activeTenancy.PaymentDueDay;
@@ -173,7 +196,7 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 var houses = await _houseService.GetAllHousesAsync();
-                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Houses.Clear();
                     foreach (var house in houses)
@@ -246,7 +269,16 @@ namespace Daryva.MVVM.ViewModels
                         var existingTenancy = await _tenancyRepository.GetTenancyByIdAsync(_currentTenancyId.Value);
                         if (existingTenancy != null)
                         {
+                            var moveIn = MoveInDate.DateTime.Date;
+                            var isNextMonth = string.Equals(RentStartOption?.Trim(), "Next month after move-in", StringComparison.OrdinalIgnoreCase);
+                            var (rentStartMonth, rentStartYear) = isNextMonth
+                                ? (moveIn.AddMonths(1).Month, moveIn.AddMonths(1).Year)
+                                : (moveIn.Month, moveIn.Year);
+
                             existingTenancy.HouseId = SelectedHouse.HouseId;
+                            existingTenancy.MoveInDate = moveIn;
+                            existingTenancy.RentStartMonth = rentStartMonth;
+                            existingTenancy.RentStartYear = rentStartYear;
                             existingTenancy.RentAmountMonthly = RentAmountMonthly;
                             existingTenancy.DepositAmount = DepositAmount;
                             existingTenancy.PaymentDueDay = PaymentDueDay;
@@ -255,19 +287,68 @@ namespace Daryva.MVVM.ViewModels
                     }
                     else
                     {
-                        // Create new tenancy
-                        var tenancy = new Tenancy
+                        // No _currentTenancyId - check for existing active tenancy at this house, or ended tenancy (e.g. recovered tenant) to reactivate
+                        var tenantTenancies = (await _tenancyRepository.GetTenanciesByTenantIdAsync(TenantId)).ToList();
+                        var existingAtHouse = tenantTenancies.FirstOrDefault(t =>
+                            t.HouseId == SelectedHouse.HouseId &&
+                            string.Equals(t.Status, "Active", StringComparison.OrdinalIgnoreCase) &&
+                            t.MoveOutDate == null);
+                        var endedAtHouse = existingAtHouse == null
+                            ? tenantTenancies
+                                .Where(t => t.HouseId == SelectedHouse.HouseId &&
+                                    string.Equals(t.Status, "Ended", StringComparison.OrdinalIgnoreCase) && t.MoveOutDate.HasValue)
+                                .OrderByDescending(t => t.MoveOutDate)
+                                .FirstOrDefault()
+                            : null;
+
+                        var moveIn = MoveInDate.DateTime.Date;
+                        var isNextMonth = string.Equals(RentStartOption?.Trim(), "Next month after move-in", StringComparison.OrdinalIgnoreCase);
+                        var (rentStartMonth, rentStartYear) = isNextMonth
+                            ? (moveIn.AddMonths(1).Month, moveIn.AddMonths(1).Year)
+                            : (moveIn.Month, moveIn.Year);
+
+                        if (existingAtHouse != null)
                         {
-                            HouseId = SelectedHouse.HouseId,
-                            TenantId = TenantId,
-                            MoveInDate = DateTime.Today,
-                            MoveOutDate = null,
-                            RentAmountMonthly = RentAmountMonthly,
-                            DepositAmount = DepositAmount,
-                            PaymentDueDay = PaymentDueDay,
-                            Status = "Active"
-                        };
-                        await _tenancyRepository.CreateTenancyAsync(tenancy);
+                            // Update existing tenancy instead of creating duplicate
+                            existingAtHouse.MoveInDate = moveIn;
+                            existingAtHouse.RentStartMonth = rentStartMonth;
+                            existingAtHouse.RentStartYear = rentStartYear;
+                            existingAtHouse.RentAmountMonthly = RentAmountMonthly;
+                            existingAtHouse.DepositAmount = DepositAmount;
+                            existingAtHouse.PaymentDueDay = PaymentDueDay;
+                            await _tenancyRepository.UpdateTenancyAsync(existingAtHouse);
+                        }
+                        else if (endedAtHouse != null)
+                        {
+                            // Reactivate ended tenancy at this house (recovered tenant) instead of creating duplicate
+                            endedAtHouse.MoveInDate = moveIn;
+                            endedAtHouse.MoveOutDate = null;
+                            endedAtHouse.RentStartMonth = rentStartMonth;
+                            endedAtHouse.RentStartYear = rentStartYear;
+                            endedAtHouse.RentAmountMonthly = RentAmountMonthly;
+                            endedAtHouse.DepositAmount = DepositAmount;
+                            endedAtHouse.PaymentDueDay = PaymentDueDay;
+                            endedAtHouse.Status = "Active";
+                            await _tenancyRepository.UpdateTenancyAsync(endedAtHouse);
+                        }
+                        else
+                        {
+                            // Truly new tenancy (new assignment to a house)
+                            var tenancy = new Tenancy
+                            {
+                                HouseId = SelectedHouse.HouseId,
+                                TenantId = TenantId,
+                                MoveInDate = moveIn,
+                                MoveOutDate = null,
+                                RentStartMonth = rentStartMonth,
+                                RentStartYear = rentStartYear,
+                                RentAmountMonthly = RentAmountMonthly,
+                                DepositAmount = DepositAmount,
+                                PaymentDueDay = PaymentDueDay,
+                                Status = "Active"
+                            };
+                            await _tenancyRepository.CreateTenancyAsync(tenancy);
+                        }
                     }
                     _dialogService.ShowMessage($"Tenant updated successfully and assigned to {SelectedHouse.AddressLine1}!", "Success");
                 }
@@ -282,6 +363,16 @@ namespace Daryva.MVVM.ViewModels
             {
                 _dialogService.ShowMessage($"Error updating tenant: {ex.Message}", "Error");
             }
+        }
+
+        private static string GetRentStartOptionFromTenancy(Tenancy tenancy)
+        {
+            var rentStartYear = tenancy.RentStartYear ?? tenancy.MoveInDate.Year;
+            var rentStartMonth = tenancy.RentStartMonth ?? tenancy.MoveInDate.Month;
+            var nextMonth = tenancy.MoveInDate.AddMonths(1);
+            return (rentStartYear == nextMonth.Year && rentStartMonth == nextMonth.Month)
+                ? "Next month after move-in"
+                : "Same month as move-in";
         }
     }
 }

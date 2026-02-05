@@ -22,6 +22,7 @@ namespace Daryva.Services.Database
             SqlMapper.AddTypeHandler(new SqliteNullableIntHandler());
             SqlMapper.AddTypeHandler(new SqliteIntHandler());
             SqlMapper.AddTypeHandler(new SqliteBoolHandler());
+            SqlMapper.AddTypeHandler(new SqliteDecimalHandler());
         }
 
         /// <summary>

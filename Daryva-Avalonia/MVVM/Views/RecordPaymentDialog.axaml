@@ -11,7 +11,35 @@
         ShowInTaskbar="False">
     <Window.Resources>
         <converters:IsNotNullToVisibilityConverter x:Key="IsNotNullToVisibilityConverter"/>
+        <converters:DecimalToStringConverter x:Key="DecimalToStringConverter"/>
+        <converters:SubtractOneConverter x:Key="SubtractOneConverter"/>
     </Window.Resources>
+    <Window.Styles>
+        <!-- ComboBox dropdown: selected/hover item text readable (white on accent in dark theme) -->
+        <Style Selector="ComboBox ListBoxItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="ComboBox ListBoxItem:selected TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+        </Style>
+        <!-- Address line (secondary text) in dropdown - unselected use secondary, selected use accent -->
+        <Style Selector="ComboBox ListBoxItem TextBlock.AddressLine">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+        <Style Selector="ComboBox ListBoxItem:selected TextBlock.AddressLine">
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+        </Style>
+        <!-- When ComboBox is closed, selected item is shown in content area - keep address readable -->
+        <Style Selector="ComboBox TextBlock.AddressLine">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="ComboBox ListBoxItem:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="ComboBox ListBoxItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+    </Window.Styles>
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -34,7 +62,7 @@
                                 <TextBlock FontWeight="Bold">
                                     <Run Text="{Binding Tenant.FullName}"/>
                                 </TextBlock>
-                                <TextBlock FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                <TextBlock FontSize="11" Classes="AddressLine">
                                     <Run Text="{Binding House.AddressLine1}"/>
                                     <Run Text=", "/>
                                     <Run Text="{Binding House.City}"/>
@@ -56,19 +84,19 @@
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="House:" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                             <TextBlock Grid.Row="0" Grid.Column="1" 
-                                       Text="{Binding SelectedTenancy.House.AddressLine1}"/>
+                                       Text="{Binding SelectedTenancyAddress}"/>
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Tenant:" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                             <TextBlock Grid.Row="1" Grid.Column="1" 
-                                       Text="{Binding SelectedTenancy.Tenant.FullName}"/>
+                                       Text="{Binding SelectedTenancyTenantName}"/>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Monthly Rent:" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                             <TextBlock Grid.Row="2" Grid.Column="1" 
-                                       Text="{Binding SelectedTenancy.RentAmountMonthly, StringFormat='£{0:N2}'}"/>
+                                       Text="{Binding SelectedTenancyRentAmount, StringFormat='£{0:N2}'}"/>
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Deposit Required:" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                             <TextBlock Grid.Row="3" Grid.Column="1" 
-                                       Text="{Binding SelectedTenancy.DepositAmount, StringFormat='£{0:N2}'}"/>
+                                       Text="{Binding SelectedTenancyDepositAmount, StringFormat='£{0:N2}'}"/>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -91,12 +119,7 @@
                 <Grid ColumnDefinitions="140,*">
                     <TextBlock Grid.Column="0" Text="Payment Method:" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                    <ComboBox Grid.Column="1" SelectedItem="{Binding PaymentMethod}">
-                        <ComboBoxItem Content="Bank Transfer"/>
-                        <ComboBoxItem Content="Cash"/>
-                        <ComboBoxItem Content="Card"/>
-                        <ComboBoxItem Content="Other"/>
-                    </ComboBox>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding PaymentMethodOptions}" SelectedItem="{Binding PaymentMethod}"/>
                 </Grid>
 
                 <Grid ColumnDefinitions="140,*">
@@ -125,13 +148,13 @@
                             <TextBlock Grid.Column="0" Text="Required Deposit:" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                             <TextBlock Grid.Column="1" HorizontalAlignment="Right" 
-                                       Text="{Binding SelectedTenancy.DepositAmount, StringFormat='£{0:N2}'}"
+                                       Text="{Binding SelectedTenancyDepositAmount, StringFormat='£{0:N2}'}"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                         </Grid>
                         <Grid ColumnDefinitions="140,*">
                             <TextBlock Grid.Column="0" Text="Pay Deposit:" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBox Grid.Column="1" Text="{Binding DepositAmount}">
+                            <TextBox Grid.Column="1" Text="{Binding DepositAmount, Mode=TwoWay, Converter={StaticResource DecimalToStringConverter}}">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Enter deposit amount to pay"/>
                                 </ToolTip.Tip>
@@ -151,32 +174,16 @@
                             <TextBlock Grid.Column="0" Text="Period:" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
-                                <ComboBox x:Name="MonthComboBox" Width="120">
-                                    <ComboBoxItem Content="January"/>
-                                    <ComboBoxItem Content="February"/>
-                                    <ComboBoxItem Content="March"/>
-                                    <ComboBoxItem Content="April"/>
-                                    <ComboBoxItem Content="May"/>
-                                    <ComboBoxItem Content="June"/>
-                                    <ComboBoxItem Content="July"/>
-                                    <ComboBoxItem Content="August"/>
-                                    <ComboBoxItem Content="September"/>
-                                    <ComboBoxItem Content="October"/>
-                                    <ComboBoxItem Content="November"/>
-                                    <ComboBoxItem Content="December"/>
-                                </ComboBox>
-                                <ComboBox x:Name="YearComboBox" Width="100">
-                                    <ComboBoxItem Content="2024"/>
-                                    <ComboBoxItem Content="2025"/>
-                                    <ComboBoxItem Content="2026"/>
-                                    <ComboBoxItem Content="2027"/>
-                                </ComboBox>
+                                <ComboBox Width="120" ItemsSource="{Binding MonthOptions}"
+                                          SelectedIndex="{Binding RentMonth, Converter={StaticResource SubtractOneConverter}}"/>
+                                <ComboBox Width="100" ItemsSource="{Binding YearOptions}"
+                                          SelectedItem="{Binding RentYear}"/>
                             </StackPanel>
                         </Grid>
                         <Grid ColumnDefinitions="140,*">
                             <TextBlock Grid.Column="0" Text="Pay Rent:" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBox Grid.Column="1" Text="{Binding RentAmount}">
+                            <TextBox Grid.Column="1" Text="{Binding RentAmount, Mode=TwoWay, Converter={StaticResource DecimalToStringConverter}}">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Enter rent amount to pay for selected period"/>
                                 </ToolTip.Tip>

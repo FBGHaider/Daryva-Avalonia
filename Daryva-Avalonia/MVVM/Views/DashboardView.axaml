@@ -127,6 +127,43 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
+
+            <!-- Deposit Return Reminders (left tenants with deposit to return) -->
+            <StackPanel Spacing="12" Margin="0,8,0,0">
+                <TextBlock Text="Deposit return reminders" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock Text="Tenants who have left and are owed a deposit refund." 
+                           Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" Margin="0,0,0,8"/>
+                
+                <!-- Table Header -->
+                <Border Background="{DynamicResource TableHeaderBackgroundBrush}" CornerRadius="4,4,0,0" Padding="0">
+                    <Grid ColumnDefinitions="2*,2*,*,*">
+                        <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" Foreground="White" Padding="16,12"/>
+                        <TextBlock Grid.Column="1" Text="House" FontWeight="SemiBold" Foreground="White" Padding="16,12"/>
+                        <TextBlock Grid.Column="2" Text="Leave Date" FontWeight="SemiBold" Foreground="White" Padding="16,12" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Column="3" Text="Amount to return" FontWeight="SemiBold" Foreground="White" Padding="16,12" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+                
+                <ItemsControl ItemsSource="{Binding DepositReturnReminders}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource TableRowEvenBackgroundBrush}" 
+                                    BorderBrush="{DynamicResource BorderBrush}" 
+                                    BorderThickness="0,0,0,1">
+                                <Grid ColumnDefinitions="2*,2*,*,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding TenantName}" Padding="16,10" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" Padding="16,10" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding LeaveDateDisplay}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding AmountToReturn, StringFormat='£{0:N2}'}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="No deposit returns pending." 
+                           IsVisible="{Binding ShowEmptyDepositMessage}"
+                           Foreground="{DynamicResource SecondaryForegroundBrush}" Padding="16,12"/>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

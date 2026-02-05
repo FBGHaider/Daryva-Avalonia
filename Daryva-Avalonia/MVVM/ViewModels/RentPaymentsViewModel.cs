@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.Services.Navigation;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,29 @@ namespace Daryva.MVVM.ViewModels
 
             RecordPaymentCommand = new RelayCommand(_ => ShowRecordPaymentDialog());
             ExportLedgerCommand = new RelayCommand(_ => LedgerViewModel.ExportLedgerCommand.Execute(null));
+
+            // Refresh Rent Ledger and Transactions when a payment is recorded (from any screen)
+            DashboardViewModel.PaymentDataChanged += OnPaymentDataChanged;
+        }
+
+        private void OnPaymentDataChanged(object? sender, EventArgs e)
+        {
+            void Refresh()
+            {
+                LedgerViewModel.LoadLedgerCommand.Execute(null);
+                // Explicitly refresh deposit ledger so it updates even if rent ledger load fails before reaching it
+                LedgerViewModel.LoadDepositLedgerCommand.Execute(null);
+                TransactionsViewModel.LoadTransactionsCommand.Execute(null);
+            }
+
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                Refresh();
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(Refresh);
+            }
         }
 
         public ICommand RecordPaymentCommand { get; }
@@ -67,7 +91,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void ShowRecordPaymentDialog()
+        private async void ShowRecordPaymentDialog()
         {
             try
             {
@@ -79,18 +103,17 @@ namespace Daryva.MVVM.ViewModels
                 if (mainWindow != null)
                 {
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
-                    dialog.ShowDialog(mainWindow);
+                    await dialog.ShowDialog(mainWindow);
                 }
                 else
                 {
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                     dialog.Show();
                 }
-                // Refresh both tabs
+                // Refresh after dialog closes so rent and deposit ledger show new payments
                 LedgerViewModel.LoadLedgerCommand.Execute(null);
+                LedgerViewModel.LoadDepositLedgerCommand.Execute(null);
                 TransactionsViewModel.LoadTransactionsCommand.Execute(null);
-                
-                // Refresh dashboard if it's currently displayed
                 RefreshDashboardIfActive();
             }
             catch

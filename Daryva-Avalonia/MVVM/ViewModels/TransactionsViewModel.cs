@@ -60,7 +60,12 @@ namespace Daryva.MVVM.ViewModels
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
             ViewTransactionCommand = new RelayCommand(_ => ViewTransactionDetails(), _ => SelectedTransaction != null);
-            UnrecordPaymentCommand = new RelayCommand(async _ => await UnrecordPaymentAsync(), _ => SelectedTransaction != null);
+            UnrecordPaymentCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is TransactionRowViewModel t)
+                    SelectedTransaction = t;
+                await UnrecordPaymentAsync();
+            }, parameter => parameter is TransactionRowViewModel || SelectedTransaction != null);
             RecordPaymentCommand = new RelayCommand(parameter =>
             {
                 if (parameter is TransactionRowViewModel transaction)
@@ -268,16 +273,21 @@ namespace Daryva.MVVM.ViewModels
                     tenantIdFilter,
                     methodValue == "All" ? null : methodValue)).ConfigureAwait(false);
 
+                var transactionList = transactions?.ToList() ?? new List<TransactionRowViewModel>();
+
                 var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
                 Daryva.Services.DateTimeFormatProvider.DateFormat = dateFormat;
 
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    // Clear selection first to avoid IndexOutOfRangeException when list is cleared
+                    SelectedTransaction = null;
                     Transactions.Clear();
                     RentTransactions.Clear();
                     DepositTransactions.Clear();
-                    foreach (var transaction in transactions)
+                    foreach (var transaction in transactionList)
                     {
+                        if (transaction == null) continue;
                         transaction.PaidOnDisplay = Daryva.Services.DateTimeFormatProvider.FormatDate(transaction.PaidOn);
                         Transactions.Add(transaction);
                         if (transaction.PaymentType == "Rent")
@@ -348,7 +358,7 @@ namespace Daryva.MVVM.ViewModels
                 _ = LoadTransactionsAsync();
 
                 var rentPaymentsViewModel = _navigationService.GetViewModel<RentPaymentsViewModel>();
-                if (rentPaymentsViewModel != null)
+                if (rentPaymentsViewModel?.LedgerViewModel != null)
                 {
                     rentPaymentsViewModel.LedgerViewModel.LoadLedgerCommand.Execute(null);
                 }

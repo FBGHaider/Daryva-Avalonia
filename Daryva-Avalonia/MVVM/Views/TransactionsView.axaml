@@ -104,8 +104,8 @@
                                             <TextBlock Grid.Column="6" Text="{Binding Method}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <TextBlock Grid.Column="7" Text="{Binding Reference}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <Button Grid.Column="8"
-                                                    Content="Record Payment"
-                                                    Command="{Binding DataContext.RecordPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Content="Unrecord"
+                                                    Command="{Binding DataContext.UnrecordPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"
                                                     HorizontalAlignment="Left"
                                                     Padding="8,4"
@@ -178,7 +178,7 @@
                                             <TextBlock Grid.Column="5" Text="{Binding Method}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <TextBlock Grid.Column="6" Text="{Binding Reference}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                             <Button Grid.Column="7" 
-                                                    Content="Unreco" 
+                                                    Content="Unrecord" 
                                                     Command="{Binding DataContext.UnrecordPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"
                                                     HorizontalAlignment="Left"

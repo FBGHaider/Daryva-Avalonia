@@ -65,6 +65,7 @@ artifacts/
 
 # Velopack build output
 releases/
+releases.zip
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

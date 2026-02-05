@@ -13,5 +13,7 @@ namespace Daryva.MVVM.Models
         // Calculated properties
         public string? CurrentHouseAddress { get; set; }
         public int? CurrentTenancyId { get; set; }
+        /// <summary>Move-out date from the tenant's ended tenancy (for archived tenants).</summary>
+        public DateTime? LeaveDate { get; set; }
     }
 }

@@ -11,5 +11,7 @@ namespace Daryva.Services.Data
         Task<bool> DeleteRentPaymentAsync(int rentPaymentId);
         Task DeleteRentPaymentsByTenancyIdAsync(int tenancyId);
         Task<RentPayment?> GetRentPaymentByIdAsync(int rentPaymentId);
+        /// <summary>Reassigns all payments from one charge to another (for merging duplicate charges).</summary>
+        Task<int> ReassignPaymentsToChargeAsync(int fromRentChargeId, int toRentChargeId);
     }
 }

@@ -58,6 +58,11 @@ namespace Daryva.Services.Business
             await _tenantRepository.ArchiveTenantAsync(tenantId);
         }
 
+        public async Task UnarchiveTenantAsync(int tenantId)
+        {
+            await _tenantRepository.UnarchiveTenantAsync(tenantId);
+        }
+
         public async Task<IEnumerable<Tenant>> SearchTenantsAsync(string searchTerm)
         {
             return await _tenantRepository.SearchTenantsAsync(searchTerm);
