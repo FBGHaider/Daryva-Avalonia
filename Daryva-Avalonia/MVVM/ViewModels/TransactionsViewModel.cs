@@ -226,9 +226,10 @@ namespace Daryva.MVVM.ViewModels
                 DateTime? startDate = null;
                 DateTime? endDate = null;
 
-                // Calculate date range based on filter
+                // Calculate date range based on filter (guard against null if binding not ready)
                 var now = DateTime.Now;
-                switch (DateRangeFilter)
+                var dateRange = DateRangeFilter ?? "This Month";
+                switch (dateRange)
                 {
                     case "This Month":
                         startDate = new DateTime(now.Year, now.Month, 1);
@@ -256,9 +257,9 @@ namespace Daryva.MVVM.ViewModels
                         break;
                 }
 
-                // Convert filter values - they should already be strings from SelectedValue binding
-                string? paymentTypeValue = PaymentTypeFilter == "All" ? null : PaymentTypeFilter;
-                string? methodValue = MethodFilter == "All" ? null : MethodFilter;
+                // Convert filter values - they should already be strings from SelectedValue binding (guard null)
+                string? paymentTypeValue = (PaymentTypeFilter == null || PaymentTypeFilter == "All") ? null : PaymentTypeFilter;
+                string? methodValue = (MethodFilter == null || MethodFilter == "All") ? null : MethodFilter;
                 
                 // Convert IDs: 0 means "All" (pass null)
                 int? houseIdFilter = (SelectedHouseId == null || SelectedHouseId == 0) ? null : SelectedHouseId;
@@ -391,15 +392,13 @@ namespace Daryva.MVVM.ViewModels
                 {
                     _dialogService.ShowMessage("Payment unrecorded successfully.", "Success");
                     
-                    // Refresh transactions list
+                    // Refresh transactions list (clear selection first so refresh doesn't rely on removed item)
+                    SelectedTransaction = null;
                     await LoadTransactionsAsync();
                     
                     // Refresh ledger if RentPaymentsViewModel is active
                     var rentPaymentsViewModel = _navigationService.GetViewModel<RentPaymentsViewModel>();
-                    if (rentPaymentsViewModel != null)
-                    {
-                        rentPaymentsViewModel.LedgerViewModel.LoadLedgerCommand.Execute(null);
-                    }
+                    rentPaymentsViewModel?.LedgerViewModel?.LoadLedgerCommand?.Execute(null);
                     
                     // Refresh dashboard using the same method as other refresh calls
                     RefreshDashboardIfActive();

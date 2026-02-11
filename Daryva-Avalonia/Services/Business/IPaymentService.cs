@@ -4,7 +4,7 @@ namespace Daryva.Services.Business
 {
     public interface IPaymentService
     {
-        Task RecordPaymentAsync(int tenancyId, decimal depositAmount, decimal rentAmount, int rentYear, int rentMonth, DateTime paymentDate, string method, string? reference, string? notes, string? collectedBy = null);
+        Task RecordPaymentAsync(int tenancyId, decimal depositAmount, decimal rentAmount, int rentYear, int rentMonth, DateTime paymentDate, string method, string? reference, string? notes, string? collectedBy = null, bool useDepositForRent = false);
         Task<decimal> GetTotalDepositPaidAsync(int tenancyId);
         Task<decimal> GetTotalRentPaidForPeriodAsync(int tenancyId, int year, int month);
         Task<string> GetDepositStatusAsync(int tenancyId, decimal depositRequired);
@@ -21,6 +21,10 @@ namespace Daryva.Services.Business
         Task<bool> DeleteAllTransactionsAsync(); // For testing purposes
         /// <summary>Merges duplicate rent charges (same tenancy + period), keeps one and removes duplicates. Returns number of duplicate charges removed.</summary>
         Task<int> CleanupDuplicateRentChargesAsync();
+        /// <summary>Repairs rent payments: links each payment to the correct RentCharge for its PaidOn period (creates charge if missing). Returns number of payments updated.</summary>
+        Task<int> RepairRentPaymentChargeLinksAsync();
+        /// <summary>Record that deposit was paid back to the tenant (so they disappear from deposit-return list and deposit ledger after that date).</summary>
+        Task RecordDepositReturnedAsync(int tenancyId, DateTime returnedDate, decimal amountReturned, string? notes = null);
     }
 
     public class DashboardRentDueItem
@@ -43,6 +47,7 @@ namespace Daryva.Services.Business
 
     public class DepositReturnReminderItem
     {
+        public int TenancyId { get; set; }
         public string TenantName { get; set; } = string.Empty;
         public string HouseAddress { get; set; } = string.Empty;
         public DateTime LeaveDate { get; set; }

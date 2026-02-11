@@ -53,6 +53,7 @@ namespace Daryva.Services.Business
             await _tenantRepository.UpdateTenantAsync(tenant);
         }
 
+        /// <summary>Marks tenant as archived (e.g. when "removing" them). Does NOT delete any payment history, tenancies, or charges — those are preserved for past months in Rent/Transactions.</summary>
         public async Task ArchiveTenantAsync(int tenantId)
         {
             await _tenantRepository.ArchiveTenantAsync(tenantId);
@@ -68,13 +69,15 @@ namespace Daryva.Services.Business
             return await _tenantRepository.SearchTenantsAsync(searchTerm);
         }
 
+        /// <summary>Permanent delete only (e.g. "Delete tenant permanently" from archived view). This is the ONLY method that deletes payment history. "Remove tenant" must NOT call this — it uses ArchiveTenantAsync + EndTenancyAsync only.</summary>
         public async Task DeleteTenantAsync(int tenantId)
         {
             // Get all tenancies for this tenant
             var tenancies = await _tenancyRepository.GetTenanciesByTenantIdAsync(tenantId);
             var tenancyIds = tenancies.Select(t => t.TenancyId).ToList();
 
-            // Delete in correct order to avoid foreign key constraint violations:
+            // Delete in correct order to avoid foreign key constraint violations.
+            // NOTE: Only called for explicit "permanent delete". Remove tenant must never call this.
             // 1. Notifications (by tenant ID and by tenancy ID)
             await _notificationRepository.DeleteNotificationsByTenantIdAsync(tenantId);
             foreach (var tenancyId in tenancyIds)

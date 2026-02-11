@@ -12,18 +12,18 @@
         <converters:DateTimeToDisplayConverter x:Key="DateTimeToDisplayConverter"/>
     </UserControl.Resources>
     <Border Padding="16">
-        <Grid RowDefinitions="Auto,Auto,*">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,*">
             <!-- Header -->
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <TextBlock Text="Tenants" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding ShowArchivedOnly, Converter={StaticResource BoolToTitleConverter}, ConverterParameter='Archived Tenants|Active Tenants'}" 
+                    <TextBlock Text="{Binding ShowArchivedOnly, Converter={StaticResource BoolToTitleConverter}, ConverterParameter='Leave|Active Tenants'}" 
                                FontSize="16" 
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                    <Button Content="{Binding ShowArchivedOnly, Converter={StaticResource BoolToTitleConverter}, ConverterParameter='View Active|View Archived'}" 
+                    <Button Content="{Binding ShowArchivedOnly, Converter={StaticResource BoolToTitleConverter}, ConverterParameter='View Active|View Leave'}" 
                             Command="{Binding ViewArchivedCommand}"
                             Background="{DynamicResource ControlBackgroundBrush}"
                             Foreground="{DynamicResource PrimaryTextBrush}"/>
@@ -33,10 +33,10 @@
                     <Button Content="Edit Tenant" 
                             Command="{Binding EditTenantCommand}"
                             IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
-                    <Button Content="Remove Tenant" 
+                    <Button Content="Mark as leave" 
                             Command="{Binding RemoveTenantCommand}"
                             IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
-                    <Button Content="Recover Tenant" 
+                    <Button Content="Recover" 
                             Command="{Binding RecoverTenantCommand}"
                             Background="{DynamicResource AccentBrush}"
                             Foreground="White"
@@ -72,7 +72,7 @@
                             <TextBlock Grid.Column="2" Text="Phone" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <TextBlock Grid.Column="3" Text="University" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <TextBlock Grid.Column="4" Text="Current House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            <TextBlock Grid.Column="5" Text="Leaving date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}" IsVisible="{Binding ShowArchivedOnly}"/>
+                            <TextBlock Grid.Column="5" Text="Leave date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}" IsVisible="{Binding ShowArchivedOnly}"/>
                         </Grid>
                     </Border>
                     
@@ -108,6 +108,54 @@
                                 </Style>
                                 <Style Selector="ListBoxItem:selected">
                                     <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Deposit returns table (Leave tab only) -->
+            <TextBlock Grid.Row="3" Text="Deposit returns pending" FontSize="16" FontWeight="Bold" Margin="0,20,0,8"
+                       Foreground="{DynamicResource PrimaryTextBrush}"
+                       IsVisible="{Binding ShowArchivedOnly}"/>
+            <Border Grid.Row="4" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}"
+                    IsVisible="{Binding ShowArchivedOnly}">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Background="{DynamicResource TableHeaderBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,10">
+                        <Grid ColumnDefinitions="180,220,120,120,*">
+                            <TextBlock Grid.Column="0" Text="Tenant" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="1" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="2" Text="Leave date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="3" Text="Amount to return" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="4" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" MaxHeight="220">
+                        <ListBox ItemsSource="{Binding DepositReturnList}" Background="Transparent" BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,8">
+                                        <Grid ColumnDefinitions="180,220,120,120,*">
+                                            <TextBlock Grid.Column="0" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding LeaveDateDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding AmountToReturn, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <Button Grid.Column="4" Content="Record returned"
+                                                    Command="{Binding DataContext.RecordDepositReturnedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalAlignment="Left" Padding="12,6"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
+                                    <Setter Property="Padding" Value="0"/>
                                 </Style>
                                 <Style Selector="ListBoxItem:pointerover">
                                     <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>

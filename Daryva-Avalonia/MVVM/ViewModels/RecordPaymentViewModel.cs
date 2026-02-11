@@ -32,6 +32,7 @@ namespace Daryva.MVVM.ViewModels
         private decimal _totalDepositPaid = 0;
         private decimal _totalRentPaidForPeriod = 0;
         private int? _preselectedTenancyId;
+        private bool _useDepositForRent;
 
         public RecordPaymentViewModel(
             IPaymentService paymentService,
@@ -275,7 +276,26 @@ namespace Daryva.MVVM.ViewModels
 
         public decimal DepositRemaining => SelectedTenancy != null ? Math.Max(0, SelectedTenancy.DepositAmount - TotalDepositPaid) : 0;
         public decimal RentRemaining => SelectedTenancy != null ? Math.Max(0, SelectedTenancy.RentAmountMonthly - TotalRentPaidForPeriod) : 0;
-        public decimal TotalPayment => DepositAmount + RentAmount;
+        /// <summary>When using deposit for rent, shows the rent amount (from deposit); otherwise deposit + rent.</summary>
+        public decimal TotalPayment => UseDepositForRent ? RentAmount : (DepositAmount + RentAmount);
+
+        /// <summary>When true, use existing deposit paid as the source for this month's rent (no new money; reduces deposit to return).</summary>
+        public bool UseDepositForRent
+        {
+            get => _useDepositForRent;
+            set
+            {
+                if (SetProperty(ref _useDepositForRent, value))
+                {
+                    ApplyUseDepositForRentIfChecked();
+                    OnPropertyChanged(nameof(TotalPayment)); // After applying amounts so total reflects rent from deposit
+                    ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        /// <summary>True when tenant has deposit paid and rent remaining for the selected period, so "use deposit for rent" is available.</summary>
+        public bool CanUseDepositForRent => SelectedTenancy != null && TotalDepositPaid > 0 && RentRemaining > 0;
 
         private async Task LoadActiveTenanciesAsync()
         {
@@ -315,6 +335,18 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
+        private void ApplyUseDepositForRentIfChecked()
+        {
+            if (!UseDepositForRent) return;
+            var amountFromDeposit = Math.Min(TotalDepositPaid, RentRemaining);
+            DepositAmount = 0;
+            RentAmount = amountFromDeposit;
+            OnPropertyChanged(nameof(DepositRemaining));
+            OnPropertyChanged(nameof(RentRemaining));
+            OnPropertyChanged(nameof(TotalPayment));
+            OnPropertyChanged(nameof(CanUseDepositForRent));
+        }
+
         private async void LoadTenancyDetails()
         {
             if (SelectedTenancy == null)
@@ -326,6 +358,7 @@ namespace Daryva.MVVM.ViewModels
                 OnPropertyChanged(nameof(DepositRemaining));
                 OnPropertyChanged(nameof(RentRemaining));
                 OnPropertyChanged(nameof(TotalPayment));
+                OnPropertyChanged(nameof(CanUseDepositForRent));
                 return;
             }
 
@@ -342,13 +375,18 @@ namespace Daryva.MVVM.ViewModels
                         TotalDepositPaid = depositPaid;
                         TotalRentPaidForPeriod = rentPaid;
 
-                        // Auto-suggest remaining amounts
-                        DepositAmount = DepositRemaining;
-                        RentAmount = RentRemaining;
+                        if (UseDepositForRent)
+                            ApplyUseDepositForRentIfChecked();
+                        else
+                        {
+                            DepositAmount = DepositRemaining;
+                            RentAmount = RentRemaining;
+                        }
 
                         OnPropertyChanged(nameof(DepositRemaining));
                         OnPropertyChanged(nameof(RentRemaining));
                         OnPropertyChanged(nameof(TotalPayment));
+                        OnPropertyChanged(nameof(CanUseDepositForRent));
                     }
                     catch (Exception ex)
                     {
@@ -364,10 +402,11 @@ namespace Daryva.MVVM.ViewModels
 
         private bool CanSave()
         {
-            return SelectedTenancy != null &&
-                   PaymentDate.HasValue &&
-                   (DepositAmount > 0 || RentAmount > 0) &&
-                   DepositAmount <= DepositRemaining + 100 && // Allow small overpayment
+            if (SelectedTenancy == null || !PaymentDate.HasValue) return false;
+            if (UseDepositForRent)
+                return RentAmount > 0 && DepositAmount == 0 && RentAmount <= TotalDepositPaid && RentAmount <= RentRemaining + 100;
+            return (DepositAmount > 0 || RentAmount > 0) &&
+                   DepositAmount <= DepositRemaining + 100 &&
                    RentAmount >= 0;
         }
 
@@ -391,10 +430,19 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                // Record payment
+                if (UseDepositForRent)
+                {
+                    if (RentAmount > TotalDepositPaid)
+                    {
+                        _dialogService.ShowMessage($"Rent amount cannot exceed deposit paid (£{TotalDepositPaid:N2}) when using deposit for rent.", "Validation Error");
+                        return;
+                    }
+                }
+
+                // Record payment (useDepositForRent: record rent only, marked as paid from deposit; no new deposit payment)
                 await _paymentService.RecordPaymentAsync(
                     SelectedTenancy.TenancyId,
-                    DepositAmount,
+                    UseDepositForRent ? 0 : DepositAmount,
                     RentAmount,
                     RentYear,
                     RentMonth,
@@ -402,7 +450,8 @@ namespace Daryva.MVVM.ViewModels
                     PaymentMethod,
                     Reference,
                     Notes,
-                    CollectedBy);
+                    CollectedBy,
+                    UseDepositForRent);
 
                 // Notify dashboard to refresh
                 DashboardViewModel.NotifyPaymentDataChanged();

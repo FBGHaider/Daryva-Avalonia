@@ -20,6 +20,8 @@ namespace Daryva.Services.Database
             {
                 RunMigration016_RentStartAndBackfillMoveIn();
                 RunMigration017_EndDuplicateActiveTenancies();
+                RunMigration018_PaidFromDeposit();
+                RunMigration019_DepositReturn();
             }
             catch (Exception ex)
             {
@@ -53,6 +55,26 @@ namespace Daryva.Services.Database
                 SET RentStartMonth = CAST(strftime('%m', MoveInDate) AS INTEGER),
                     RentStartYear = CAST(strftime('%Y', MoveInDate) AS INTEGER)
                 WHERE RentStartMonth IS NULL AND RentStartYear IS NULL");
+        }
+
+        private void RunMigration018_PaidFromDeposit()
+        {
+            if (HasColumn("RentPayment", "PaidFromDeposit"))
+                return;
+            _dbContext.ExecuteNonQuery("ALTER TABLE RentPayment ADD COLUMN PaidFromDeposit INTEGER NOT NULL DEFAULT 0");
+        }
+
+        private void RunMigration019_DepositReturn()
+        {
+            _dbContext.ExecuteNonQuery(@"
+                CREATE TABLE IF NOT EXISTS DepositReturn (
+                    DepositReturnId INTEGER PRIMARY KEY AUTOINCREMENT,
+                    TenancyId INTEGER NOT NULL,
+                    ReturnedDate TEXT NOT NULL,
+                    AmountReturned REAL NOT NULL,
+                    Notes TEXT,
+                    FOREIGN KEY (TenancyId) REFERENCES Tenancy(TenancyId)
+                )");
         }
 
         private void RunMigration017_EndDuplicateActiveTenancies()

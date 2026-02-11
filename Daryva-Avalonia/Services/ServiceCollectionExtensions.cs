@@ -44,6 +44,7 @@ namespace Daryva.Services
             services.AddScoped<IDepositPaymentRepository, DepositPaymentRepository>();
             services.AddScoped<IRentChargeRepository, RentChargeRepository>();
             services.AddScoped<IRentPaymentRepository, RentPaymentRepository>();
+            services.AddScoped<IDepositReturnRepository, DepositReturnRepository>();
             services.AddScoped<IDocumentRepository, DocumentRepository>();
             services.AddScoped<IExpenseRepository, ExpenseRepository>();
             services.AddScoped<INotificationRepository, NotificationRepository>();

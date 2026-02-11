@@ -109,19 +109,8 @@ namespace Daryva.Services.Data
 
         public async Task<Tenancy?> GetTenancyByIdAsync(int tenancyId)
         {
-            var sqlWithRentStart = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentStartMonth, t.RentStartYear,
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.TenancyId = @TenancyId";
-
-            var sqlWithoutRentStart = @"
+            // Use query without RentStartMonth/RentStartYear first so archived/ended tenancies always load (keeps rent ledger history correct)
+            var sql = @"
                 SELECT 
                     t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
                     t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
@@ -131,30 +120,9 @@ namespace Daryva.Services.Data
                 INNER JOIN House h ON t.HouseId = h.HouseId
                 INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
                 WHERE t.TenancyId = @TenancyId";
-
-            try
-            {
-                _dbContext.OpenConnection();
-                var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithRentStart,
-                    (tenancy, house, tenant) =>
-                    {
-                        tenancy.House = house;
-                        tenancy.Tenant = tenant;
-                        return tenancy;
-                    },
-                    new { TenancyId = tenancyId },
-                    splitOn: "House_HouseId,Tenant_TenantId").ToList();
-                return await Task.FromResult(results.FirstOrDefault());
-            }
-            catch (Microsoft.Data.Sqlite.SqliteException)
-            {
-            }
-            catch (NullReferenceException)
-            {
-            }
 
             _dbContext.OpenConnection();
-            var fallbackResults = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithoutRentStart,
+            var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sql,
                 (tenancy, house, tenant) =>
                 {
                     tenancy.House = house;
@@ -163,7 +131,7 @@ namespace Daryva.Services.Data
                 },
                 new { TenancyId = tenancyId },
                 splitOn: "House_HouseId,Tenant_TenantId").ToList();
-            return await Task.FromResult(fallbackResults.FirstOrDefault());
+            return await Task.FromResult(results.FirstOrDefault());
         }
 
         public async Task<IEnumerable<Tenancy>> GetActiveTenanciesAsync()
@@ -177,19 +145,6 @@ namespace Daryva.Services.Data
             var periodEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
             var periodStartStr = periodStart.ToString("yyyy-MM-dd");
             var periodEndStr = periodEnd.ToString("yyyy-MM-dd");
-            var sqlWithRentStart = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentStartMonth, t.RentStartYear,
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE date(t.MoveInDate) <= @PeriodEnd
-                  AND (t.MoveOutDate IS NULL OR date(t.MoveOutDate) >= @PeriodStart)
-                ORDER BY t.MoveInDate DESC";
             var sqlWithoutRentStart = @"
                 SELECT 
                     t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
@@ -202,26 +157,8 @@ namespace Daryva.Services.Data
                 WHERE date(t.MoveInDate) <= @PeriodEnd
                   AND (t.MoveOutDate IS NULL OR date(t.MoveOutDate) >= @PeriodStart)
                 ORDER BY t.MoveInDate DESC";
-            try
-            {
-                _dbContext.OpenConnection();
-                var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithRentStart,
-                    (tenancy, house, tenant) =>
-                    {
-                        tenancy.House = house;
-                        tenancy.Tenant = tenant;
-                        return tenancy;
-                    },
-                    new { PeriodStart = periodStartStr, PeriodEnd = periodEndStr },
-                    splitOn: "House_HouseId,Tenant_TenantId").ToList();
-                return await Task.FromResult(results);
-            }
-            catch (Microsoft.Data.Sqlite.SqliteException)
-            {
-            }
-            catch (NullReferenceException)
-            {
-            }
+            // Use the query WITHOUT RentStartMonth/RentStartYear first so archived/ended tenancies always load
+            // (avoids mapping issues when those columns are null and preserves paid history in rent ledger)
             _dbContext.OpenConnection();
             var fallback = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithoutRentStart,
                 (tenancy, house, tenant) =>
@@ -382,6 +319,7 @@ namespace Daryva.Services.Data
             await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { TenancyId = tenancyId }));
         }
 
+        /// <summary>Ended tenancies with deposit (including left/archived tenants) so dashboard can show deposit to return.</summary>
         public async Task<IEnumerable<Tenancy>> GetEndedTenanciesWithDepositAsync()
         {
             var sql = @"

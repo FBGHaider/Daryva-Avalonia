@@ -59,12 +59,41 @@ namespace Daryva.Services.Data
         public async Task<int> CreateRentPaymentAsync(RentPayment payment)
         {
             var sql = @"
-                INSERT INTO RentPayment (TenancyId, RentChargeId, PaidOn, AmountPaid, Method, Reference, Notes, CollectedBy)
-                VALUES (@TenancyId, @RentChargeId, @PaidOn, @AmountPaid, @Method, @Reference, @Notes, @CollectedBy);
+                INSERT INTO RentPayment (TenancyId, RentChargeId, PaidOn, AmountPaid, Method, Reference, Notes, CollectedBy, PaidFromDeposit)
+                VALUES (@TenancyId, @RentChargeId, @PaidOn, @AmountPaid, @Method, @Reference, @Notes, @CollectedBy, @PaidFromDeposit);
                 SELECT last_insert_rowid();";
 
             var paymentId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, payment));
             return paymentId;
+        }
+
+        public async Task<decimal> GetTotalRentPaidFromDepositAsync(int tenancyId)
+        {
+            try
+            {
+                var sql = @"
+                    SELECT CAST(COALESCE(SUM(AmountPaid), 0) AS REAL)
+                    FROM RentPayment
+                    WHERE TenancyId = @TenancyId AND PaidFromDeposit = 1";
+                var result = _dbContext.ExecuteScalar<object>(sql, new { TenancyId = tenancyId });
+                return ConvertToDecimal(result);
+            }
+            catch
+            {
+                return 0m;
+            }
+
+            static decimal ConvertToDecimal(object? value)
+            {
+                if (value == null || value == DBNull.Value) return 0m;
+                if (value is decimal d) return d;
+                if (value is long l) return (decimal)l;
+                if (value is int i) return (decimal)i;
+                if (value is double db) return (decimal)db;
+                if (value is string s && decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                    return parsed;
+                return 0m;
+            }
         }
 
         public async Task<IEnumerable<RentPayment>> GetAllRentPaymentsAsync(DateTime? startDate = null, DateTime? endDate = null, int? tenancyId = null)
@@ -97,8 +126,38 @@ namespace Daryva.Services.Data
             
             sqlBuilder.Append(" ORDER BY rp.PaidOn DESC");
 
-            // Query already materializes via DbContext.Query, but ensure it's a list
-            var results = _dbContext.Query<RentPayment>(sqlBuilder.ToString(), parameters);
+            // When no filters applied (e.g. "All" months), pass null to avoid issues with empty DynamicParameters
+            var hasParams = startDate.HasValue || endDate.HasValue || tenancyId.HasValue;
+            var results = _dbContext.Query<RentPayment>(sqlBuilder.ToString(), hasParams ? parameters : null);
+            return await Task.FromResult(results);
+        }
+
+        public async Task<IEnumerable<RentPayment>> GetRentPaymentsInPeriodAsync(int year, int month)
+        {
+            // strftime works for any PaidOn format SQLite stores (ISO, text, etc.); fixes ledger showing Overdue for left tenants
+            var sql = @"
+                SELECT * FROM RentPayment
+                WHERE strftime('%Y', PaidOn) = @Year AND strftime('%m', PaidOn) = @Month
+                ORDER BY PaidOn DESC";
+            var monthStr = month.ToString("D2", System.Globalization.CultureInfo.InvariantCulture);
+            var results = _dbContext.Query<RentPayment>(sql, new { Year = year.ToString(), Month = monthStr });
+            return await Task.FromResult(results);
+        }
+
+        public async Task<IEnumerable<RentPayment>> GetRentPaymentsForTenancyInPeriodAsync(int tenancyId, int year, int month)
+        {
+            var periodStart = new DateTime(year, month, 1);
+            var periodEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+            var periodStartStr = periodStart.ToString("yyyy-MM-dd");
+            var periodEndStr = periodEnd.ToString("yyyy-MM-dd");
+            // Use date strings so SQLite comparison works reliably for all tenancies (including removed/archived)
+            var sql = @"
+                SELECT * FROM RentPayment
+                WHERE TenancyId = @TenancyId
+                  AND date(PaidOn) >= @PeriodStart
+                  AND date(PaidOn) <= @PeriodEnd
+                ORDER BY PaidOn DESC";
+            var results = _dbContext.Query<RentPayment>(sql, new { TenancyId = tenancyId, PeriodStart = periodStartStr, PeriodEnd = periodEndStr });
             return await Task.FromResult(results);
         }
 
@@ -136,6 +195,16 @@ namespace Daryva.Services.Data
                 WHERE RentChargeId = @FromRentChargeId";
             var rows = await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { FromRentChargeId = fromRentChargeId, ToRentChargeId = toRentChargeId }));
             return rows;
+        }
+
+        public async Task<bool> UpdateRentChargeIdAsync(int rentPaymentId, int rentChargeId)
+        {
+            var sql = @"
+                UPDATE RentPayment
+                SET RentChargeId = @RentChargeId
+                WHERE RentPaymentId = @RentPaymentId";
+            var rows = await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { RentPaymentId = rentPaymentId, RentChargeId = rentChargeId }));
+            return rows > 0;
         }
     }
 }

@@ -170,6 +170,14 @@
                         BorderThickness="1"
                         Padding="15" Margin="0,0,0,15" CornerRadius="5">
                     <StackPanel Spacing="10">
+                        <CheckBox IsChecked="{Binding UseDepositForRent}"
+                                  IsEnabled="{Binding CanUseDepositForRent}"
+                                  Content="Use deposit paid for this month's rent"
+                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Apply existing deposit toward the selected month's rent. No new payment; reduces deposit to return. Only available when tenant has deposit paid and rent due for the period."/>
+                            </ToolTip.Tip>
+                        </CheckBox>
                         <Grid ColumnDefinitions="140,*">
                             <TextBlock Grid.Column="0" Text="Period:" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
@@ -185,7 +193,7 @@
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                             <TextBox Grid.Column="1" Text="{Binding RentAmount, Mode=TwoWay, Converter={StaticResource DecimalToStringConverter}}">
                                 <ToolTip.Tip>
-                                    <TextBlock Text="Enter rent amount to pay for selected period"/>
+                                    <TextBlock Text="Enter rent amount to pay for selected period (or amount from deposit when using deposit for rent)"/>
                                 </ToolTip.Tip>
                             </TextBox>
                         </Grid>

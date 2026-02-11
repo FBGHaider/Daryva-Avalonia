@@ -313,6 +313,9 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
+                // Repair any rent payments that are unlinked or linked to wrong charge (so past months show Paid correctly)
+                await Task.Run(async () => await _paymentService.RepairRentPaymentChargeLinksAsync()).ConfigureAwait(false);
+
                 // Convert SelectedHouseId: 0 means "All Houses" (pass null), otherwise pass the actual ID
                 int? houseIdFilter = (SelectedHouseId == null || SelectedHouseId == 0) ? null : SelectedHouseId;
                 
@@ -334,6 +337,7 @@ namespace Daryva.MVVM.ViewModels
                     LedgerRows.Clear();
                     foreach (var row in rows ?? Enumerable.Empty<RentLedgerRowViewModel>())
                     {
+                        if (row == null) continue;
                         row.DueDateDisplay = DateTimeFormatProvider.FormatDate(row.DueDate);
                         LedgerRows.Add(row);
                     }

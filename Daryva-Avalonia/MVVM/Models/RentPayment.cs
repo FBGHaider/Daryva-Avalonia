@@ -11,7 +11,9 @@ namespace Daryva.MVVM.Models
         public string? Reference { get; set; }
         public string? Notes { get; set; }
         public string? CollectedBy { get; set; }
-        
+        /// <summary>True when this rent payment was paid from existing deposit (no new money received). Reduces "deposit to return".</summary>
+        public bool PaidFromDeposit { get; set; }
+
         // Navigation
         public Tenancy? Tenancy { get; set; }
         public RentCharge? RentCharge { get; set; }

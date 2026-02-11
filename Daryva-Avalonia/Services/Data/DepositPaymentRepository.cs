@@ -106,8 +106,9 @@ namespace Daryva.Services.Data
             
             sqlBuilder.Append(" ORDER BY dp.PaidOn DESC");
 
-            // Query already materializes via DbContext.Query, but ensure it's a list
-            var results = _dbContext.Query<DepositPayment>(sqlBuilder.ToString(), parameters);
+            // When no filters applied (e.g. "All" months), pass null to avoid issues with empty DynamicParameters
+            var hasParams = startDate.HasValue || endDate.HasValue || tenancyId.HasValue;
+            var results = _dbContext.Query<DepositPayment>(sqlBuilder.ToString(), hasParams ? parameters : null);
             return await Task.FromResult(results);
         }
 

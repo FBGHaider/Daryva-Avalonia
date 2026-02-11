@@ -19,11 +19,12 @@ namespace Daryva.MVVM.ViewModels
         private readonly ISettingsService _settingsService;
         private readonly INavigationService _navigationService;
         private readonly ITenancyRepository _tenancyRepository;
+        private readonly IPaymentService _paymentService;
         private string _searchTerm = string.Empty;
         private Tenant? _selectedTenant;
         private bool _showArchivedOnly = false;
 
-        public TenantsViewModel(ITenantService tenantService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService, INavigationService navigationService, ITenancyRepository tenancyRepository)
+        public TenantsViewModel(ITenantService tenantService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService, INavigationService navigationService, ITenancyRepository tenancyRepository, IPaymentService paymentService)
         {
             _tenantService = tenantService;
             _dialogService = dialogService;
@@ -31,7 +32,9 @@ namespace Daryva.MVVM.ViewModels
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _tenancyRepository = tenancyRepository ?? throw new ArgumentNullException(nameof(tenancyRepository));
+            _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
             Tenants = new ObservableCollection<Tenant>();
+            DepositReturnList = new ObservableCollection<DepositReturnReminderItem>();
 
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
             SearchCommand = new RelayCommand(async _ => await SearchTenantsAsync());
@@ -41,6 +44,8 @@ namespace Daryva.MVVM.ViewModels
             ViewArchivedCommand = new RelayCommand(_ => ToggleArchivedView());
             DeleteArchivedCommand = new RelayCommand(_ => DeleteArchivedTenantAsync(), _ => SelectedTenant != null && ShowArchivedOnly);
             RecoverTenantCommand = new RelayCommand(_ => RecoverTenantAsync(), _ => SelectedTenant != null && ShowArchivedOnly);
+            LoadDepositReturnsCommand = new RelayCommand(async _ => await LoadDepositReturnsAsync());
+            RecordDepositReturnedCommand = new RelayCommand(async p => await RecordDepositReturnedAsync(p as DepositReturnReminderItem), p => p is DepositReturnReminderItem);
 
             LoadTenantsCommand.Execute(null);
         }
@@ -53,8 +58,11 @@ namespace Daryva.MVVM.ViewModels
         public ICommand ViewArchivedCommand { get; }
         public ICommand DeleteArchivedCommand { get; }
         public ICommand RecoverTenantCommand { get; }
+        public ICommand LoadDepositReturnsCommand { get; }
+        public ICommand RecordDepositReturnedCommand { get; }
 
         public ObservableCollection<Tenant> Tenants { get; }
+        public ObservableCollection<DepositReturnReminderItem> DepositReturnList { get; }
 
         public string SearchTerm
         {
@@ -95,7 +103,58 @@ namespace Daryva.MVVM.ViewModels
                     ((RelayCommand)DeleteArchivedCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RecoverTenantCommand).RaiseCanExecuteChanged();
                     LoadTenantsCommand.Execute(null);
+                    if (value) LoadDepositReturnsCommand.Execute(null);
                 }
+            }
+        }
+
+        private async Task LoadDepositReturnsAsync()
+        {
+            try
+            {
+                var list = (await _paymentService.GetDepositReturnRemindersAsync()).ToList();
+                DepositReturnList.Clear();
+                foreach (var item in list)
+                    DepositReturnList.Add(item);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error loading deposit returns: {ex.Message}", "Error");
+            }
+        }
+
+        private async Task RecordDepositReturnedAsync(DepositReturnReminderItem? item)
+        {
+            if (item == null) return;
+            var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
+            var defaultDate = DateTime.Today.ToString(dateFormat);
+            var dateStr = await _dialogService.ShowInputDialogAsync("Date deposit was paid back to tenant:", "Record deposit returned", defaultDate);
+            if (string.IsNullOrWhiteSpace(dateStr)) return;
+            if (!DateTime.TryParse(dateStr, System.Globalization.CultureInfo.CurrentCulture, System.Globalization.DateTimeStyles.None, out var returnedDate))
+            {
+                _dialogService.ShowMessage("Please enter a valid date.", "Invalid Date");
+                return;
+            }
+            var amountStr = await _dialogService.ShowInputDialogAsync("Amount returned (£):", "Record deposit returned", item.AmountToReturn.ToString("N2"));
+            if (string.IsNullOrWhiteSpace(amountStr)) return;
+            if (!decimal.TryParse(amountStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.CurrentCulture, out var amountReturned) || amountReturned < 0)
+            {
+                _dialogService.ShowMessage("Please enter a valid amount.", "Invalid Amount");
+                return;
+            }
+            try
+            {
+                await _paymentService.RecordDepositReturnedAsync(item.TenancyId, returnedDate, amountReturned, null);
+                _dialogService.ShowMessage("Deposit returned recorded. The tenant will no longer appear in deposit return list and deposit ledger for that month onwards.", "Success");
+                await LoadDepositReturnsAsync();
+                var dashboardVm = _navigationService.GetViewModel<DashboardViewModel>();
+                dashboardVm?.RefreshDashboard();
+                var rentPaymentsVm = _navigationService.GetViewModel<RentPaymentsViewModel>();
+                rentPaymentsVm?.LedgerViewModel?.LoadDepositLedgerCommand?.Execute(null);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error recording deposit returned: {ex.Message}", "Error");
             }
         }
 
@@ -231,13 +290,14 @@ namespace Daryva.MVVM.ViewModels
 
             var requireConfirm = await _settingsService.GetSettingAsync<bool>("ConfirmDestructiveActions", true) ?? true;
             var confirmed = !requireConfirm || await _dialogService.ShowConfirmationAsync(
-                $"Are you sure you want to remove tenant '{SelectedTenant.FullName}'?\n\nLeave date: {leaveDate:dd/MM/yyyy}\n\nThis will end their tenancy and mark them as archived. Their past rent and deposit payments and transaction history will be kept.",
-                "Remove Tenant");
+                $"Mark '{SelectedTenant.FullName}' as left?\n\nLeave date: {leaveDate:dd/MM/yyyy}\n\nThey will move to the Leave tab. Past rent, deposit payments and transaction history are kept.",
+                "Mark as leave");
 
             if (!confirmed) return;
 
             try
             {
+                // Mark as leave = end tenancy + archive (shows in Leave tab). Do NOT call DeleteTenantAsync — that wipes payment history.
                 var tenancies = (await _tenancyRepository.GetTenanciesByTenantIdAsync(SelectedTenant.TenantId)).ToList();
                 var activeTenancy = tenancies.FirstOrDefault(t =>
                     string.Equals(t.Status, "Active", StringComparison.OrdinalIgnoreCase) && t.MoveOutDate == null);
@@ -245,7 +305,7 @@ namespace Daryva.MVVM.ViewModels
                     await _tenancyRepository.EndTenancyAsync(activeTenancy.TenancyId, leaveDate);
 
                 await _tenantService.ArchiveTenantAsync(SelectedTenant.TenantId);
-                _dialogService.ShowMessage("Tenant removed successfully.", "Success");
+                _dialogService.ShowMessage("Tenant marked as left. They now appear in the Leave tab.", "Success");
                 LoadTenantsCommand.Execute(null);
 
                 var rentPaymentsVm = _navigationService.GetViewModel<RentPaymentsViewModel>();
@@ -256,7 +316,7 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error removing tenant: {ex.Message}", "Error");
+                _dialogService.ShowMessage($"Error marking tenant as left: {ex.Message}", "Error");
             }
         }
 
@@ -302,8 +362,8 @@ namespace Daryva.MVVM.ViewModels
             if (SelectedTenant == null || !SelectedTenant.IsArchived) return;
 
             var confirmed = await _dialogService.ShowConfirmationAsync(
-                $"Recover tenant '{SelectedTenant.FullName}'?\n\nThey will appear in the active tenants list again. All their history (tenancies, payments, documents) remains unchanged.",
-                "Recover Tenant");
+                $"Recover '{SelectedTenant.FullName}'?\n\nThey will appear in Active Tenants again. All history (tenancies, payments, documents) is unchanged.",
+                "Recover");
 
             if (!confirmed) return;
 
@@ -321,7 +381,7 @@ namespace Daryva.MVVM.ViewModels
                 if (mostRecentEnded != null)
                     await _tenancyRepository.ReactivateTenancyAsync(mostRecentEnded.TenancyId);
 
-                _dialogService.ShowMessage("Tenant recovered. They now appear in the active tenants list.", "Success");
+                _dialogService.ShowMessage("Tenant recovered. They now appear in Active Tenants.", "Success");
                 SelectedTenant = null;
                 LoadTenantsCommand.Execute(null);
                 DashboardViewModel.NotifyPaymentDataChanged();
