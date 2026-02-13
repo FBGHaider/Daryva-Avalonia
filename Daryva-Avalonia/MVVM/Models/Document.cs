@@ -35,6 +35,19 @@ namespace Daryva.MVVM.Models
                 return string.Empty;
             }
         }
+
+        /// <summary>Display for table: tenant name or house address.</summary>
+        public string TenantOrHouseDisplay
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(TenantName))
+                    return TenantName;
+                if (House != null && !string.IsNullOrEmpty(House.AddressLine1))
+                    return House.AddressLine1;
+                return HouseId.HasValue ? "House" : "";
+            }
+        }
         
         // Calculated
         public bool IsExpiringSoon => ValidTo.HasValue && ValidTo.Value <= DateTime.Now.AddDays(30);

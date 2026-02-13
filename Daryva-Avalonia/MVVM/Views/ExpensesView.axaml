@@ -12,9 +12,9 @@
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,*">
         <!-- Fixed header: buttons follow right edge; hide when too narrow -->
-        <Border Grid.Row="0" Padding="16,0,16,0" Margin="0,0,0,8" x:Name="HeaderBorder">
+        <Border Grid.Row="0" Padding="16,0,16,0" Margin="0,0,0,4" x:Name="HeaderBorder">
             <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
-                <TextBlock Grid.Column="0" Text="Expenses" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,16,0,16"/>
+                <TextBlock Grid.Column="0" Text="Expenses" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,8,0,8"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,12,0,12"
                             IsVisible="{Binding IsHeaderButtonsVisible, RelativeSource={RelativeSource AncestorType=UserControl}}">
                     <Button Content="+ Add Expense" Command="{Binding AddExpenseCommand}"/>
@@ -25,135 +25,10 @@
 
         <!-- Scrollable content -->
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-            <Border Padding="16,0,16,16">
+            <Border Padding="16,0,16,12">
                 <Grid RowDefinitions="*">
-                <TabControl Grid.Row="0" SelectedIndex="{Binding SelectedTabIndex}" Margin="0,8,0,0">
-                    <!-- Expenses List tab -->
-                    <TabItem Header="Expenses List">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Grid RowDefinitions="Auto,*">
-                            <!-- Filters -->
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,16,0,12">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="Date Range:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                                    <ComboBox Width="140"
-                                              ItemsSource="{Binding DateRangeFilterOptions}"
-                                              SelectedItem="{Binding DateRangeFilter}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                                <ComboBox Width="200"
-                                          ItemsSource="{Binding Houses}"
-                                          SelectedValue="{Binding SelectedHouseId}"
-                                          SelectedValueBinding="{Binding HouseId}">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding AddressLine1}"/>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="Category:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                                <ComboBox Width="140"
-                                          ItemsSource="{Binding CategoryFilterOptions}"
-                                          SelectedItem="{Binding CategoryFilter}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="Search:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                                <TextBox Width="200" Text="{Binding SearchTerm}" Watermark="Search vendor/notes"/>
-                            </StackPanel>
-                        </StackPanel>
-
-                            <!-- Expenses Table -->
-                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
-                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
-                                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1100">
-                                        <!-- Header Row -->
-                                        <Border Grid.Row="0" 
-                                                Background="{DynamicResource TableHeaderBackgroundBrush}" 
-                                                BorderBrush="{DynamicResource BorderBrush}" 
-                                                BorderThickness="0,0,0,1"
-                                                Padding="8,10">
-                                            <Grid ColumnDefinitions="120,200,120,150,200,120,100,200">
-                                                <TextBlock Grid.Column="0" Text="Date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="1" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="2" Text="Category" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="3" Text="Vendor" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="4" Text="Description" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="5" Text="Amount" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="6" Text="Receipt" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            </Grid>
-                                        </Border>
-                                        
-                                        <!-- Data Rows -->
-                                        <ListBox Grid.Row="1"
-                                        ItemsSource="{Binding Expenses}"
-                                        SelectedItem="{Binding SelectedExpense}"
-                                                 SelectionMode="Single"
-                                                 Background="{DynamicResource SecondaryBackgroundBrush}"
-                                                 BorderThickness="0">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border BorderBrush="{DynamicResource BorderBrush}" 
-                                                            BorderThickness="0,0,0,1"
-                                                            Padding="8,8"
-                                                            Background="Transparent"
-                                                            Cursor="Hand">
-                                                        <Grid ColumnDefinitions="120,200,120,150,200,120,100,200">
-                                                            <TextBlock Grid.Column="0" Text="{Binding DateIncurredDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="2" Text="{Binding Category}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="3" Text="{Binding Vendor}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="4" Text="{Binding Description}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="5" Text="{Binding Amount, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="6" Text="{Binding HasReceipt, Converter={StaticResource BoolToCheckConverter}}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Center"/>
-                                                            <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4">
-                                                                <Button Content="Edit" 
-                                                                        Command="{Binding DataContext.EditExpenseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}"
-                                                                        Padding="8,4"
-                                                                        FontSize="12"
-                                                                        Width="60"/>
-                                                                <Button Content="Recei" 
-                                                                        Command="{Binding DataContext.AttachReceiptCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}"
-                                                                        Padding="8,4"
-                                                                        FontSize="12"
-                                                                        Width="60"/>
-                                                                <Button Content="Dele" 
-                                                                        Command="{Binding DataContext.DeleteExpenseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}"
-                                                                        Padding="8,4"
-                                                                        FontSize="12"
-                                                                        Width="60"/>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                            <ListBox.Styles>
-                                                <Style Selector="ListBoxItem">
-                                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
-                                                    <Setter Property="Padding" Value="0"/>
-                                                </Style>
-                                                <Style Selector="ListBoxItem:selected">
-                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                                </Style>
-                                                <Style Selector="ListBoxItem:pointerover">
-                                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                                </Style>
-                                            </ListBox.Styles>
-                                        </ListBox>
-                                    </Grid>
-                                </ScrollViewer>
-                            </Border>
-                    </Grid>
-                        </ScrollViewer>
-                </TabItem>
-
-                    <!-- Summary & Reports tab -->
+                <TabControl Grid.Row="0" SelectedIndex="{Binding SelectedTabIndex}" Margin="0,0,0,0">
+                    <!-- Summary & Reports tab (first) -->
                     <TabItem Header="Summary &amp; Reports">
                         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <StackPanel Spacing="16" Margin="0,16,0,0">
@@ -277,8 +152,7 @@
                                 <TextBlock Text="By Category" FontSize="18" FontWeight="Bold" Margin="0,8,0,8"/>
                                 <Border BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
                                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="300">
-                                        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="600">
-                                            <!-- Header Row -->
+                                        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="500">
                                             <Border Grid.Row="0" 
                                                     Background="{DynamicResource TableHeaderBackgroundBrush}" 
                                                     BorderBrush="{DynamicResource BorderBrush}" 
@@ -291,8 +165,6 @@
                                                     <TextBlock Grid.Column="3" Text="Average" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                                 </Grid>
                                             </Border>
-                                            
-                                            <!-- Data Rows -->
                                             <ListBox Grid.Row="1"
                                                      ItemsSource="{Binding Summary.ByCategory}"
                                                      Background="{DynamicResource SecondaryBackgroundBrush}"
@@ -336,6 +208,131 @@
                                                VerticalAlignment="Center"/>
                                 </Border>
                             </StackPanel>
+                        </ScrollViewer>
+                </TabItem>
+
+                    <!-- Expenses List tab -->
+                    <TabItem Header="Expenses List">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Grid RowDefinitions="Auto,*">
+                            <!-- Filters -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Date Range:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                                    <ComboBox Width="140"
+                                              ItemsSource="{Binding DateRangeFilterOptions}"
+                                              SelectedItem="{Binding DateRangeFilter}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                                <ComboBox Width="200"
+                                          ItemsSource="{Binding Houses}"
+                                          SelectedValue="{Binding SelectedHouseId}"
+                                          SelectedValueBinding="{Binding HouseId}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding AddressLine1}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Category:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                                <ComboBox Width="140"
+                                          ItemsSource="{Binding CategoryFilterOptions}"
+                                          SelectedItem="{Binding CategoryFilter}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Search:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
+                                <TextBox Width="200" Text="{Binding SearchTerm}" Watermark="Search vendor/notes"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                            <!-- Expenses Table (top-fitted to filters) -->
+                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1100">
+                                        <!-- Header Row -->
+                                        <Border Grid.Row="0" 
+                                                Background="{DynamicResource TableHeaderBackgroundBrush}" 
+                                                BorderBrush="{DynamicResource BorderBrush}" 
+                                                BorderThickness="0,0,0,1"
+                                                Padding="8,10">
+                                            <Grid ColumnDefinitions="120,200,120,150,200,120,100,200">
+                                                <TextBlock Grid.Column="0" Text="Date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="Category" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                <TextBlock Grid.Column="3" Text="Vendor" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                <TextBlock Grid.Column="4" Text="Description" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                <TextBlock Grid.Column="5" Text="Amount" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                <TextBlock Grid.Column="6" Text="Receipt" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            </Grid>
+                                        </Border>
+                                        
+                                        <!-- Data Rows -->
+                                        <ListBox Grid.Row="1"
+                                        ItemsSource="{Binding Expenses}"
+                                        SelectedItem="{Binding SelectedExpense}"
+                                                 SelectionMode="Single"
+                                                 Background="{DynamicResource SecondaryBackgroundBrush}"
+                                                 BorderThickness="0">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="{DynamicResource BorderBrush}" 
+                                                            BorderThickness="0,0,0,1"
+                                                            Padding="8,8"
+                                                            Background="Transparent"
+                                                            Cursor="Hand">
+                                                        <Grid ColumnDefinitions="120,200,120,150,200,120,100,200">
+                                                            <TextBlock Grid.Column="0" Text="{Binding DateIncurredDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Category}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Vendor}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding Description}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding Amount, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                            <TextBlock Grid.Column="6" Text="{Binding HasReceipt, Converter={StaticResource BoolToCheckConverter}}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Center"/>
+                                                            <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4">
+                                                                <Button Content="Edit" 
+                                                                        Command="{Binding DataContext.EditExpenseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="8,4"
+                                                                        FontSize="12"
+                                                                        Width="60"/>
+                                                                <Button Content="Recei" 
+                                                                        Command="{Binding DataContext.AttachReceiptCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="8,4"
+                                                                        FontSize="12"
+                                                                        Width="60"/>
+                                                                <Button Content="Dele" 
+                                                                        Command="{Binding DataContext.DeleteExpenseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="8,4"
+                                                                        FontSize="12"
+                                                                        Width="60"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                            <ListBox.Styles>
+                                                <Style Selector="ListBoxItem">
+                                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:selected">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                                </Style>
+                                                <Style Selector="ListBoxItem:pointerover">
+                                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+                                                </Style>
+                                            </ListBox.Styles>
+                                        </ListBox>
+                                    </Grid>
+                                </ScrollViewer>
+                            </Border>
+                    </Grid>
                         </ScrollViewer>
                 </TabItem>
             </TabControl>

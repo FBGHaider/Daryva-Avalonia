@@ -1,0 +1,38 @@
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using Daryva.MVVM.Models;
+
+namespace Daryva.MVVM.ViewModels
+{
+    /// <summary>
+    /// Groups rent and deposit ledger rows by house for expandable house rows in the Rent &amp; Payments tab.
+    /// </summary>
+    public class HouseLedgerGroupViewModel : INotifyPropertyChanged
+    {
+        private bool _isExpanded = false;
+
+        public int HouseId { get; set; }
+        public string HouseAddress { get; set; } = string.Empty;
+        public List<RentLedgerRowViewModel> RentRows { get; } = new List<RentLedgerRowViewModel>();
+        public List<DepositLedgerRowViewModel> DepositRows { get; } = new List<DepositLedgerRowViewModel>();
+
+        public bool IsExpanded
+        {
+            get => _isExpanded;
+            set
+            {
+                if (_isExpanded == value) return;
+                _isExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+}

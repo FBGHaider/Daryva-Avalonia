@@ -256,25 +256,15 @@ namespace Daryva.MVVM.ViewModels
                     
                     var ledgerList = allLedgerRows.ToList(); // Materialize
 
-                    // Helper method to check if rent is fully paid
-                    bool IsRentFullyPaid(RentLedgerRowViewModel row)
+                    // Rent due total: use charge-based unpaid balance (payments linked by RentChargeId) so it matches
+                    // reality when all tenants have paid. Ledger aggregation can differ; this is the source of truth.
+                    var currentMonthUnpaid = await _paymentService.GetTotalUnpaidBalanceForMonthAsync(currentDate.Year, currentDate.Month);
+                    var overdueFromPreviousMonths = 0m;
+                    for (int i = 1; i <= 12; i++)
                     {
-                        decimal balance = row.AmountDue - row.AmountPaid;
-                        return string.Equals(row.Status?.Trim(), "Paid", StringComparison.OrdinalIgnoreCase) || balance <= 0;
+                        var past = currentDate.AddMonths(-i);
+                        overdueFromPreviousMonths += await _paymentService.GetTotalUnpaidBalanceForMonthAsync(past.Year, past.Month);
                     }
-
-                    // Calculate rent due this month - includes current month unpaid/part-paid/overdue + all overdue from previous months
-                    var currentMonthUnpaid = ledgerList
-                        .Where(r => r.DueDate.Year == currentDate.Year && 
-                                   r.DueDate.Month == currentDate.Month && 
-                                   !IsRentFullyPaid(r))
-                        .Sum(r => r.AmountDue - r.AmountPaid);
-                    
-                    var overdueFromPreviousMonths = ledgerList
-                        .Where(r => r.DueDate < new DateTime(currentDate.Year, currentDate.Month, 1) && 
-                                   !IsRentFullyPaid(r))
-                        .Sum(r => r.AmountDue - r.AmountPaid);
-                    
                     var totalRentDue = currentMonthUnpaid + overdueFromPreviousMonths;
 
                     // Calculate rent due in next 7 days - includes current month and next month if needed

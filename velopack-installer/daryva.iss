@@ -58,9 +58,12 @@ Filename: "{localappdata}\{#MyAppId}\Update.exe"; Parameters: "--processStart Da
 [Code]
 var
   DesktopShortcutPage: TInputOptionWizardPage;
+  DatabaseLocationPage: TInputDirWizardPage;
   CreateDesktopShortcut: Boolean;
 
 procedure InitializeWizard;
+var
+  DefaultDbDir: String;
 begin
   DesktopShortcutPage := CreateInputOptionPage(wpLicense,
     'Additional Options', 'Choose shortcut options',
@@ -69,6 +72,14 @@ begin
   DesktopShortcutPage.Add('Create a &desktop shortcut');
   DesktopShortcutPage.Values[0] := True;
   CreateDesktopShortcut := True;
+
+  DefaultDbDir := ExpandConstant('{userdocs}\Daryva');
+  DatabaseLocationPage := CreateInputDirPage(DesktopShortcutPage.ID,
+    'Database Location', 'Where should the database be stored?',
+    'Select the folder where the Daryva database file (DaryvaDB.db) will be created and used. This folder can be on this PC or a synced folder (e.g. OneDrive). A new empty database will be created here if needed.',
+    False, '');
+  DatabaseLocationPage.Add('');
+  DatabaseLocationPage.Values[0] := DefaultDbDir;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -80,6 +91,8 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   DesktopShortcutPath: String;
+  DbPathFile: String;
+  DbFolder: String;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -88,6 +101,13 @@ begin
       DesktopShortcutPath := ExpandConstant('{userdesktop}\{#MyAppName}.lnk');
       if FileExists(DesktopShortcutPath) then
         DeleteFile(DesktopShortcutPath);
+    end;
+
+    DbFolder := DatabaseLocationPage.Values[0];
+    if DbFolder <> '' then
+    begin
+      DbPathFile := ExpandConstant('{localappdata}\{#MyAppId}\databasepath.txt');
+      SaveStringToFile(DbPathFile, DbFolder, False);
     end;
   end;
 end;

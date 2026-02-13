@@ -6,6 +6,7 @@ namespace Daryva.MVVM.Models
     {
         public int TenancyId { get; set; }
         public int TenantId { get; set; }
+        public int HouseId { get; set; }
         public string HouseAddress { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
         public DateTime DueDate { get; set; }

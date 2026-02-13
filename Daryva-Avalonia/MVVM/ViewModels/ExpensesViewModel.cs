@@ -23,9 +23,9 @@ namespace Daryva.MVVM.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
 
-        private string _selectedTab = "List"; // "List" or "Summary"
+        private string _selectedTab = "Summary"; // "Summary" (first) or "List"
         private int _selectedTabIndex = 0;
-        private string _dateRangeFilter = "This Month";
+        private string _dateRangeFilter = "All";
         private int? _selectedHouseId = 0; // 0 = All Houses
         private string _categoryFilter = "All";
         private string _searchTerm = string.Empty;
@@ -110,7 +110,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedTab, value))
                 {
-                    SelectedTabIndex = value == "List" ? 0 : 1;
+                    SelectedTabIndex = value == "List" ? 1 : 0; // Summary=0, List=1
                     if (value == "Summary")
                     {
                         LoadSummaryCommand.Execute(null);
@@ -126,8 +126,8 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _selectedTabIndex, value))
                 {
-                    SelectedTab = value == 0 ? "List" : "Summary";
-                    if (value == 1)
+                    SelectedTab = value == 0 ? "Summary" : "List"; // 0=Summary, 1=List
+                    if (value == 0)
                     {
                         LoadSummaryCommand.Execute(null);
                     }
@@ -352,7 +352,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void ShowAddExpenseDialog()
+        private async void ShowAddExpenseDialog()
         {
             try
             {
@@ -365,17 +365,23 @@ namespace Daryva.MVVM.ViewModels
                 if (mainWindow != null)
                 {
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
-                    dialog.ShowDialog(mainWindow);
+                    await dialog.ShowDialog(mainWindow);
                 }
                 else
                 {
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Closed += async (_, _) =>
+                    {
+                        await LoadExpensesAsync();
+                        if (SelectedTab == "Summary") await LoadSummaryAsync();
+                    };
                     dialog.Show();
+                    return;
                 }
-                LoadExpensesCommand.Execute(null);
+                await LoadExpensesAsync();
                 if (SelectedTab == "Summary")
                 {
-                    LoadSummaryCommand.Execute(null);
+                    await LoadSummaryAsync();
                 }
             }
             catch (Exception ex)
@@ -406,11 +412,12 @@ namespace Daryva.MVVM.ViewModels
             {
                 dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                 dialog.Show();
+                return;
             }
-                LoadExpensesCommand.Execute(null);
+                await LoadExpensesAsync();
                 if (SelectedTab == "Summary")
                 {
-                    LoadSummaryCommand.Execute(null);
+                    await LoadSummaryAsync();
                 }
             }
             catch (Exception ex)

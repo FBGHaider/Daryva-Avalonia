@@ -101,6 +101,7 @@ namespace Daryva.Services
             // Settings section ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.GeneralSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.ThemeSettingsViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.DatabaseSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.RentSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.DocumentSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.NotificationSettingsViewModel>();
@@ -116,6 +117,7 @@ namespace Daryva.Services
             // Rent & Payments tab ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.RentLedgerViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.TransactionsViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.UploadDocumentViewModel>();
 
             return services;
         }

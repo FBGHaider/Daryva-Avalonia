@@ -5,6 +5,7 @@ namespace Daryva.MVVM.Models
     public class DepositLedgerRowViewModel
     {
         public int TenancyId { get; set; }
+        public int HouseId { get; set; }
         public string HouseAddress { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
         public decimal DepositRequired { get; set; }

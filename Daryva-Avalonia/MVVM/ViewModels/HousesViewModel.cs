@@ -40,7 +40,7 @@ namespace Daryva.MVVM.ViewModels
 
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             SearchCommand = new RelayCommand(async _ => await SearchHousesAsync());
-            AddHouseCommand = new RelayCommand(_ => ShowAddHouseDialog());
+            AddHouseCommand = new RelayCommand(async _ => await ShowAddHouseDialogAsync());
             RemoveHouseCommand = new RelayCommand(async _ => await RemoveHouseAsync(), _ => SelectedHouse != null);
             ExportReportCommand = new RelayCommand(async _ => await ExportHouseReportAsync(), _ => SelectedHouse != null);
 
@@ -148,7 +148,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void ShowAddHouseDialog()
+        private async Task ShowAddHouseDialogAsync()
         {
             var viewModel = _serviceProvider.GetRequiredService<AddHouseViewModel>();
             var dialog = new MVVM.Views.AddHouseDialog(viewModel);
@@ -158,14 +158,14 @@ namespace Daryva.MVVM.ViewModels
             if (mainWindow != null)
             {
                 dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
-                dialog.ShowDialog(mainWindow);
+                await dialog.ShowDialog(mainWindow);
             }
             else
             {
                 dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                 dialog.Show();
             }
-            LoadHousesCommand.Execute(null);
+            await LoadHousesAsync();
         }
 
         private async Task RemoveHouseAsync()

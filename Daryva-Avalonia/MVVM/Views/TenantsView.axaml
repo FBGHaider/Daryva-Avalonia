@@ -50,8 +50,19 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Search -->
+            <!-- Filter and Search -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,16,0,16">
+                <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,6,0"/>
+                <ComboBox ItemsSource="{Binding HouseFilterOptions}"
+                          SelectedItem="{Binding SelectedHouseFilter}"
+                          MinWidth="220"
+                          PlaceholderText="All tenants">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Display}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
                 <TextBox Width="260"
                          Watermark="Search by name/email/phone"
                          Text="{Binding SearchTerm}"/>

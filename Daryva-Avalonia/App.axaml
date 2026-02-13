@@ -45,6 +45,9 @@
         <DataTemplate DataType="viewModels:ThemeSettingsViewModel">
             <views:ThemeSettingsView />
         </DataTemplate>
+        <DataTemplate DataType="viewModels:DatabaseSettingsViewModel">
+            <views:DatabaseSettingsView />
+        </DataTemplate>
         <DataTemplate DataType="viewModels:GeneralSettingsViewModel">
             <views:GeneralSettingsView />
         </DataTemplate>

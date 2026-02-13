@@ -11,9 +11,17 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
 {
+    /// <summary>Item for the house filter combo: "All tenants" or a specific house.</summary>
+    public class HouseFilterItem
+    {
+        public string Display { get; set; } = string.Empty;
+        public int? HouseId { get; set; }
+    }
+
     public class TenantsViewModel : BaseViewModel
     {
         private readonly ITenantService _tenantService;
+        private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
@@ -23,10 +31,12 @@ namespace Daryva.MVVM.ViewModels
         private string _searchTerm = string.Empty;
         private Tenant? _selectedTenant;
         private bool _showArchivedOnly = false;
+        private HouseFilterItem? _selectedHouseFilter;
 
-        public TenantsViewModel(ITenantService tenantService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService, INavigationService navigationService, ITenancyRepository tenancyRepository, IPaymentService paymentService)
+        public TenantsViewModel(ITenantService tenantService, IHouseService houseService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService, INavigationService navigationService, ITenancyRepository tenancyRepository, IPaymentService paymentService)
         {
             _tenantService = tenantService;
+            _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
@@ -35,6 +45,7 @@ namespace Daryva.MVVM.ViewModels
             _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
             Tenants = new ObservableCollection<Tenant>();
             DepositReturnList = new ObservableCollection<DepositReturnReminderItem>();
+            HouseFilterOptions = new ObservableCollection<HouseFilterItem>();
 
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
             SearchCommand = new RelayCommand(async _ => await SearchTenantsAsync());
@@ -47,6 +58,7 @@ namespace Daryva.MVVM.ViewModels
             LoadDepositReturnsCommand = new RelayCommand(async _ => await LoadDepositReturnsAsync());
             RecordDepositReturnedCommand = new RelayCommand(async p => await RecordDepositReturnedAsync(p as DepositReturnReminderItem), p => p is DepositReturnReminderItem);
 
+            _ = LoadHouseFilterAsync();
             LoadTenantsCommand.Execute(null);
         }
 
@@ -63,6 +75,19 @@ namespace Daryva.MVVM.ViewModels
 
         public ObservableCollection<Tenant> Tenants { get; }
         public ObservableCollection<DepositReturnReminderItem> DepositReturnList { get; }
+        public ObservableCollection<HouseFilterItem> HouseFilterOptions { get; }
+
+        public HouseFilterItem? SelectedHouseFilter
+        {
+            get => _selectedHouseFilter;
+            set
+            {
+                if (SetProperty(ref _selectedHouseFilter, value))
+                {
+                    LoadTenantsCommand.Execute(null);
+                }
+            }
+        }
 
         public string SearchTerm
         {
@@ -105,6 +130,30 @@ namespace Daryva.MVVM.ViewModels
                     LoadTenantsCommand.Execute(null);
                     if (value) LoadDepositReturnsCommand.Execute(null);
                 }
+            }
+        }
+
+        private async Task LoadHouseFilterAsync()
+        {
+            try
+            {
+                var houses = (await _houseService.GetAllHousesAsync()).ToList();
+                HouseFilterOptions.Clear();
+                HouseFilterOptions.Add(new HouseFilterItem { Display = "All tenants", HouseId = null });
+                foreach (var h in houses)
+                {
+                    HouseFilterOptions.Add(new HouseFilterItem { Display = $"{h.AddressLine1}, {h.City}".Trim(',', ' '), HouseId = h.HouseId });
+                }
+                if (_selectedHouseFilter == null && HouseFilterOptions.Count > 0)
+                {
+                    _selectedHouseFilter = HouseFilterOptions[0];
+                    OnPropertyChanged(nameof(SelectedHouseFilter));
+                }
+            }
+            catch
+            {
+                HouseFilterOptions.Clear();
+                HouseFilterOptions.Add(new HouseFilterItem { Display = "All tenants", HouseId = null });
             }
         }
 
@@ -162,17 +211,15 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                var tenants = await _tenantService.GetAllTenantsAsync(includeArchived: ShowArchivedOnly);
+                var houseId = SelectedHouseFilter?.HouseId;
+                var tenants = await _tenantService.GetTenantsByHouseIdAsync(houseId, includeArchived: ShowArchivedOnly);
                 Tenants.Clear();
                 foreach (var tenant in tenants)
                 {
-                    // If showing archived only, filter to only archived tenants
-                    // If showing active only, filter to only non-archived tenants
                     if (ShowArchivedOnly && !tenant.IsArchived)
                         continue;
                     if (!ShowArchivedOnly && tenant.IsArchived)
                         continue;
-                    
                     Tenants.Add(tenant);
                 }
             }
@@ -193,11 +240,26 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
-                var tenants = await _tenantService.SearchTenantsAsync(SearchTerm);
-                Tenants.Clear();
-                foreach (var tenant in tenants)
+                var houseId = SelectedHouseFilter?.HouseId;
+                if (houseId.HasValue)
                 {
-                    Tenants.Add(tenant);
+                    var tenantsForHouse = await _tenantService.GetTenantsByHouseIdAsync(houseId, includeArchived: ShowArchivedOnly);
+                    var term = SearchTerm.Trim().ToLowerInvariant();
+                    var tenants = tenantsForHouse.Where(t =>
+                        (t.FullName?.ToLowerInvariant().Contains(term) == true) ||
+                        (t.Email?.ToLowerInvariant().Contains(term) == true) ||
+                        (t.PhoneNumber?.ToLowerInvariant().Contains(term) == true) ||
+                        (t.UniversityName?.ToLowerInvariant().Contains(term) == true));
+                    Tenants.Clear();
+                    foreach (var tenant in tenants)
+                        Tenants.Add(tenant);
+                }
+                else
+                {
+                    var tenants = await _tenantService.SearchTenantsAsync(SearchTerm);
+                    Tenants.Clear();
+                    foreach (var tenant in tenants)
+                        Tenants.Add(tenant);
                 }
             }
             catch (Exception ex)

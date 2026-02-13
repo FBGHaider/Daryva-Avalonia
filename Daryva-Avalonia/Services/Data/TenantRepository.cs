@@ -37,6 +37,31 @@ namespace Daryva.Services.Data
             return await Task.FromResult(_dbContext.Query<Tenant>(sql, new { IncludeArchived = includeArchived ? 1 : 0 }));
         }
 
+        public async Task<IEnumerable<Tenant>> GetTenantsByHouseIdAsync(int? houseId, bool includeArchived = false)
+        {
+            var sql = @"
+                SELECT t.*,
+                       (SELECT h.AddressLine1 || ', ' || h.City 
+                        FROM Tenancy tn 
+                        INNER JOIN House h ON tn.HouseId = h.HouseId 
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentHouseAddress,
+                       (SELECT tn.TenancyId 
+                        FROM Tenancy tn 
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        LIMIT 1) AS CurrentTenancyId,
+                       (SELECT tn.MoveOutDate 
+                        FROM Tenancy tn 
+                        WHERE tn.TenantId = t.TenantId AND tn.Status = 'Ended' 
+                        ORDER BY tn.MoveOutDate DESC LIMIT 1) AS LeaveDate
+                FROM Tenant t
+                WHERE (@IncludeArchived = 1 OR t.IsArchived = 0)
+                  AND (@HouseId IS NULL OR t.TenantId IN (SELECT TenantId FROM Tenancy WHERE HouseId = @HouseId))
+                ORDER BY t.FullName";
+
+            return await Task.FromResult(_dbContext.Query<Tenant>(sql, new { IncludeArchived = includeArchived ? 1 : 0, HouseId = houseId }));
+        }
+
         public async Task<Tenant?> GetTenantByIdAsync(int tenantId)
         {
             var sql = @"

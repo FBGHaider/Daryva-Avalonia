@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="400"
+             x:Class="Daryva.MVVM.Views.DatabaseSettingsView"
+             x:CompileBindings="False">
+    <ScrollViewer>
+        <StackPanel Margin="0,0,0,24" Spacing="24">
+            <TextBlock Text="Database"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+            <!-- Current database -->
+            <Border BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    Padding="20,16">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Current database"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto">
+                        <TextBlock Text="Path:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,0,12,0"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding CurrentDatabasePath, Mode=OneWay}"
+                                 IsReadOnly="True"
+                                 Background="{DynamicResource ControlBackgroundHoverBrush}"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"
+                                 Padding="8,6"
+                                 TextWrapping="Wrap"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Connect to another database -->
+            <Border BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    Padding="20,16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Connect to another database"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="Use an existing Daryva database (e.g. from another PC or backup). The app will use the selected file after you restart."
+                               FontSize="12"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Content="Connect to another database..."
+                                Command="{Binding ConnectToAnotherDatabaseCommand}"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                BorderThickness="1"/>
+                        <Button Content="Use default database"
+                                Command="{Binding UseDefaultDatabaseCommand}"
+                                IsVisible="{Binding HasOverride}"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                BorderThickness="1"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Export -->
+            <Border BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    Padding="20,16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Export this database"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="Save a copy of the current database to a file (e.g. for backup or to move to another PC)."
+                               FontSize="12"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,8"/>
+                    <Button Content="Export database..."
+                            Command="{Binding ExportDatabaseCommand}"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            Foreground="{DynamicResource PrimaryTextBrush}"
+                            BorderThickness="1"
+                            HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

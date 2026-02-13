@@ -251,9 +251,23 @@ namespace Daryva.Services.Business
 
                     decimal amountDue = charge.AmountDue;
                     var dueDate = charge.DueDate;
-                    var (amountPaid, rentPayments) = rentPaidByTenancyId.TryGetValue(tenancy.TenancyId, out var paid) ? (paid.Sum, paid.List)
-                        : rentPaidByTenantId.TryGetValue(tenancy.TenantId, out var byTenant) ? (byTenant.Sum, byTenant.List)
-                        : (0m, new List<RentPayment>());
+                    // Use payments linked to this charge (by RentChargeId) so rent paid in a different calendar month
+                    // (e.g. February rent paid in March) is still counted for this period. Fixes dashboard showing
+                    // "Rent due this month" when all tenants have paid.
+                    decimal amountPaid = await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(charge.RentChargeId);
+                    var rentPaymentsList = (await _rentPaymentRepository.GetRentPaymentsByChargeIdAsync(charge.RentChargeId)).ToList();
+                    // Fallback for legacy payments not linked to a charge: use PaidOn-in-period totals
+                    if (amountPaid == 0 && rentPaidByTenancyId.TryGetValue(tenancy.TenancyId, out var paidByTenancy))
+                    {
+                        amountPaid = paidByTenancy.Sum;
+                        if (paidByTenancy.List.Count > 0) rentPaymentsList = paidByTenancy.List;
+                    }
+                    else if (amountPaid == 0 && rentPaidByTenantId.TryGetValue(tenancy.TenantId, out var paidByTenant))
+                    {
+                        amountPaid = paidByTenant.Sum;
+                        if (paidByTenant.List.Count > 0) rentPaymentsList = paidByTenant.List;
+                    }
+                    var rentPayments = (Sum: amountPaid, List: rentPaymentsList);
 
                     // Calculate status
                     string status;
@@ -283,7 +297,7 @@ namespace Daryva.Services.Business
 
                     var depositPaid = await GetTotalDepositPaidAsync(tenancy.TenancyId);
                     var depositRemaining = Math.Max(0, tenancy.DepositAmount - depositPaid);
-                    var payments = rentPayments.Select(rp => new PaymentDetailViewModel
+                    var payments = rentPayments.List.Select(rp => new PaymentDetailViewModel
                     {
                         PaidOn = rp.PaidOn,
                         Amount = rp.AmountPaid,
@@ -297,6 +311,7 @@ namespace Daryva.Services.Business
                     {
                         TenancyId = tenancy.TenancyId,
                         TenantId = tenancy.TenantId,
+                        HouseId = tenancy.HouseId,
                         HouseAddress = $"{tenancy.House?.AddressLine1 ?? ""}, {tenancy.House?.City ?? ""}".Trim(',', ' '),
                         TenantName = tenancy.Tenant?.FullName ?? "Unknown",
                         DueDate = dueDate,
@@ -387,6 +402,7 @@ namespace Daryva.Services.Business
                     {
                         TenancyId = tenancy.TenancyId,
                         TenantId = tenancy.TenantId,
+                        HouseId = tenancy.HouseId,
                         HouseAddress = $"{tenancy.House?.AddressLine1 ?? ""}, {tenancy.House?.City ?? ""}".Trim(',', ' '),
                         TenantName = tenancy.Tenant?.FullName ?? "Unknown",
                         DueDate = dueDate,
@@ -459,6 +475,7 @@ namespace Daryva.Services.Business
                     {
                         TenancyId = tenancy.TenancyId,
                         TenantId = tenancy.TenantId,
+                        HouseId = tenancy.HouseId,
                         HouseAddress = $"{tenancy.House?.AddressLine1 ?? ""}, {tenancy.House?.City ?? ""}".Trim(',', ' '),
                         TenantName = tenancy.Tenant?.FullName ?? "Unknown",
                         DueDate = dueDate,
@@ -532,6 +549,7 @@ namespace Daryva.Services.Business
                     {
                         TenancyId = tenancy.TenancyId,
                         TenantId = tenancy.TenantId,
+                        HouseId = tenancy.HouseId,
                         HouseAddress = $"{tenancy.House?.AddressLine1 ?? ""}, {tenancy.House?.City ?? ""}".Trim(',', ' '),
                         TenantName = tenancy.Tenant?.FullName ?? "Unknown",
                         DueDate = dueDate,
@@ -677,6 +695,7 @@ namespace Daryva.Services.Business
                     ledgerRows.Add(new DepositLedgerRowViewModel
                     {
                         TenancyId = displayTenancy.TenancyId,
+                        HouseId = displayTenancy.HouseId,
                         HouseAddress = $"{displayTenancy.House?.AddressLine1 ?? ""}, {displayTenancy.House?.City ?? ""}".Trim(',', ' '),
                         TenantName = displayTenancy.Tenant?.FullName ?? "Unknown",
                         DepositRequired = depositRequired,
@@ -823,17 +842,44 @@ namespace Daryva.Services.Business
             try
             {
                 var currentDate = DateTime.Now;
-                // Use the existing ledger method which already handles connection properly
-                var ledgerRows = await GetRentLedgerForMonthAsync(currentDate.Year, currentDate.Month).ConfigureAwait(false);
-                
-                // Sum up all unpaid and part-paid amounts for this month
-                return ledgerRows
-                    .Where(r => r.Status == "Unpaid" || r.Status == "PartPaid")
-                    .Sum(r => r.Balance);
+                return await GetTotalUnpaidBalanceForMonthAsync(currentDate.Year, currentDate.Month).ConfigureAwait(false);
             }
             catch
             {
                 return 0;
+            }
+        }
+
+        /// <summary>
+        /// Total unpaid balance for the given month, using payments linked to each charge (RentChargeId).
+        /// Deduplicates by tenancy (one balance per tenancy) so duplicate charges don't double-count.
+        /// </summary>
+        public async Task<decimal> GetTotalUnpaidBalanceForMonthAsync(int year, int month)
+        {
+            try
+            {
+                var charges = (await _rentChargeRepository.GetRentChargesForPeriodAsync(year, month)).ToList();
+                if (charges.Count == 0) return 0m;
+
+                // Group by tenancy (in case of duplicate charges per tenancy)
+                var byTenancy = charges.GroupBy(c => c.TenancyId).ToList();
+                decimal total = 0m;
+                foreach (var group in byTenancy)
+                {
+                    decimal tenancyDue = 0m;
+                    decimal tenancyPaid = 0m;
+                    foreach (var charge in group)
+                    {
+                        tenancyDue += charge.AmountDue;
+                        tenancyPaid += await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(charge.RentChargeId);
+                    }
+                    total += Math.Max(0, tenancyDue - tenancyPaid);
+                }
+                return total;
+            }
+            catch
+            {
+                return 0m;
             }
         }
 

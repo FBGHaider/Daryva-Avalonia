@@ -17,6 +17,7 @@ public class VelopackUpdateService : IUpdateService
     private bool _managerInitialized;
 
     private const string UpdateFeedUrlKey = "UpdateFeedUrl";
+    private const string UpdateFeedTokenKey = "UpdateFeedToken";
 
     /// <summary>
     /// Default update feed when not configured. GitHub Releases for Daryva-Updates repo.
@@ -43,11 +44,14 @@ public class VelopackUpdateService : IUpdateService
         }
 
         feedUrl = feedUrl.TrimEnd('/');
+        var accessToken = _configService.GetValue(UpdateFeedTokenKey)?.Trim();
+        if (string.IsNullOrEmpty(accessToken))
+            accessToken = null;
 
         try
         {
             IUpdateSource source = feedUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase)
-                ? new GithubSource(feedUrl, accessToken: null, prerelease: false)
+                ? new GithubSource(feedUrl, accessToken ?? string.Empty, prerelease: false)
                 : new SimpleWebSource(feedUrl);
             _updateManager = new UpdateManager(source);
         }
@@ -97,12 +101,12 @@ public class VelopackUpdateService : IUpdateService
 
     public async Task<UpdateInfo?> CheckAsync(CancellationToken ct = default)
     {
+        var mgr = GetUpdateManager();
+        if (mgr == null || !mgr.IsInstalled)
+            return null;
+
         try
         {
-            var mgr = GetUpdateManager();
-            if (mgr == null || !mgr.IsInstalled)
-                return null;
-
             var vpUpdateInfo = await mgr.CheckForUpdatesAsync().WaitAsync(ct);
             if (vpUpdateInfo == null)
                 return null;
@@ -113,7 +117,7 @@ public class VelopackUpdateService : IUpdateService
         catch (Exception ex)
         {
             Debug.WriteLine($"[VelopackUpdateService] Check failed: {ex.Message}");
-            return null;
+            throw; // Let caller show "Update check failed" instead of "Up to date"
         }
     }
 

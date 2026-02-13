@@ -36,6 +36,11 @@ namespace Daryva.Services.Business
             return await _tenantRepository.GetAllTenantsAsync(includeArchived);
         }
 
+        public async Task<IEnumerable<Tenant>> GetTenantsByHouseIdAsync(int? houseId, bool includeArchived = false)
+        {
+            return await _tenantRepository.GetTenantsByHouseIdAsync(houseId, includeArchived);
+        }
+
         public async Task<Tenant?> GetTenantByIdAsync(int tenantId)
         {
             return await _tenantRepository.GetTenantByIdAsync(tenantId);

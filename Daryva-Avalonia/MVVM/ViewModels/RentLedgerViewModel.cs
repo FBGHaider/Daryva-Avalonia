@@ -34,6 +34,7 @@ namespace Daryva.MVVM.ViewModels
         private string _statusFilter = "All";
         private string _searchTerm = "";
         private RentLedgerRowViewModel? _selectedRow;
+        private List<HouseLedgerGroupViewModel> _houseGroups = new List<HouseLedgerGroupViewModel>();
 
         public RentLedgerViewModel(
             IPaymentService paymentService,
@@ -54,6 +55,8 @@ namespace Daryva.MVVM.ViewModels
 
             LedgerRows = new ObservableCollection<RentLedgerRowViewModel>();
             DepositLedgerRows = new ObservableCollection<DepositLedgerRowViewModel>();
+            FlatRentLedgerRows = new ObservableCollection<object>();
+            FlatDepositLedgerRows = new ObservableCollection<object>();
             Houses = new ObservableCollection<House>();
             StatusFilterOptions = new ObservableCollection<string> { "All", "Paid", "PartPaid", "Unpaid", "Overdue" };
             InitializeYearOptions();
@@ -78,6 +81,14 @@ namespace Daryva.MVVM.ViewModels
                 }
             });
             ExpandRowCommand = new RelayCommand(_ => ToggleRowExpansion(), _ => SelectedRow != null);
+            ToggleHouseExpandedCommand = new RelayCommand(parameter =>
+            {
+                if (parameter is HouseLedgerGroupViewModel group)
+                {
+                    group.IsExpanded = !group.IsExpanded;
+                    RebuildFlatLists();
+                }
+            });
             ExportLedgerCommand = new RelayCommand(async _ => await ExportLedgerAsync());
 
             LoadHousesCommand.Execute(null);
@@ -91,10 +102,15 @@ namespace Daryva.MVVM.ViewModels
         public ICommand RecordPaymentCommand { get; }
         public ICommand RecordDepositPaymentCommand { get; }
         public ICommand ExpandRowCommand { get; }
+        public ICommand ToggleHouseExpandedCommand { get; }
         public ICommand ExportLedgerCommand { get; }
 
         public ObservableCollection<RentLedgerRowViewModel> LedgerRows { get; }
         public ObservableCollection<DepositLedgerRowViewModel> DepositLedgerRows { get; }
+        /// <summary>Flattened list for UI: HouseLedgerGroupViewModel (header) then RentLedgerRowViewModel (when expanded).</summary>
+        public ObservableCollection<object> FlatRentLedgerRows { get; }
+        /// <summary>Flattened list for UI: HouseLedgerGroupViewModel (header) then DepositLedgerRowViewModel (when expanded).</summary>
+        public ObservableCollection<object> FlatDepositLedgerRows { get; }
         public ObservableCollection<House> Houses { get; }
         public ObservableCollection<string> StatusFilterOptions { get; }
         public ObservableCollection<int> YearOptions { get; } = new();
@@ -169,6 +185,16 @@ namespace Daryva.MVVM.ViewModels
                     ((RelayCommand)RecordPaymentCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)ExpandRowCommand).RaiseCanExecuteChanged();
                 }
+            }
+        }
+
+        /// <summary>Selected item in the rent ledger list (house header or rent row). When set to a RentLedgerRowViewModel, updates SelectedRow.</summary>
+        public object? SelectedRentLedgerItem
+        {
+            get => _selectedRow;
+            set
+            {
+                SelectedRow = value as RentLedgerRowViewModel;
             }
         }
 
@@ -345,6 +371,13 @@ namespace Daryva.MVVM.ViewModels
                 
                 // Also load deposit ledger
                 await LoadDepositLedgerAsync();
+                
+                // Build house groups and flat lists for expandable house rows
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    BuildHouseGroups();
+                    RebuildFlatLists();
+                });
             }
             catch (Exception ex)
             {
@@ -352,6 +385,57 @@ namespace Daryva.MVVM.ViewModels
                 {
                     _dialogService.ShowMessage($"Error loading ledger: {ex.Message}", "Error");
                 });
+            }
+        }
+
+        private void BuildHouseGroups()
+        {
+            _houseGroups.Clear();
+            var rentByHouse = LedgerRows.GroupBy(r => r.HouseId).ToDictionary(g => g.Key, g => g.ToList());
+            var depositByHouse = DepositLedgerRows.GroupBy(d => d.HouseId).ToDictionary(g => g.Key, g => g.ToList());
+            var allHouseIds = rentByHouse.Keys.Union(depositByHouse.Keys).Distinct().ToList();
+            foreach (var hid in allHouseIds.OrderBy(hid =>
+            {
+                rentByHouse.TryGetValue(hid, out var r);
+                depositByHouse.TryGetValue(hid, out var d);
+                return (r?.FirstOrDefault()?.HouseAddress ?? d?.FirstOrDefault()?.HouseAddress ?? "");
+            }))
+            {
+                rentByHouse.TryGetValue(hid, out var rentRows);
+                depositByHouse.TryGetValue(hid, out var depositRows);
+                var firstRent = (rentRows ?? new List<RentLedgerRowViewModel>()).FirstOrDefault();
+                var firstDeposit = (depositRows ?? new List<DepositLedgerRowViewModel>()).FirstOrDefault();
+                var address = firstRent?.HouseAddress ?? firstDeposit?.HouseAddress ?? "";
+                _houseGroups.Add(new HouseLedgerGroupViewModel
+                {
+                    HouseId = hid,
+                    HouseAddress = address,
+                    IsExpanded = false
+                });
+                var g = _houseGroups[_houseGroups.Count - 1];
+                if (rentRows != null) g.RentRows.AddRange(rentRows);
+                if (depositRows != null) g.DepositRows.AddRange(depositRows);
+            }
+        }
+
+        private void RebuildFlatLists()
+        {
+            FlatRentLedgerRows.Clear();
+            FlatDepositLedgerRows.Clear();
+            foreach (var group in _houseGroups)
+            {
+                FlatRentLedgerRows.Add(group);
+                if (group.IsExpanded)
+                {
+                    foreach (var row in group.RentRows)
+                        FlatRentLedgerRows.Add(row);
+                }
+                FlatDepositLedgerRows.Add(group);
+                if (group.IsExpanded)
+                {
+                    foreach (var row in group.DepositRows)
+                        FlatDepositLedgerRows.Add(row);
+                }
             }
         }
 

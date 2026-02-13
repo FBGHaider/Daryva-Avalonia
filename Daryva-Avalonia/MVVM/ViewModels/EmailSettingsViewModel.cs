@@ -137,7 +137,9 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                SmtpServer = _configurationService.GetValue("SmtpServer") ?? string.Empty;
+                // Only pre-fill SMTP server and port; leave username, password, from address empty so installed app never shows personal email.
+                var server = _configurationService.GetValue("SmtpServer")?.Trim();
+                SmtpServer = string.IsNullOrEmpty(server) ? "smtp.gmail.com" : server;
                 var portStr = _configurationService.GetValue("SmtpPort");
                 SmtpPort = int.TryParse(portStr, out var port) ? port : 587;
                 SmtpUsername = _configurationService.GetValue("SmtpUsername") ?? string.Empty;

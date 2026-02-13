@@ -202,7 +202,10 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
-                UpdateStatus = "Up to date";
+                UpdateStatus = "Update check failed.";
+                _dialogService.ShowMessage(
+                    "Update check failed. Possible causes:\n\n• GitHub rate limit (60 requests/hour). Try again later or add UpdateFeedToken in AppData\\Daryva\\app.config.local.json.\n• Release missing assets: upload releases.win.json and FBGHaider.Daryva-X.Y.Z-full.nupkg to the release.\n• Release tag must be exactly vX.Y.Z (e.g. v1.0.1).",
+                    "Check for updates");
                 System.Diagnostics.Debug.WriteLine($"[Update] Check failed: {ex.Message}");
             }
             finally

@@ -14,6 +14,8 @@ namespace Daryva.Services.Business
         Task<IEnumerable<TransactionRowViewModel>> GetTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null, string? paymentType = null, int? houseId = null, int? tenantId = null, string? method = null);
         Task<IEnumerable<PaymentDetailViewModel>> GetPaymentsForRentChargeAsync(int rentChargeId);
         Task<decimal> GetTotalRentDueThisMonthAsync();
+        /// <summary>Total unpaid balance for a given month, using payments linked to each charge (RentChargeId). One balance per tenancy; dedupes duplicate charges.</summary>
+        Task<decimal> GetTotalUnpaidBalanceForMonthAsync(int year, int month);
         Task<IEnumerable<DashboardRentDueItem>> GetRentDueInNext7DaysAsync();
         Task<IEnumerable<DashboardOverdueRentItem>> GetOverdueRentAsync();
         Task<IEnumerable<DepositReturnReminderItem>> GetDepositReturnRemindersAsync();

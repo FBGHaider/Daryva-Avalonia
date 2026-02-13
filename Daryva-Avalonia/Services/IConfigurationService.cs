@@ -11,6 +11,11 @@ namespace Daryva.Services
         string GetConnectionString();
 
         /// <summary>
+        /// Returns the current database file path (for display and export).
+        /// </summary>
+        string GetCurrentDatabasePath();
+
+        /// <summary>
         /// Gets a configuration value by key.
         /// </summary>
         /// <param name="key">The configuration key.</param>

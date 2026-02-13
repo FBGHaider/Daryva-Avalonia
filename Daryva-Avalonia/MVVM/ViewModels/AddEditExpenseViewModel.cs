@@ -76,7 +76,14 @@ namespace Daryva.MVVM.ViewModels
         public int? SelectedHouseId
         {
             get => _selectedHouseId;
-            set => SetProperty(ref _selectedHouseId, value);
+            set
+            {
+                if (SetProperty(ref _selectedHouseId, value))
+                {
+                    ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)SaveAndAddAnotherCommand).RaiseCanExecuteChanged();
+                }
+            }
         }
 
         private House? _selectedHouse;
@@ -95,7 +102,14 @@ namespace Daryva.MVVM.ViewModels
         public DateTimeOffset? DateIncurred
         {
             get => _dateIncurred;
-            set => SetProperty(ref _dateIncurred, value);
+            set
+            {
+                if (SetProperty(ref _dateIncurred, value))
+                {
+                    ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)SaveAndAddAnotherCommand).RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public string Category

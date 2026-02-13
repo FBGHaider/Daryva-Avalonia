@@ -1,0 +1,78 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Daryva.MVVM.Views.UploadDocumentDialog"
+        x:CompileBindings="False"
+        Title="Upload Document"
+        Height="480"
+        Width="440"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Upload Document" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+        <StackPanel Grid.Row="1" Spacing="14">
+            <!-- Owner: Tenant or House -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Owner:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Width="120"/>
+                <ComboBox Width="260" ItemsSource="{Binding OwnerTypeOptions}" SelectedItem="{Binding OwnerType}"/>
+            </StackPanel>
+
+            <!-- Tenant (visible when Owner = Tenant) -->
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsTenantOwner}">
+                <TextBlock Text="Tenant:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Width="120"/>
+                <ComboBox Width="260" ItemsSource="{Binding Tenants}" SelectedItem="{Binding SelectedTenant}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding FullName}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <!-- House (visible when Owner = House) -->
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsHouseOwner}">
+                <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Width="120"/>
+                <ComboBox Width="260" ItemsSource="{Binding Houses}" SelectedItem="{Binding SelectedHouse}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding AddressLine1}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <!-- Document Type -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Document type:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Width="120"/>
+                <ComboBox Width="260" ItemsSource="{Binding DocumentTypes}" SelectedItem="{Binding DocumentType}"/>
+            </StackPanel>
+
+            <!-- Valid To (optional) -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Valid to (optional):" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Width="120"/>
+                <DatePicker Width="260" SelectedDate="{Binding ValidTo}"/>
+            </StackPanel>
+
+            <!-- File -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="File:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Width="120"/>
+                <TextBox Width="180" Text="{Binding SelectedFilePath}" IsReadOnly="True" Watermark="No file selected"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+                <Button Content="Browse..." Command="{Binding SelectFileCommand}" Padding="12,6"/>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+            <Button Content="Cancel" Command="{Binding CancelCommand}"/>
+            <Button Content="Upload" Command="{Binding UploadCommand}" Classes="accent"/>
+        </StackPanel>
+    </Grid>
+</Window>
