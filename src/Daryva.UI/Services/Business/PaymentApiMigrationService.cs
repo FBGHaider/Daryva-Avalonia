@@ -88,7 +88,7 @@ public class PaymentApiMigrationService : IPaymentService
         {
             apiHouseId = await _paymentApiService.ResolveHouseApiIdAsync(houseId.Value);
             if (!apiHouseId.HasValue)
-                return await _legacyPaymentService.GetRentLedgerForMonthAsync(year, month, houseId, statusFilter, searchTerm);
+                return Enumerable.Empty<RentLedgerRowViewModel>();
         }
 
         try
@@ -96,14 +96,16 @@ public class PaymentApiMigrationService : IPaymentService
             var rows = await _paymentApiService.GetRentLedgerForMonthAsync(year, month, apiHouseId, statusFilter, searchTerm);
             var mapped = new List<RentLedgerRowViewModel>();
 
-            foreach (var row in rows)
+            foreach (var row in rows ?? Enumerable.Empty<RentLedgerItemApiDto>())
             {
+                if (row == null) continue;
+
                 var localTenancyId = _paymentApiService.ResolveLocalTenancyId(row.TenancyId);
                 var localTenantId = _paymentApiService.ResolveLocalTenantId(row.TenantId);
                 var localHouseId = _paymentApiService.ResolveLocalHouseId(row.HouseId);
                 if (!localTenancyId.HasValue || !localTenantId.HasValue || !localHouseId.HasValue)
                 {
-                    return await _legacyPaymentService.GetRentLedgerForMonthAsync(year, month, houseId, statusFilter, searchTerm);
+                    continue;
                 }
 
                 mapped.Add(new RentLedgerRowViewModel
@@ -119,7 +121,9 @@ public class PaymentApiMigrationService : IPaymentService
                     Status = row.Status,
                     DepositRemaining = row.DepositRemaining,
                     PaymentsForThisMonth = new ObservableCollection<PaymentDetailViewModel>(
-                        row.PaymentsForThisMonth.Select(p => new PaymentDetailViewModel
+                        (row.PaymentsForThisMonth ?? new List<PaymentDetailApiDto>())
+                        .Where(p => p != null)
+                        .Select(p => new PaymentDetailViewModel
                         {
                             PaidOn = p.PaidOn,
                             Amount = p.Amount,
@@ -135,7 +139,7 @@ public class PaymentApiMigrationService : IPaymentService
         }
         catch
         {
-            return await _legacyPaymentService.GetRentLedgerForMonthAsync(year, month, houseId, statusFilter, searchTerm);
+            return Enumerable.Empty<RentLedgerRowViewModel>();
         }
     }
 
@@ -146,7 +150,7 @@ public class PaymentApiMigrationService : IPaymentService
         {
             apiHouseId = await _paymentApiService.ResolveHouseApiIdAsync(houseId.Value);
             if (!apiHouseId.HasValue)
-                return await _legacyPaymentService.GetDepositLedgerForMonthAsync(year, month, houseId, statusFilter, searchTerm);
+                return Enumerable.Empty<DepositLedgerRowViewModel>();
         }
 
         try
@@ -154,13 +158,15 @@ public class PaymentApiMigrationService : IPaymentService
             var rows = await _paymentApiService.GetDepositLedgerForMonthAsync(year, month, apiHouseId, statusFilter, searchTerm);
             var mapped = new List<DepositLedgerRowViewModel>();
 
-            foreach (var row in rows)
+            foreach (var row in rows ?? Enumerable.Empty<DepositLedgerItemApiDto>())
             {
+                if (row == null) continue;
+
                 var localTenancyId = _paymentApiService.ResolveLocalTenancyId(row.TenancyId);
                 var localHouseId = _paymentApiService.ResolveLocalHouseId(row.HouseId);
                 if (!localTenancyId.HasValue || !localHouseId.HasValue)
                 {
-                    return await _legacyPaymentService.GetDepositLedgerForMonthAsync(year, month, houseId, statusFilter, searchTerm);
+                    continue;
                 }
 
                 mapped.Add(new DepositLedgerRowViewModel
@@ -173,7 +179,9 @@ public class PaymentApiMigrationService : IPaymentService
                     AmountPaid = row.AmountPaid,
                     Status = row.Status,
                     Payments = new ObservableCollection<PaymentDetailViewModel>(
-                        row.Payments.Select(p => new PaymentDetailViewModel
+                        (row.Payments ?? new List<PaymentDetailApiDto>())
+                        .Where(p => p != null)
+                        .Select(p => new PaymentDetailViewModel
                         {
                             PaidOn = p.PaidOn,
                             Amount = p.Amount,
@@ -189,7 +197,7 @@ public class PaymentApiMigrationService : IPaymentService
         }
         catch
         {
-            return await _legacyPaymentService.GetDepositLedgerForMonthAsync(year, month, houseId, statusFilter, searchTerm);
+            return Enumerable.Empty<DepositLedgerRowViewModel>();
         }
     }
 
@@ -200,7 +208,7 @@ public class PaymentApiMigrationService : IPaymentService
         {
             apiHouseId = await _paymentApiService.ResolveHouseApiIdAsync(houseId.Value);
             if (!apiHouseId.HasValue)
-                return await _legacyPaymentService.GetTransactionsAsync(startDate, endDate, paymentType, houseId, tenantId, method);
+                return Enumerable.Empty<TransactionRowViewModel>();
         }
 
         Guid? apiTenantId = null;
@@ -208,13 +216,15 @@ public class PaymentApiMigrationService : IPaymentService
         {
             apiTenantId = await _paymentApiService.ResolveTenantApiIdAsync(tenantId.Value);
             if (!apiTenantId.HasValue)
-                return await _legacyPaymentService.GetTransactionsAsync(startDate, endDate, paymentType, houseId, tenantId, method);
+                return Enumerable.Empty<TransactionRowViewModel>();
         }
 
         try
         {
             var rows = await _paymentApiService.GetTransactionsAsync(startDate, endDate, paymentType, apiHouseId, apiTenantId, method);
-            return rows.Select(r => new TransactionRowViewModel
+            return (rows ?? Enumerable.Empty<TransactionItemApiDto>())
+                .Where(r => r != null)
+                .Select(r => new TransactionRowViewModel
             {
                 PaymentId = _paymentApiService.GetOrCreateLocalPaymentId(r.PaymentId, r.PaymentType),
                 PaymentType = r.PaymentType,
@@ -233,7 +243,7 @@ public class PaymentApiMigrationService : IPaymentService
         }
         catch
         {
-            return await _legacyPaymentService.GetTransactionsAsync(startDate, endDate, paymentType, houseId, tenantId, method);
+            return Enumerable.Empty<TransactionRowViewModel>();
         }
     }
 
@@ -272,7 +282,16 @@ public class PaymentApiMigrationService : IPaymentService
         => _legacyPaymentService.CleanupDuplicateRentChargesAsync();
 
     public Task<int> RepairRentPaymentChargeLinksAsync()
-        => _legacyPaymentService.RepairRentPaymentChargeLinksAsync();
+    {
+        try
+        {
+            return _legacyPaymentService.RepairRentPaymentChargeLinksAsync();
+        }
+        catch
+        {
+            return Task.FromResult(0);
+        }
+    }
 
     public Task RecordDepositReturnedAsync(int tenancyId, DateTime returnedDate, decimal amountReturned, string? notes = null)
         => _legacyPaymentService.RecordDepositReturnedAsync(tenancyId, returnedDate, amountReturned, notes);

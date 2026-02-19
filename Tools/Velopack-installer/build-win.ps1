@@ -16,7 +16,7 @@ $ArtifactsDir = Join-Path $RepoRoot "artifacts"
 $ReleasesDir = Join-Path $RepoRoot "releases"
 $PublishDir = Join-Path $ArtifactsDir "win-x64"
 $InstallerAssets = Join-Path $ScriptDir "installer-assets"
-$IconPath = Join-Path $ProjectDir "Assets\Logo\FBG_App_Icon_MAX.ico"
+$IconPath = Join-Path $ProjectDir "Assets\Logo\Daryva_icon.ico"
 
 Write-Host "Building Daryva for Windows (win-x64) v$Version..." -ForegroundColor Cyan
 
@@ -65,7 +65,23 @@ if (-not $SkipInnoSetup) {
         try {
             & $iscc "/DMyAppVersion=$Version" "daryva.iss"
             if ($LASTEXITCODE -eq 0) {
-                Write-Host "Branded installer: $ReleasesDir\Daryva-Setup-$Version.exe" -ForegroundColor Green
+                $brandedInstaller = Join-Path $ReleasesDir "Daryva-Setup-$Version.exe"
+                $defaultSetup = Join-Path $ReleasesDir "FBGHaider.Daryva-win-Setup.exe"
+                $rawVelopackSetupBackup = Join-Path $ReleasesDir "FBGHaider.Daryva-win-VelopackSetup.exe"
+
+                if (Test-Path $defaultSetup) {
+                    Copy-Item $defaultSetup $rawVelopackSetupBackup -Force
+                }
+
+                if (Test-Path $brandedInstaller) {
+                    Copy-Item $brandedInstaller $defaultSetup -Force
+                }
+
+                Write-Host "Branded installer: $brandedInstaller" -ForegroundColor Green
+                Write-Host "Default setup (wizard): $defaultSetup" -ForegroundColor Green
+                Write-Host "Raw Velopack setup backup: $rawVelopackSetupBackup" -ForegroundColor DarkGray
+            } else {
+                throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
             }
         } finally { Pop-Location }
     } else {

@@ -187,6 +187,11 @@ namespace Daryva.MVVM.ViewModels
                     {
                         Houses.Add(house);
                     }
+
+                    if (SelectedHouseId.HasValue && SelectedHouseId.Value != 0 && !Houses.Any(h => h.HouseId == SelectedHouseId.Value))
+                    {
+                        SelectedHouseId = 0;
+                    }
                 });
             }
             catch (Exception ex)
@@ -210,6 +215,11 @@ namespace Daryva.MVVM.ViewModels
                     foreach (var tenant in tenants)
                     {
                         Tenants.Add(tenant);
+                    }
+
+                    if (SelectedTenantId.HasValue && SelectedTenantId.Value != 0 && !Tenants.Any(t => t.TenantId == SelectedTenantId.Value))
+                    {
+                        SelectedTenantId = 0;
                     }
                 });
             }

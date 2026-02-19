@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace Daryva.MVVM.Views;
 
-public partial class MigrationView : UserControl
+public partial class OnboardingView : UserControl
 {
-    public MigrationView()
+    public OnboardingView()
     {
         InitializeComponent();
     }

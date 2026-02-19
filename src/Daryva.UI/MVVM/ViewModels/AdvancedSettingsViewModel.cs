@@ -42,9 +42,7 @@ public class AdvancedSettingsViewModel : BaseViewModel
 
     public List<string> Sections { get; } = new()
     {
-        "API",
-        "API Test",
-        "Migration"
+        "API"
     };
 
     private void NavigateToSection(string section)
@@ -54,8 +52,6 @@ public class AdvancedSettingsViewModel : BaseViewModel
             CurrentSectionViewModel = section switch
             {
                 "API" => _serviceProvider.GetRequiredService<DatabaseSettingsViewModel>(),
-                "API Test" => _serviceProvider.GetRequiredService<ApiTestViewModel>(),
-                "Migration" => _serviceProvider.GetRequiredService<MigrationViewModel>(),
                 _ => _serviceProvider.GetRequiredService<DatabaseSettingsViewModel>()
             };
         }

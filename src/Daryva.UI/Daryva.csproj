@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Logo\Daryva_icon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
@@ -32,16 +33,14 @@
     <Content Include="Assets\Logo\logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Assets\Logo\FBG_App_Icon_MAX.ico">
+    <AvaloniaResource Include="Assets\Logo\Daryva_icon.ico" Condition="Exists('Assets\Logo\Daryva_icon.ico')" />
+    <Content Include="Assets\Logo\Daryva_icon.ico" Condition="Exists('Assets\Logo\Daryva_icon.ico')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Logo\main_logo.png" Condition="Exists('Assets\Logo\main_logo.png')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Logo\main_logo_transparent.png" Condition="Exists('Assets\Logo\main_logo_transparent.png')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Assets\Logo\FBG_App_Icon.ico" Condition="Exists('Assets\Logo\FBG_App_Icon.ico')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Logo\main_logo.ico" Condition="Exists('Assets\Logo\main_logo.ico')">

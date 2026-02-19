@@ -106,7 +106,8 @@ namespace Daryva.Services.Business
             string backupDirectory;
             if (string.IsNullOrWhiteSpace(backupPath))
             {
-                var defaultLocation = await _settingsService.GetSettingAsync("BackupLocation", GetDefaultBackupLocation());
+                var orgScopedBackupKey = GetOrgScopedSettingKey("BackupLocation");
+                var defaultLocation = await _settingsService.GetSettingAsync(orgScopedBackupKey, GetDefaultBackupLocation());
                 if (string.IsNullOrWhiteSpace(defaultLocation))
                 {
                     defaultLocation = GetDefaultBackupLocation();
@@ -144,6 +145,12 @@ namespace Daryva.Services.Business
             }
 
             return backupDirectory;
+        }
+
+        private string GetOrgScopedSettingKey(string key)
+        {
+            var orgId = _apiClient.CurrentOrgId;
+            return orgId.HasValue ? $"Org.{orgId.Value:N}.{key}" : key;
         }
 
         private async Task<string> CreateApiBackupAsync(string backupDirectory)

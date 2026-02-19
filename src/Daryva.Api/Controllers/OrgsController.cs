@@ -229,4 +229,120 @@ public class OrgsController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Create an invite token for an organization (Owner/Admin only).
+    ///
+    /// POST /api/orgs/{orgId}/invites
+    /// </summary>
+    [HttpPost("{orgId}/invites")]
+    [ProducesResponseType(typeof(CreateOrgInviteResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<CreateOrgInviteResponse>> CreateInvite(
+        Guid orgId,
+        [FromBody] CreateOrgInviteRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _orgService.CreateInviteAsync(orgId, _tenantContext.UserId, request, cancellationToken);
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Accept invite token and join organization.
+    ///
+    /// POST /api/orgs/join/invite
+    /// </summary>
+    [HttpPost("join/invite")]
+    [ProducesResponseType(typeof(JoinOrganizationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<JoinOrganizationResponse>> AcceptInvite(
+        [FromBody] AcceptOrgInviteRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _orgService.AcceptInviteAsync(_tenantContext.UserId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Generate or rotate organization join code (Owner/Admin only).
+    ///
+    /// POST /api/orgs/{orgId}/join-code
+    /// </summary>
+    [HttpPost("{orgId}/join-code")]
+    [ProducesResponseType(typeof(GenerateOrgJoinCodeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<GenerateOrgJoinCodeResponse>> GenerateJoinCode(
+        Guid orgId,
+        [FromBody] GenerateOrgJoinCodeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _orgService.GenerateJoinCodeAsync(orgId, _tenantContext.UserId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Join organization by join code.
+    ///
+    /// POST /api/orgs/join/code
+    /// </summary>
+    [HttpPost("join/code")]
+    [ProducesResponseType(typeof(JoinOrganizationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<JoinOrganizationResponse>> JoinByCode(
+        [FromBody] JoinOrgByCodeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _orgService.JoinByCodeAsync(_tenantContext.UserId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }

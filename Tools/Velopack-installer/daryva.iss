@@ -9,7 +9,7 @@
 #define MyAppName "Daryva"
 #define MyAppId "FBGHaider.Daryva"
 #define MyAppPublisher "FBGHaider"
-#define ReleasesDir "..\releases"
+#define ReleasesDir "..\..\releases"
 #define VelopackSetup "FBGHaider.Daryva-win-Setup.exe"
 
 [Setup]
@@ -20,9 +20,9 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={localappdata}\{#MyAppId}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputDir=..\releases
+OutputDir=..\..\releases
 OutputBaseFilename=Daryva-Setup-{#MyAppVersion}
-SetupIconFile=..\Daryva-Avalonia\Assets\Logo\FBG_App_Icon_MAX.ico
+SetupIconFile=..\..\src\Daryva.UI\Assets\Logo\Daryva_icon.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -32,8 +32,7 @@ Uninstallable=no
 
 ; Wizard pages
 DisableWelcomePage=no
-; Velopack uses fixed path - no destination picker
-DisableDirPage=yes
+DisableDirPage=no
 DisableReadyPage=no
 
 LicenseFile=installer-assets\terms.rtf
@@ -53,17 +52,14 @@ Source: "{#ReleasesDir}\FBGHaider.Daryva-{#MyAppVersion}-full.nupkg"; DestDir: "
 ; --silent: no full-screen splash, runs within Inno's progress
 Filename: "{tmp}\velopack\{#VelopackSetup}"; Parameters: "--silent"; WorkingDir: "{tmp}\velopack"; Flags: waituntilterminated
 ; "Open Daryva" checkbox on completion
-Filename: "{localappdata}\{#MyAppId}\Update.exe"; Parameters: "--processStart Daryva.exe"; WorkingDir: "{localappdata}\{#MyAppId}"; Description: "Open Daryva"; Flags: postinstall nowait skipifsilent
+Filename: "{localappdata}\{#MyAppId}\current\Daryva.exe"; WorkingDir: "{localappdata}\{#MyAppId}\current"; Description: "Open Daryva"; Flags: postinstall nowait skipifsilent
 
 [Code]
 var
   DesktopShortcutPage: TInputOptionWizardPage;
-  DatabaseLocationPage: TInputDirWizardPage;
   CreateDesktopShortcut: Boolean;
 
 procedure InitializeWizard;
-var
-  DefaultDbDir: String;
 begin
   DesktopShortcutPage := CreateInputOptionPage(wpLicense,
     'Additional Options', 'Choose shortcut options',
@@ -72,14 +68,6 @@ begin
   DesktopShortcutPage.Add('Create a &desktop shortcut');
   DesktopShortcutPage.Values[0] := True;
   CreateDesktopShortcut := True;
-
-  DefaultDbDir := ExpandConstant('{userdocs}\Daryva');
-  DatabaseLocationPage := CreateInputDirPage(DesktopShortcutPage.ID,
-    'Database Location', 'Where should the database be stored?',
-    'Select the folder where the Daryva database file (DaryvaDB.db) will be created and used. This folder can be on this PC or a synced folder (e.g. OneDrive). A new empty database will be created here if needed.',
-    False, '');
-  DatabaseLocationPage.Add('');
-  DatabaseLocationPage.Values[0] := DefaultDbDir;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -91,19 +79,39 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   DesktopShortcutPath: String;
+  AppExePath: String;
+  ShortcutIconPath: String;
   DbPathFile: String;
   DbFolder: String;
 begin
   if CurStep = ssPostInstall then
   begin
+    DesktopShortcutPath := ExpandConstant('{userdesktop}\{#MyAppName}.lnk');
+    AppExePath := ExpandConstant('{localappdata}\{#MyAppId}\current\Daryva.exe');
+    ShortcutIconPath := ExpandConstant('{localappdata}\{#MyAppId}\current\Daryva.exe');
+
     if not CreateDesktopShortcut then
     begin
-      DesktopShortcutPath := ExpandConstant('{userdesktop}\{#MyAppName}.lnk');
       if FileExists(DesktopShortcutPath) then
         DeleteFile(DesktopShortcutPath);
+    end
+    else
+    begin
+      if FileExists(AppExePath) then
+      begin
+        CreateShellLink(
+          DesktopShortcutPath,
+          'Open Daryva',
+          AppExePath,
+          '',
+          ExpandConstant('{localappdata}\{#MyAppId}\current'),
+          ShortcutIconPath,
+          0,
+          SW_SHOWNORMAL);
+      end;
     end;
 
-    DbFolder := DatabaseLocationPage.Values[0];
+    DbFolder := WizardDirValue;
     if DbFolder <> '' then
     begin
       DbPathFile := ExpandConstant('{localappdata}\{#MyAppId}\databasepath.txt');

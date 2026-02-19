@@ -4,6 +4,7 @@ using Daryva.Services;
 using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Navigation;
+using Avalonia.Controls;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -17,18 +18,29 @@ namespace Daryva.MVVM.ViewModels
         private readonly IConfigurationService _configurationService;
         private readonly IApiClient _apiClient;
         private readonly IOrganizationApiService _organizationApiService;
+        private readonly IAuthSessionService _authSessionService;
         private BaseViewModel? _currentViewModel;
         private NavigationItem? _selectedNavigationItem;
         private EventHandler<BaseViewModel?>? _navigationHandler;
         private bool _isNavigationCollapsed;
+        private bool _isOnboardingMode;
+        private string _currentOrganizationName = "(No org selected)";
+        private Guid? _lastDisplayedOrgId;
 
-        public MainViewModel(INavigationService navigationService, ISettingsService settingsService, IConfigurationService configurationService, IApiClient apiClient, IOrganizationApiService organizationApiService)
+        public MainViewModel(
+            INavigationService navigationService,
+            ISettingsService settingsService,
+            IConfigurationService configurationService,
+            IApiClient apiClient,
+            IOrganizationApiService organizationApiService,
+            IAuthSessionService authSessionService)
         {
             _navigationService = navigationService;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
             _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _organizationApiService = organizationApiService ?? throw new ArgumentNullException(nameof(organizationApiService));
+            _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
 
             // Initialize navigation items
             NavigationItems = new ObservableCollection<NavigationItem>
@@ -47,6 +59,8 @@ namespace Daryva.MVVM.ViewModels
             _navigationHandler = (s, vm) =>
             {
                 CurrentViewModel = vm;
+                IsOnboardingMode = vm is OnboardingViewModel;
+                _ = RefreshCurrentOrganizationLabelAsync();
                 // Update SelectedNavigationItem to match the current view model
                 if (vm != null && NavigationItems != null)
                 {
@@ -57,20 +71,34 @@ namespace Daryva.MVVM.ViewModels
                         OnPropertyChanged(nameof(SelectedNavigationItem));
                     }
                 }
+
+                if (IsOnboardingMode)
+                {
+                    _selectedNavigationItem = null;
+                    OnPropertyChanged(nameof(SelectedNavigationItem));
+                }
             };
             _navigationService.CurrentViewModelChanged += _navigationHandler;
 
             // Initialize collapse command
             ToggleNavigationCommand = new MVVM.Commands.RelayCommand(_ => IsNavigationCollapsed = !IsNavigationCollapsed);
+            SwitchOrganizationCommand = new MVVM.Commands.RelayCommand(_ => NavigateToOnboarding());
 
             // Initialize organization context before navigating
             _ = InitializeOrganizationContextAsync();
+            _ = RefreshCurrentOrganizationLabelAsync();
         }
 
         private async System.Threading.Tasks.Task InitializeOrganizationContextAsync()
         {
             try
             {
+                if (!_authSessionService.IsAuthenticated)
+                {
+                    NavigateToOnboarding();
+                    return;
+                }
+
                 // Try to load organizations and auto-select
                 var orgs = await _organizationApiService.GetUserOrganizationsAsync();
 
@@ -83,6 +111,7 @@ namespace Daryva.MVVM.ViewModels
                 if (preferredOrg != null)
                 {
                     _apiClient.SetCurrentOrgId(preferredOrg.Id);
+                    _ = RefreshCurrentOrganizationLabelAsync(force: true);
                     NavigateToDashboard();
                     _ = LoadAppStartPageAndNavigateAsync();
                 }
@@ -90,26 +119,28 @@ namespace Daryva.MVVM.ViewModels
                 {
                     // Auto-select single organization
                     _apiClient.SetCurrentOrgId(orgs[0].Id);
+                    _ = RefreshCurrentOrganizationLabelAsync(force: true);
                     NavigateToDashboard();
                     _ = LoadAppStartPageAndNavigateAsync();
                 }
                 else if (orgs.Count > 1)
                 {
-                    // Multiple orgs - default to first, user can change in API Test
+                    // Multiple orgs - default to first; user can switch from the shell org switch action
                     _apiClient.SetCurrentOrgId(orgs[0].Id);
+                    _ = RefreshCurrentOrganizationLabelAsync(force: true);
                     NavigateToDashboard();
                     _ = LoadAppStartPageAndNavigateAsync();
                 }
                 else
                 {
-                    // No organizations - navigate to API Test to create one
-                    NavigateToApiTest();
+                    // No organizations - onboarding provides create/join flow
+                    NavigateToOnboarding();
                 }
             }
             catch
             {
-                // API not available or error - navigate to API Test for troubleshooting
-                NavigateToApiTest();
+                // Invalid token/session or API error -> onboarding
+                NavigateToOnboarding();
             }
         }
 
@@ -138,13 +169,86 @@ namespace Daryva.MVVM.ViewModels
         public bool IsNavigationCollapsed
         {
             get => _isNavigationCollapsed;
-            set => SetProperty(ref _isNavigationCollapsed, value);
+            set
+            {
+                if (SetProperty(ref _isNavigationCollapsed, value))
+                {
+                    OnPropertyChanged(nameof(NavigationColumnWidth));
+                }
+            }
+        }
+
+        public bool IsOnboardingMode
+        {
+            get => _isOnboardingMode;
+            set
+            {
+                if (SetProperty(ref _isOnboardingMode, value))
+                {
+                    OnPropertyChanged(nameof(NavigationColumnWidth));
+                }
+            }
+        }
+
+        public GridLength NavigationColumnWidth
+            => IsOnboardingMode ? new GridLength(0) : (IsNavigationCollapsed ? new GridLength(60) : new GridLength(200));
+
+        public string CurrentOrganizationName
+        {
+            get => _currentOrganizationName;
+            set => SetProperty(ref _currentOrganizationName, value);
+        }
+
+        private void NavigateToOnboarding()
+        {
+            _navigationService.NavigateTo<OnboardingViewModel>();
+            IsOnboardingMode = true;
+            CurrentOrganizationName = "(Select organization)";
+        }
+
+        private async Task RefreshCurrentOrganizationLabelAsync(bool force = false)
+        {
+            try
+            {
+                var orgId = _apiClient.CurrentOrgId;
+                if (!orgId.HasValue)
+                {
+                    _lastDisplayedOrgId = null;
+                    CurrentOrganizationName = "(No org selected)";
+                    return;
+                }
+
+                if (!force && _lastDisplayedOrgId == orgId.Value && !string.IsNullOrWhiteSpace(CurrentOrganizationName))
+                    return;
+
+                var org = await _organizationApiService.GetOrganizationAsync(orgId.Value);
+                CurrentOrganizationName = org.Name;
+                _lastDisplayedOrgId = orgId.Value;
+            }
+            catch
+            {
+                if (_apiClient.CurrentOrgId.HasValue)
+                {
+                    CurrentOrganizationName = _apiClient.CurrentOrgId.Value.ToString();
+                    _lastDisplayedOrgId = _apiClient.CurrentOrgId;
+                }
+                else
+                {
+                    CurrentOrganizationName = "(No org selected)";
+                    _lastDisplayedOrgId = null;
+                }
+            }
         }
 
         /// <summary>
         /// Gets the command to toggle navigation collapse state.
         /// </summary>
         public MVVM.Commands.RelayCommand ToggleNavigationCommand { get; }
+
+        /// <summary>
+        /// Gets the command to switch organization.
+        /// </summary>
+        public MVVM.Commands.RelayCommand SwitchOrganizationCommand { get; }
 
         /// <summary>
         /// Gets or sets the current ViewModel displayed in the content area.
@@ -196,12 +300,6 @@ namespace Daryva.MVVM.ViewModels
         {
             _navigationService.NavigateTo<DashboardViewModel>();
             SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(DashboardViewModel));
-        }
-
-        private void NavigateToApiTest()
-        {
-            _navigationService.NavigateTo<ApiTestViewModel>();
-            SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(ApiTestViewModel));
         }
 
         private void NavigateToHouses()

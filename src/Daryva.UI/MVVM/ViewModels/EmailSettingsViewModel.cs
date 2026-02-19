@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.Services;
+using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 
@@ -10,6 +11,7 @@ namespace Daryva.MVVM.ViewModels
     public class EmailSettingsViewModel : BaseViewModel
     {
         private readonly IConfigurationService _configurationService;
+        private readonly IApiClient _apiClient;
         private readonly IEmailSender _emailSender;
         private readonly ISettingsService _settingsService;
         private readonly IDialogService _dialogService;
@@ -26,11 +28,13 @@ namespace Daryva.MVVM.ViewModels
 
         public EmailSettingsViewModel(
             IConfigurationService configurationService,
+            IApiClient apiClient,
             IEmailSender emailSender,
             ISettingsService settingsService,
             IDialogService dialogService)
         {
             _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
+            _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -137,20 +141,19 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                // Only pre-fill SMTP server and port; leave username, password, from address empty so installed app never shows personal email.
-                var server = _configurationService.GetValue("SmtpServer")?.Trim();
-                SmtpServer = string.IsNullOrEmpty(server) ? "smtp.gmail.com" : server;
-                var portStr = _configurationService.GetValue("SmtpPort");
+                var server = _configurationService.GetValue(GetOrgScopedConfigKey("SmtpServer"))?.Trim();
+                SmtpServer = server ?? string.Empty;
+                var portStr = _configurationService.GetValue(GetOrgScopedConfigKey("SmtpPort"));
                 SmtpPort = int.TryParse(portStr, out var port) ? port : 587;
-                SmtpUsername = _configurationService.GetValue("SmtpUsername") ?? string.Empty;
-                SmtpPassword = _configurationService.GetValue("SmtpPassword") ?? string.Empty;
-                var sslStr = _configurationService.GetValue("SmtpEnableSsl");
+                SmtpUsername = _configurationService.GetValue(GetOrgScopedConfigKey("SmtpUsername")) ?? string.Empty;
+                SmtpPassword = _configurationService.GetValue(GetOrgScopedConfigKey("SmtpPassword")) ?? string.Empty;
+                var sslStr = _configurationService.GetValue(GetOrgScopedConfigKey("SmtpEnableSsl"));
                 EnableSsl = sslStr != null && bool.TryParse(sslStr, out var ssl) && ssl;
-                FromAddress = _configurationService.GetValue("SmtpFromAddress") ?? string.Empty;
-                TestEmailAddress = await _settingsService.GetSettingAsync("EmailTestAddress") ?? string.Empty;
+                FromAddress = _configurationService.GetValue(GetOrgScopedConfigKey("SmtpFromAddress")) ?? string.Empty;
+                TestEmailAddress = await _settingsService.GetSettingAsync(GetOrgScopedSettingKey("EmailTestAddress")) ?? string.Empty;
 
-                EmailStatus = await _settingsService.GetSettingAsync("EmailStatus", "NotConfigured") ?? "NotConfigured";
-                var lastTestStr = await _settingsService.GetSettingAsync("EmailLastTestTime");
+                EmailStatus = await _settingsService.GetSettingAsync(GetOrgScopedSettingKey("EmailStatus"), "NotConfigured") ?? "NotConfigured";
+                var lastTestStr = await _settingsService.GetSettingAsync(GetOrgScopedSettingKey("EmailLastTestTime"));
                 if (DateTime.TryParse(lastTestStr, out var lastTest))
                 {
                     LastTestTime = lastTest;
@@ -220,23 +223,23 @@ namespace Daryva.MVVM.ViewModels
                 }
 
                 // Save SMTP settings to App.config.local
-                _configurationService.SetLocalValue("SmtpServer", SmtpServer);
-                _configurationService.SetLocalValue("SmtpPort", SmtpPort.ToString());
-                _configurationService.SetLocalValue("SmtpUsername", SmtpUsername);
+                _configurationService.SetLocalValue(GetOrgScopedConfigKey("SmtpServer"), SmtpServer);
+                _configurationService.SetLocalValue(GetOrgScopedConfigKey("SmtpPort"), SmtpPort.ToString());
+                _configurationService.SetLocalValue(GetOrgScopedConfigKey("SmtpUsername"), SmtpUsername);
                 if (!string.IsNullOrWhiteSpace(SmtpPassword))
                 {
-                    _configurationService.SetLocalValue("SmtpPassword", SmtpPassword);
+                    _configurationService.SetLocalValue(GetOrgScopedConfigKey("SmtpPassword"), SmtpPassword);
                 }
-                _configurationService.SetLocalValue("SmtpEnableSsl", EnableSsl.ToString());
-                _configurationService.SetLocalValue("SmtpFromAddress", FromAddress);
+                _configurationService.SetLocalValue(GetOrgScopedConfigKey("SmtpEnableSsl"), EnableSsl.ToString());
+                _configurationService.SetLocalValue(GetOrgScopedConfigKey("SmtpFromAddress"), FromAddress);
 
                 // Reload configuration
                 _configurationService.ReloadLocalConfig();
 
-                await _settingsService.SetSettingAsync("EmailTestAddress", TestEmailAddress.Trim());
+                await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("EmailTestAddress"), TestEmailAddress.Trim());
 
                 UpdateEmailStatus();
-                await _settingsService.SetSettingAsync("EmailStatus", EmailStatus);
+                await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("EmailStatus"), EmailStatus);
                 ((RelayCommand)TestEmailCommand).RaiseCanExecuteChanged();
 
                 _dialogService.ShowMessage(
@@ -270,23 +273,35 @@ namespace Daryva.MVVM.ViewModels
                 {
                     EmailStatus = "Connected";
                     LastTestTime = DateTime.UtcNow;
-                    await _settingsService.SetSettingAsync("EmailStatus", EmailStatus);
-                    await _settingsService.SetSettingAsync("EmailLastTestTime", LastTestTime.Value);
+                    await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("EmailStatus"), EmailStatus);
+                    await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("EmailLastTestTime"), LastTestTime.Value);
                     _dialogService.ShowMessage($"Test email sent successfully to {toAddress}.\n\nCheck your inbox (and spam folder).", "Success");
                 }
                 else
                 {
                     EmailStatus = "Failed";
-                    await _settingsService.SetSettingAsync("EmailStatus", EmailStatus);
+                    await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("EmailStatus"), EmailStatus);
                     _dialogService.ShowMessage("Failed to send test email. Please check your SMTP settings.", "Error");
                 }
             }
             catch (Exception ex)
             {
                 EmailStatus = "Failed";
-                await _settingsService.SetSettingAsync("EmailStatus", EmailStatus);
+                await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("EmailStatus"), EmailStatus);
                 _dialogService.ShowMessage($"Error sending test email: {ex.Message}", "Error");
             }
+        }
+
+        private string GetOrgScopedConfigKey(string key)
+        {
+            var orgId = _apiClient.CurrentOrgId;
+            return orgId.HasValue ? $"Org.{orgId.Value:N}.{key}" : key;
+        }
+
+        private string GetOrgScopedSettingKey(string key)
+        {
+            var orgId = _apiClient.CurrentOrgId;
+            return orgId.HasValue ? $"Org.{orgId.Value:N}.{key}" : key;
         }
     }
 }

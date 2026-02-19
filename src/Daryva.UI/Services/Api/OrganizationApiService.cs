@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text;
 
 namespace Daryva.Services.Api;
 
@@ -85,5 +86,31 @@ public class OrganizationApiService : IOrganizationApiService
         {
             throw new InvalidOperationException($"Failed to delete organization: {ex.Message}", ex);
         }
+    }
+
+    public async Task<JoinOrganizationResultDto> JoinByInviteAsync(string token, CancellationToken cancellationToken = default)
+    {
+        var payload = JsonSerializer.Serialize(new { token });
+        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+        var response = await _apiClient.HttpClient.PostAsync("api/orgs/join/invite", content, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        return JsonSerializer.Deserialize<JoinOrganizationResultDto>(body, JsonOptions)
+            ?? throw new InvalidOperationException("Failed to join organization by invite.");
+    }
+
+    public async Task<JoinOrganizationResultDto> JoinByCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var payload = JsonSerializer.Serialize(new { code });
+        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+        var response = await _apiClient.HttpClient.PostAsync("api/orgs/join/code", content, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        return JsonSerializer.Deserialize<JoinOrganizationResultDto>(body, JsonOptions)
+            ?? throw new InvalidOperationException("Failed to join organization by code.");
     }
 }

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
+using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 
@@ -11,6 +12,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly ISettingsService _settingsService;
         private readonly IBackupService _backupService;
         private readonly IDialogService _dialogService;
+        private readonly IApiClient _apiClient;
 
         private string _backupLocation = string.Empty;
         private bool _autoBackupEnabled = false;
@@ -23,11 +25,13 @@ namespace Daryva.MVVM.ViewModels
         public BackupSettingsViewModel(
             ISettingsService settingsService,
             IBackupService backupService,
-            IDialogService dialogService)
+            IDialogService dialogService,
+            IApiClient apiClient)
         {
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
 
             SaveCommand = new RelayCommand(async _ => await SaveAsync());
             ResetCommand = new RelayCommand(async _ => await LoadAsync());
@@ -101,10 +105,10 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                BackupLocation = await _settingsService.GetSettingAsync("BackupLocation", _backupService.GetDefaultBackupLocation()) ?? _backupService.GetDefaultBackupLocation();
-                AutoBackupEnabled = await _settingsService.GetSettingAsync<bool>("AutoBackupEnabled", false) ?? false;
-                AutoBackupFrequency = await _settingsService.GetSettingAsync("AutoBackupFrequency", "Daily") ?? "Daily";
-                BackupRetentionCount = await _settingsService.GetSettingAsync<int>("BackupRetentionCount", 30) ?? 30;
+                BackupLocation = await _settingsService.GetSettingAsync(GetOrgScopedSettingKey("BackupLocation"), string.Empty) ?? string.Empty;
+                AutoBackupEnabled = await _settingsService.GetSettingAsync<bool>(GetOrgScopedSettingKey("AutoBackupEnabled"), false) ?? false;
+                AutoBackupFrequency = await _settingsService.GetSettingAsync(GetOrgScopedSettingKey("AutoBackupFrequency"), "Daily") ?? "Daily";
+                BackupRetentionCount = await _settingsService.GetSettingAsync<int>(GetOrgScopedSettingKey("BackupRetentionCount"), 30) ?? 30;
 
                 DatabaseType = "Cloud";
                 IsDatabaseConnected = await _settingsService.IsDatabaseConnectedAsync();
@@ -132,10 +136,10 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                await _settingsService.SetSettingAsync("BackupLocation", BackupLocation);
-                await _settingsService.SetSettingAsync("AutoBackupEnabled", AutoBackupEnabled);
-                await _settingsService.SetSettingAsync("AutoBackupFrequency", AutoBackupFrequency);
-                await _settingsService.SetSettingAsync("BackupRetentionCount", BackupRetentionCount);
+                await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("BackupLocation"), BackupLocation);
+                await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("AutoBackupEnabled"), AutoBackupEnabled);
+                await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("AutoBackupFrequency"), AutoBackupFrequency);
+                await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("BackupRetentionCount"), BackupRetentionCount);
 
                 _dialogService.ShowMessage("Settings saved successfully. Changes will apply to future actions only.", "Settings Saved");
             }
@@ -149,9 +153,18 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                var backupPath = string.IsNullOrWhiteSpace(BackupLocation) 
-                    ? _backupService.GetDefaultBackupLocation() 
-                    : BackupLocation;
+                var backupPath = BackupLocation;
+                if (string.IsNullOrWhiteSpace(backupPath))
+                {
+                    backupPath = await _dialogService.ShowFolderBrowserDialogAsync("Select folder for this backup");
+                    if (string.IsNullOrWhiteSpace(backupPath))
+                    {
+                        return;
+                    }
+
+                    BackupLocation = backupPath;
+                    await _settingsService.SetSettingAsync(GetOrgScopedSettingKey("BackupLocation"), BackupLocation);
+                }
 
                 if (!Directory.Exists(backupPath))
                 {
@@ -211,6 +224,12 @@ namespace Daryva.MVVM.ViewModels
             {
                 _dialogService.ShowMessage($"Error restoring backup: {ex.Message}", "Restore Error");
             }
+        }
+
+        private string GetOrgScopedSettingKey(string key)
+        {
+            var orgId = _apiClient.CurrentOrgId;
+            return orgId.HasValue ? $"Org.{orgId.Value:N}.{key}" : key;
         }
     }
 }

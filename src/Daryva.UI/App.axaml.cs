@@ -53,23 +53,31 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
-
-            var apiAvailable = EnsureApiAvailableOnStartupAsync().GetAwaiter().GetResult();
-            if (!apiAvailable)
-            {
-                desktop.Shutdown();
-                base.OnFrameworkInitializationCompleted();
-                return;
-            }
-
             var mainViewModel = ServiceProvider.GetRequiredService<MainViewModel>();
             mainWindow.DataContext = mainViewModel;
             desktop.MainWindow = mainWindow;
 
             _ = ServiceProvider.GetRequiredService<Daryva.Services.Business.ScheduledNotificationProcessor>();
+            _ = EnsureApiAvailabilityAfterStartupAsync(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task EnsureApiAvailabilityAfterStartupAsync(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        try
+        {
+            var apiAvailable = await EnsureApiAvailableOnStartupAsync().ConfigureAwait(false);
+            if (!apiAvailable)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => desktop.Shutdown());
+            }
+        }
+        catch
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => desktop.Shutdown());
+        }
     }
 
     private void InitializeTheme()

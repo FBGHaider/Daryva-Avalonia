@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using Daryva.Services.Api;
 using Daryva.Services;
 
 namespace Daryva.Services.Business
@@ -7,22 +8,30 @@ namespace Daryva.Services.Business
     public class EmailSender : IEmailSender
     {
         private readonly IConfigurationService? _configurationService;
+        private readonly IApiClient? _apiClient;
 
-        public EmailSender(IConfigurationService? configurationService = null)
+        public EmailSender(IConfigurationService? configurationService = null, IApiClient? apiClient = null)
         {
             _configurationService = configurationService;
+            _apiClient = apiClient;
         }
 
         private void GetSmtpSettings(out string? smtpServer, out int smtpPort, out string? smtpUsername, out string? smtpPassword, out bool enableSsl, out string? fromAddress)
         {
-            smtpServer = _configurationService?.GetValue("SmtpServer")?.Trim();
-            var portStr = _configurationService?.GetValue("SmtpPort");
+            smtpServer = _configurationService?.GetValue(GetOrgScopedConfigKey("SmtpServer"))?.Trim();
+            var portStr = _configurationService?.GetValue(GetOrgScopedConfigKey("SmtpPort"));
             smtpPort = int.TryParse(portStr, out var port) ? port : 587;
-            smtpUsername = _configurationService?.GetValue("SmtpUsername")?.Trim();
-            smtpPassword = _configurationService?.GetValue("SmtpPassword")?.Trim();
-            var sslStr = _configurationService?.GetValue("SmtpEnableSsl");
+            smtpUsername = _configurationService?.GetValue(GetOrgScopedConfigKey("SmtpUsername"))?.Trim();
+            smtpPassword = _configurationService?.GetValue(GetOrgScopedConfigKey("SmtpPassword"))?.Trim();
+            var sslStr = _configurationService?.GetValue(GetOrgScopedConfigKey("SmtpEnableSsl"));
             enableSsl = sslStr != null && bool.TryParse(sslStr, out var ssl) && ssl;
-            fromAddress = _configurationService?.GetValue("SmtpFromAddress")?.Trim();
+            fromAddress = _configurationService?.GetValue(GetOrgScopedConfigKey("SmtpFromAddress"))?.Trim();
+        }
+
+        private string GetOrgScopedConfigKey(string key)
+        {
+            var orgId = _apiClient?.CurrentOrgId;
+            return orgId.HasValue ? $"Org.{orgId.Value:N}.{key}" : key;
         }
 
         public async Task<bool> SendEmailAsync(string toAddress, string subject, string body, string? fromAddress = null)

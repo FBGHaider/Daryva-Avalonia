@@ -1,8 +1,11 @@
 param(
     [int]$ApiPort = 5000,
     [int]$ApiStartupTimeoutSeconds = 45,
+    [int]$UiStartupTimeoutSeconds = 30,
     [switch]$ApiOnly,
-    [switch]$ShowTerminals
+    [bool]$ShowApiTerminal = $true,
+    [switch]$ShowTerminals,
+    [switch]$SkipMigrations
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,6 +67,22 @@ function Stop-DaryvaProcesses {
         }
     }
 
+    # 3) Stop script-launched PowerShell terminals still running dotnet for this repo
+    $powershellProcesses = Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'"
+    foreach ($proc in $powershellProcesses) {
+        $cmd = $proc.CommandLine
+        if ([string]::IsNullOrWhiteSpace($cmd)) {
+            continue
+        }
+
+        $isRepoTerminal = $cmd -match [regex]::Escape($apiProjectMarker) -or (-not $ApiOnly -and $cmd -match [regex]::Escape($uiProjectMarker))
+        $isDotnetRunTerminal = $cmd -match "dotnet\s+run"
+
+        if ($isRepoTerminal -and $isDotnetRunTerminal) {
+            [void]$pidsToStop.Add([int]$proc.ProcessId)
+        }
+    }
+
     if ($pidsToStop.Count -eq 0) {
         Write-Host "No running Daryva/API processes found." -ForegroundColor DarkGray
         return
@@ -80,6 +99,64 @@ function Stop-DaryvaProcesses {
     }
 
     Start-Sleep -Seconds 1
+}
+
+function Test-UiStarted {
+    param(
+        [string]$RepoRoot,
+        [int]$TimeoutSeconds
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $uiProcesses = Get-Process -Name "Daryva" -ErrorAction SilentlyContinue
+        foreach ($uiProcess in $uiProcesses) {
+            try {
+                $uiProcess.Refresh()
+                if (-not $uiProcess.HasExited -and $uiProcess.MainWindowHandle -and $uiProcess.MainWindowHandle -ne 0) {
+                    return $true
+                }
+            }
+            catch {
+            }
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    return $false
+}
+
+function Wait-ForUiWindow {
+    param(
+        [System.Diagnostics.Process]$UiProcess,
+        [int]$TimeoutSeconds
+    )
+
+    if ($null -eq $UiProcess) {
+        return $false
+    }
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $UiProcess.Refresh()
+            if ($UiProcess.HasExited) {
+                return $false
+            }
+
+            if ($UiProcess.MainWindowHandle -and $UiProcess.MainWindowHandle -ne 0) {
+                return $true
+            }
+        }
+        catch {
+            return $false
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    return $false
 }
 
 function Wait-ForApi {
@@ -169,6 +246,34 @@ function Show-LogTail {
     }
 }
 
+function Update-ApiDatabase {
+    param(
+        [string]$RepoRoot,
+        [string]$ApiProjectPath
+    )
+
+    Write-Host "Applying API database migrations..." -ForegroundColor Cyan
+
+    $migrationArgs = @(
+        "ef", "database", "update",
+        "--project", $ApiProjectPath,
+        "--startup-project", $ApiProjectPath
+    )
+
+    $migrationOutput = & dotnet @migrationArgs 2>&1
+    $exitCode = $LASTEXITCODE
+
+    if ($migrationOutput) {
+        $migrationOutput | ForEach-Object { Write-Host $_ }
+    }
+
+    if ($exitCode -ne 0) {
+        throw "Failed to apply API migrations (exit code $exitCode)."
+    }
+
+    Write-Host "API migrations applied successfully." -ForegroundColor Green
+}
+
 $repoRoot = Get-RepoRoot
 $apiProjectDir = Join-Path $repoRoot "src\Daryva.Api"
 $uiProjectDir = Join-Path $repoRoot "src\Daryva.UI"
@@ -181,13 +286,35 @@ if (-not (Test-Path $apiProjectPath)) {
     throw "API project not found at $apiProjectDir"
 }
 
-if (-not (Test-Path $uiProjectPath)) {
+if (-not $ApiOnly -and -not (Test-Path $uiProjectPath)) {
     throw "UI project not found at $uiProjectDir"
 }
 
 Stop-DaryvaProcesses -RepoRoot $repoRoot -ApiOnly:$ApiOnly
 
-$launchWithVisibleTerminals = $ShowTerminals -or (-not $ApiOnly)
+if (-not $SkipMigrations) {
+    Update-ApiDatabase -RepoRoot $repoRoot -ApiProjectPath $apiProjectPath
+}
+else {
+    Write-Host "Skipping API migrations (--SkipMigrations)." -ForegroundColor Yellow
+}
+
+$launchWithVisibleTerminals = $ShowTerminals
+$launchWithVisibleApiTerminal = $ShowApiTerminal -or $ShowTerminals
+
+if ($launchWithVisibleApiTerminal) {
+    Write-Host "API launch: visible terminal" -ForegroundColor DarkGray
+}
+else {
+    Write-Host "API launch: background" -ForegroundColor DarkGray
+}
+
+if ($launchWithVisibleTerminals) {
+    Write-Host "UI launch: visible terminal" -ForegroundColor DarkGray
+}
+else {
+    Write-Host "UI launch: executable first, then visible terminal fallback" -ForegroundColor DarkGray
+}
 
 Write-Host "Starting API..." -ForegroundColor Cyan
 $logsDir = Join-Path $repoRoot "artifacts\logs"
@@ -197,11 +324,13 @@ if (-not (Test-Path $logsDir)) {
 
 $apiStdOutLog = Join-Path $logsDir "api-stdout.log"
 $apiStdErrLog = Join-Path $logsDir "api-stderr.log"
+$apiVisibleLog = Join-Path $logsDir "api-visible.log"
 
 $apiProcess = $null
-if ($launchWithVisibleTerminals) {
-    $apiCmd = "Set-Location -Path '$($apiProjectDir.Replace("'","''"))'; dotnet run --project $apiProjectFile"
-    $apiTerminal = Start-Process -FilePath "powershell" -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $apiCmd) -PassThru
+if ($launchWithVisibleApiTerminal) {
+    $apiCmd = "Set-Location -Path '$($apiProjectDir.Replace("'","''"))'; dotnet run --project $apiProjectFile *>&1 | Tee-Object -FilePath '$($apiVisibleLog.Replace("'","''"))'; exit `$LASTEXITCODE"
+    $apiTerminal = Start-Process -FilePath "powershell" -ArgumentList @("-ExecutionPolicy", "Bypass", "-Command", $apiCmd) -PassThru
+    $apiProcess = $apiTerminal
     Write-Host "API terminal started (PID $($apiTerminal.Id))" -ForegroundColor DarkCyan
 }
 else {
@@ -223,10 +352,9 @@ if (-not $ApiOnly) {
         $uiTerminal = Start-Process -FilePath "powershell" -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $uiCmd) -PassThru
         Write-Host "UI terminal started (PID $($uiTerminal.Id))" -ForegroundColor DarkCyan
 
-        Start-Sleep -Seconds 4
-        $uiStarted = (Get-Process -Name "Daryva" -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0
+        $uiStarted = Test-UiStarted -RepoRoot $repoRoot -TimeoutSeconds $UiStartupTimeoutSeconds
         if (-not $uiStarted) {
-            Write-Host "UI process not detected yet. Check the UI terminal window for build/runtime errors." -ForegroundColor Yellow
+            throw "UI process was not detected within $UiStartupTimeoutSeconds seconds. Check the UI terminal window for build/runtime errors."
         }
     }
 
@@ -234,40 +362,39 @@ if (-not $ApiOnly) {
         $uiExePath = Join-Path $repoRoot "src\Daryva.UI\bin\Debug\net8.0\Daryva.exe"
         if (Test-Path $uiExePath) {
             $uiExeProcess = Start-Process -FilePath $uiExePath -WorkingDirectory (Split-Path -Parent $uiExePath) -PassThru
-            Start-Sleep -Seconds 3
-            $uiExeProcess.Refresh()
+            $uiWindowVisible = Wait-ForUiWindow -UiProcess $uiExeProcess -TimeoutSeconds $UiStartupTimeoutSeconds
 
-            if (-not $uiExeProcess.HasExited) {
+            if ($uiWindowVisible) {
                 $uiStarted = $true
-                Write-Host "UI started via executable (PID $($uiExeProcess.Id))" -ForegroundColor DarkCyan
+                Write-Host "UI started via executable (PID $($uiExeProcess.Id), window visible)" -ForegroundColor DarkCyan
             }
             else {
-                Write-Host "UI executable exited immediately (ExitCode=$($uiExeProcess.ExitCode)). Falling back to dotnet run." -ForegroundColor Yellow
+                try {
+                    $uiExeProcess.Refresh()
+                    if (-not $uiExeProcess.HasExited) {
+                        Stop-Process -Id $uiExeProcess.Id -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                catch {
+                }
+
+                Write-Host "UI executable did not show a window in time. Falling back to visible dotnet run terminal." -ForegroundColor Yellow
             }
         }
 
         if (-not $uiStarted) {
-            Write-Host "UI executable not found. Falling back to dotnet run (hidden)." -ForegroundColor Yellow
-            $uiStdOutLog = Join-Path $logsDir "ui-stdout.log"
-            $uiStdErrLog = Join-Path $logsDir "ui-stderr.log"
-            $uiProcess = Start-Process -FilePath "dotnet" -ArgumentList @("run", "--project", $uiProjectFile) -WorkingDirectory $uiProjectDir -PassThru -RedirectStandardOutput $uiStdOutLog -RedirectStandardError $uiStdErrLog
-            Start-Sleep -Seconds 3
-            $uiProcess.Refresh()
+            $uiCmd = "Set-Location -Path '$($uiProjectDir.Replace("'","''"))'; dotnet run --project $uiProjectFile"
+            $uiTerminal = Start-Process -FilePath "powershell" -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $uiCmd) -PassThru
+            Write-Host "UI terminal started (fallback, PID $($uiTerminal.Id))" -ForegroundColor DarkCyan
 
-            if ($uiProcess.HasExited) {
-                Write-Host "UI process exited immediately (ExitCode=$($uiProcess.ExitCode))." -ForegroundColor Red
-                Show-LogTail -Path $uiStdErrLog -Label "UI stderr"
-                Show-LogTail -Path $uiStdOutLog -Label "UI stdout"
-                throw "Could not start UI. See UI logs at $uiStdOutLog and $uiStdErrLog"
-            }
-            else {
-                $uiStarted = $true
-                Write-Host "UI started via dotnet run (PID $($uiProcess.Id))" -ForegroundColor DarkCyan
+            $uiStarted = Test-UiStarted -RepoRoot $repoRoot -TimeoutSeconds $UiStartupTimeoutSeconds
+            if (-not $uiStarted) {
+                throw "Could not start UI. Check the UI terminal window for errors."
             }
         }
     }
 
-    if (-not $uiStarted -and -not $launchWithVisibleTerminals) {
+    if (-not $uiStarted) {
         throw "UI did not start successfully."
     }
 }

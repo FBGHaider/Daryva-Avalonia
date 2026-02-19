@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="760"
+             x:Class="Daryva.MVVM.Views.OnboardingView"
+             x:CompileBindings="False">
+    <UserControl.Resources>
+        <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+    </UserControl.Resources>
+    <Border Padding="24" Background="{DynamicResource PrimaryBackgroundBrush}">
+        <StackPanel Spacing="18" MaxWidth="760" HorizontalAlignment="Center">
+            <TextBlock Text="Welcome to Daryva"
+                       FontSize="28"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+            <TextBlock Text="Login, then select, create, or join an organization to continue."
+                       Foreground="{DynamicResource SecondaryTextBrush}"/>
+
+            <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="10"
+                    IsVisible="{Binding HasError}">
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            </Border>
+
+            <Grid ColumnDefinitions="*,*" IsVisible="{Binding ShowAuthSection}">
+                <Border Grid.Column="0" Margin="0,0,8,0" Padding="16" CornerRadius="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Login" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBox Watermark="Email" Text="{Binding LoginEmail}"/>
+                        <TextBox Watermark="Password" Text="{Binding LoginPassword}"/>
+                        <Button Content="Login" Command="{Binding LoginCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Margin="8,0,0,0" Padding="16" CornerRadius="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Register" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBox Watermark="Email" Text="{Binding RegisterEmail}"/>
+                        <TextBox Watermark="Password" Text="{Binding RegisterPassword}"/>
+                        <TextBox Watermark="Confirm Password" Text="{Binding RegisterConfirmPassword}"/>
+                        <Button Content="Create Account" Command="{Binding RegisterCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <StackPanel Spacing="12" IsVisible="{Binding ShowOrgSection}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Organizations" FontSize="22" FontWeight="SemiBold"/>
+                    <Button Content="Refresh" Command="{Binding RefreshOrganizationsCommand}"/>
+                    <Button Content="Logout" Command="{Binding LogoutCommand}"/>
+                </StackPanel>
+
+                <Border Padding="16" CornerRadius="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Select Existing Organization" FontWeight="SemiBold"/>
+                        <ComboBox ItemsSource="{Binding Organizations}" SelectedItem="{Binding SelectedOrganization}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="No organizations found for this account. Create one or join using code/invite below."
+                                   Opacity="0.85"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding HasOrganizations, Converter={x:Static BoolConverters.Not}}"/>
+                        <Button Content="Continue"
+                                Command="{Binding UseSelectedOrganizationCommand}"
+                                IsEnabled="{Binding HasOrganizations}"/>
+                    </StackPanel>
+                </Border>
+
+                <Grid ColumnDefinitions="*,*">
+                    <Border Grid.Column="0" Margin="0,0,6,0" Padding="16" CornerRadius="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Create Organization" FontWeight="SemiBold"/>
+                            <TextBox Watermark="Organization Name" Text="{Binding NewOrganizationName}"/>
+                            <Button Content="Create &amp; Continue" Command="{Binding CreateOrganizationCommand}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Margin="6,0,0,0" Padding="16" CornerRadius="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Join Organization" FontWeight="SemiBold"/>
+                            <TextBox Watermark="Join Code" Text="{Binding JoinCode}"/>
+                            <Button Content="Join by Code" Command="{Binding JoinByCodeCommand}"/>
+                            <TextBox Watermark="Invite Token" Text="{Binding InviteToken}"/>
+                            <Button Content="Join by Invite" Command="{Binding JoinByInviteCommand}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

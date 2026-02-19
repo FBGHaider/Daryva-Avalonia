@@ -32,7 +32,7 @@
     </Window.Styles>
     <Grid x:Name="MainGrid" RowDefinitions="*" Background="{DynamicResource PrimaryBackgroundBrush}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToWidthConverter}}"/>
+            <ColumnDefinition Width="{Binding NavigationColumnWidth}"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         
@@ -40,7 +40,8 @@
         <Border Grid.Row="0" Grid.Column="0" 
                 Background="{DynamicResource NavigationBackgroundBrush}" 
                 BorderBrush="{DynamicResource BorderBrush}" 
-                BorderThickness="0,0,1,0">
+                BorderThickness="0,0,1,0"
+                IsVisible="{Binding IsOnboardingMode, Converter={StaticResource InvertBoolConverter}}">
             <Grid RowDefinitions="Auto,*,Auto">
                 <!-- App Title -->
                 <TextBlock Grid.Row="0" 
@@ -79,24 +80,45 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <!-- Toggle Button -->
-                <Button Grid.Row="2"
-                        Command="{Binding ToggleNavigationCommand}"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Bottom"
-                        Margin="8,8,8,8"
-                        Padding="4"
-                        Width="24"
-                        Height="24"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Cursor="Hand">
-                    <TextBlock Text="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToChevronConverter}}" 
+                <!-- Footer Actions -->
+                <StackPanel Grid.Row="2" Margin="8,8,8,8" Spacing="6">
+                    <TextBlock Text="{Binding CurrentOrganizationName}"
                               FontSize="12"
-                              Foreground="{DynamicResource PrimaryTextBrush}"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center"/>
-                </Button>
+                              Opacity="0.85"
+                              TextWrapping="Wrap"
+                              IsVisible="{Binding IsNavigationCollapsed, Converter={StaticResource InvertBoolConverter}}"/>
+
+                    <Button Command="{Binding SwitchOrganizationCommand}"
+                            HorizontalAlignment="Stretch"
+                            Padding="8,6"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    HorizontalAlignment="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToAlignmentConverter}}">
+                            <TextBlock Text="🏢" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Switch Org"
+                                      IsVisible="{Binding IsNavigationCollapsed, Converter={StaticResource InvertBoolConverter}}"
+                                      VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding ToggleNavigationCommand}"
+                            HorizontalAlignment="Left"
+                            Padding="4"
+                            Width="24"
+                            Height="24"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand">
+                        <TextBlock Text="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToChevronConverter}}" 
+                                  FontSize="12"
+                                  Foreground="{DynamicResource PrimaryTextBrush}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 

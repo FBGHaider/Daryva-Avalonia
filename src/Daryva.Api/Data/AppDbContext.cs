@@ -15,6 +15,10 @@ public class AppDbContext : DbContext
 
     public required DbSet<Organization> Organizations { get; set; }
     public required DbSet<OrganizationMember> OrganizationMembers { get; set; }
+    public required DbSet<OrganizationInvite> OrganizationInvites { get; set; }
+    public required DbSet<OrganizationJoinCode> OrganizationJoinCodes { get; set; }
+    public required DbSet<AppUser> AppUsers { get; set; }
+    public required DbSet<AuthRefreshToken> AuthRefreshTokens { get; set; }
     public required DbSet<House> Houses { get; set; }
     public required DbSet<Tenant> Tenants { get; set; }
     public required DbSet<Tenancy> Tenancies { get; set; }
@@ -52,6 +56,16 @@ public class AppDbContext : DbContext
                 .WithOne(h => h.Organization)
                 .HasForeignKey(h => h.OrganizationId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.Invites)
+                .WithOne(i => i.Organization)
+                .HasForeignKey(i => i.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.JoinCodes)
+                .WithOne(c => c.Organization)
+                .HasForeignKey(c => c.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ========== ORGANIZATION MEMBER ==========
@@ -65,6 +79,62 @@ public class AppDbContext : DbContext
 
             // Unique: User can only have one role per org
             entity.HasIndex(e => new { e.OrganizationId, e.UserId }).IsUnique();
+        });
+
+        // ========== ORGANIZATION INVITE (Global Entity) ==========
+        modelBuilder.Entity<OrganizationInvite>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TokenHash).IsRequired().HasMaxLength(512);
+            entity.Property(e => e.Email).HasMaxLength(256);
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedByUserId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.UsedByUserId).HasMaxLength(256);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.OrganizationId);
+            entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        // ========== ORGANIZATION JOIN CODE (Global Entity) ==========
+        modelBuilder.Entity<OrganizationJoinCode>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CodeHash).IsRequired().HasMaxLength(512);
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedByUserId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => e.CodeHash).IsUnique();
+            entity.HasIndex(e => e.OrganizationId);
+        });
+
+        // ========== APP USER (Global/Auth Entity) ==========
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(1024);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(e => e.Email).IsUnique();
+        });
+
+        // ========== REFRESH TOKEN (Global/Auth Entity) ==========
+        modelBuilder.Entity<AuthRefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TokenHash).IsRequired().HasMaxLength(512);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.CreatedByIp).HasMaxLength(128);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
         });
 
         // ========== HOUSE (Org-Scoped Entity) ==========

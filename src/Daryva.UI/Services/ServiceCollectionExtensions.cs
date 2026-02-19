@@ -31,7 +31,9 @@ namespace Daryva.Services
             services.AddSingleton<IConfigurationService, ConfigurationService>();
 
             // API Client Services
+            services.AddSingleton<IAuthSessionService, AuthSessionService>();
             services.AddSingleton<IApiClient, ApiClient>();
+            services.AddScoped<IAuthApiService, AuthApiService>();
             services.AddScoped<IOrganizationApiService, OrganizationApiService>();
             services.AddScoped<IHouseApiService, HouseApiService>();
             services.AddScoped<ITenantApiService, TenantApiService>();
@@ -90,7 +92,8 @@ namespace Daryva.Services
             services.AddScoped<IEmailSender>(serviceProvider =>
             {
                 var configService = serviceProvider.GetService<IConfigurationService>();
-                return new EmailSender(configService);
+                var apiClient = serviceProvider.GetService<IApiClient>();
+                return new EmailSender(configService, apiClient);
             });
             services.AddScoped<IExportService, ExportService>();
             services.AddScoped<IHouseReportExportService, HouseReportExportService>();
@@ -130,6 +133,7 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.AddEditExpenseViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.NotificationsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.SettingsViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.OnboardingViewModel>();
             
             // Settings section ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.GeneralSettingsViewModel>();
@@ -152,12 +156,6 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.RentLedgerViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.TransactionsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.UploadDocumentViewModel>();
-
-            // API Test ViewModel (for testing backend integration)
-            services.AddTransient<Daryva.MVVM.ViewModels.ApiTestViewModel>();
-
-            // Migration ViewModel (for SQLite to API migration)
-            services.AddTransient<Daryva.MVVM.ViewModels.MigrationViewModel>();
 
             return services;
         }

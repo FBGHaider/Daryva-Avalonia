@@ -30,4 +30,14 @@ public class Organization
     /// Navigation: Houses owned by this organization.
     /// </summary>
     public ICollection<House> Houses { get; set; } = new List<House>();
+
+    /// <summary>
+    /// Navigation: Pending/completed invites for this organization.
+    /// </summary>
+    public ICollection<OrganizationInvite> Invites { get; set; } = new List<OrganizationInvite>();
+
+    /// <summary>
+    /// Navigation: Join codes for this organization.
+    /// </summary>
+    public ICollection<OrganizationJoinCode> JoinCodes { get; set; } = new List<OrganizationJoinCode>();
 }

@@ -27,4 +27,9 @@ public interface IApiClient
     /// Get the underlying HttpClient for making API requests.
     /// </summary>
     HttpClient HttpClient { get; }
+
+    /// <summary>
+    /// Re-applies auth headers/state from persisted session data.
+    /// </summary>
+    void ApplyAuthState();
 }

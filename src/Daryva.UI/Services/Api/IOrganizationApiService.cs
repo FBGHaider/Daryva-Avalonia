@@ -20,6 +20,21 @@ public class OrganizationDto
     public string CurrentUserRole { get; set; } = string.Empty;
 }
 
+public class JoinOrganizationResultDto
+{
+    [JsonPropertyName("organizationId")]
+    public Guid OrganizationId { get; set; }
+
+    [JsonPropertyName("organizationName")]
+    public string OrganizationName { get; set; } = string.Empty;
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = string.Empty;
+
+    [JsonPropertyName("alreadyMember")]
+    public bool AlreadyMember { get; set; }
+}
+
 /// <summary>
 /// Service for organization-related API operations.
 /// </summary>
@@ -44,4 +59,14 @@ public interface IOrganizationApiService
     /// Delete an organization (Owner only).
     /// </summary>
     Task DeleteOrganizationAsync(Guid orgId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Join organization by invite token.
+    /// </summary>
+    Task<JoinOrganizationResultDto> JoinByInviteAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Join organization by code.
+    /// </summary>
+    Task<JoinOrganizationResultDto> JoinByCodeAsync(string code, CancellationToken cancellationToken = default);
 }

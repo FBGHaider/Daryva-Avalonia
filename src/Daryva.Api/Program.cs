@@ -5,6 +5,7 @@ using Daryva.Api.Services.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,7 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 
 // Business logic services
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IHouseService, HouseService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
@@ -38,16 +40,21 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // JWT Bearer Authentication
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddAuthorization();
 
-// Add authentication if JWT is configured
+// Add authentication with either external authority or local signing key.
 if (!string.IsNullOrEmpty(jwtOptions.Authority))
 {
     builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
         .AddJwtBearer(options =>
         {
             options.Authority = jwtOptions.Authority;
-            options.Audience = jwtOptions.Audience ?? "daryva-api";
+            options.Audience = jwtOptions.Audience;
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
@@ -59,8 +66,34 @@ if (!string.IsNullOrEmpty(jwtOptions.Authority))
 }
 else
 {
-    // No auth configured; log warning
-    builder.Services.AddLogging();
+    if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey) || jwtOptions.SigningKey.Length < 32)
+    {
+        throw new InvalidOperationException("Jwt:SigningKey must be configured and at least 32 characters when Jwt:Authority is not set.");
+    }
+
+    var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.RequireHttpsMetadata = false;
+            options.SaveToken = true;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signingKey,
+                ValidateIssuer = true,
+                ValidIssuer = jwtOptions.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtOptions.Audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+        });
 }
 
 var app = builder.Build();

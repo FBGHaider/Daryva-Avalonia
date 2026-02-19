@@ -327,6 +327,11 @@ namespace Daryva.MVVM.ViewModels
                     {
                         Houses.Add(house);
                     }
+
+                    if (SelectedHouseId.HasValue && SelectedHouseId.Value != 0 && !Houses.Any(h => h.HouseId == SelectedHouseId.Value))
+                    {
+                        SelectedHouseId = 0;
+                    }
                 });
             }
             catch (Exception ex)
@@ -340,7 +345,14 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 // Repair any rent payments that are unlinked or linked to wrong charge (so past months show Paid correctly)
-                await Task.Run(async () => await _paymentService.RepairRentPaymentChargeLinksAsync()).ConfigureAwait(false);
+                try
+                {
+                    await Task.Run(async () => await _paymentService.RepairRentPaymentChargeLinksAsync()).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Non-critical maintenance step; continue loading ledger data.
+                }
 
                 // Convert SelectedHouseId: 0 means "All Houses" (pass null), otherwise pass the actual ID
                 int? houseIdFilter = (SelectedHouseId == null || SelectedHouseId == 0) ? null : SelectedHouseId;
@@ -461,6 +473,7 @@ namespace Daryva.MVVM.ViewModels
                     DepositLedgerRows.Clear();
                     foreach (var row in safeRows)
                     {
+                        if (row == null) continue;
                         DepositLedgerRows.Add(row);
                     }
                 });
