@@ -1,0 +1,135 @@
+using Daryva.MVVM.Models;
+using Daryva.Services.Api;
+
+namespace Daryva.Services.Business;
+
+/// <summary>
+/// Adapter that implements IHouseService using the backend API.
+/// Maps between UI House model and API HouseDto.
+/// Replaces the SQLite-based HouseService when using API backend.
+/// </summary>
+public class HouseApiServiceAdapter : IHouseService
+{
+    private readonly IHouseApiService _houseApiService;
+
+    public HouseApiServiceAdapter(IHouseApiService houseApiService)
+    {
+        _houseApiService = houseApiService ?? throw new ArgumentNullException(nameof(houseApiService));
+    }
+
+    public async Task<IEnumerable<House>> GetAllHousesAsync()
+    {
+        var houseDtos = await _houseApiService.GetHousesAsync();
+        return houseDtos.Select(MapToHouse);
+    }
+
+    public async Task<House?> GetHouseByIdAsync(int houseId)
+    {
+        // In API mode, we need to fetch all houses and find by local ID
+        // This is not ideal, but the UI uses int IDs while API uses Guids
+        var houses = await GetAllHousesAsync();
+        return houses.FirstOrDefault(h => h.HouseId == houseId);
+    }
+
+    public async Task<House> CreateHouseAsync(House house)
+    {
+        var createDto = new CreateHouseDto
+        {
+            Name = house.Name,
+            AddressLine1 = house.AddressLine1,
+            AddressLine2 = house.AddressLine2,
+            City = house.City,
+            Postcode = house.Postcode
+        };
+
+        var createdDto = await _houseApiService.CreateHouseAsync(createDto);
+        return MapToHouse(createdDto);
+    }
+
+    public async Task UpdateHouseAsync(House house)
+    {
+        if (!house.ApiId.HasValue)
+            throw new InvalidOperationException("Cannot update house without API ID.");
+
+        var updateDto = new UpdateHouseDto
+        {
+            Name = house.Name,
+            AddressLine1 = house.AddressLine1,
+            AddressLine2 = house.AddressLine2,
+            City = house.City,
+            Postcode = house.Postcode
+        };
+
+        var updatedDto = await _houseApiService.UpdateHouseAsync(house.ApiId.Value, updateDto);
+        
+        // Update the house object with response data
+        house.Name = updatedDto.Name;
+        house.AddressLine1 = updatedDto.AddressLine1;
+        house.AddressLine2 = updatedDto.AddressLine2;
+        house.City = updatedDto.City;
+        house.Postcode = updatedDto.Postcode;
+        house.CreatedAt = updatedDto.CreatedAt;
+    }
+
+    public async Task DeleteHouseAsync(int houseId)
+    {
+        // Find the house to get its API ID
+        var house = await GetHouseByIdAsync(houseId);
+        if (house == null || !house.ApiId.HasValue)
+            throw new InvalidOperationException($"House with ID {houseId} not found or has no API ID.");
+
+        var deleted = await _houseApiService.DeleteHouseAsync(house.ApiId.Value);
+        if (!deleted)
+            throw new InvalidOperationException($"Failed to delete house with ID {houseId}.");
+    }
+
+    public async Task<IEnumerable<House>> SearchHousesAsync(string searchTerm)
+    {
+        // Get all houses and filter client-side
+        // TODO: Backend should support search endpoint for better performance
+        var allHouses = await GetAllHousesAsync();
+        
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return allHouses;
+
+        var lowerSearchTerm = searchTerm.ToLowerInvariant();
+        return allHouses.Where(h =>
+            h.Name.ToLowerInvariant().Contains(lowerSearchTerm) ||
+            h.AddressLine1.ToLowerInvariant().Contains(lowerSearchTerm) ||
+            (h.AddressLine2?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false) ||
+            h.City.ToLowerInvariant().Contains(lowerSearchTerm) ||
+            h.Postcode.ToLowerInvariant().Contains(lowerSearchTerm));
+    }
+
+    public async Task<bool> HasTenanciesAsync(int houseId)
+    {
+        // TODO: Backend needs endpoint to check for active tenancies
+        // For now, return false (allow deletion)
+        // The backend will reject deletion if there are active tenancies
+        return await Task.FromResult(false);
+    }
+
+    /// <summary>
+    /// Map HouseDto from API to UI House model.
+    /// Assigns a local int ID based on the hash of the Guid.
+    /// </summary>
+    private House MapToHouse(HouseDto dto)
+    {
+        return new House
+        {
+            // Use hash of Guid as int ID (not perfect but works for UI purposes)
+            HouseId = dto.Id.GetHashCode(),
+            ApiId = dto.Id,
+            Name = dto.Name,
+            AddressLine1 = dto.AddressLine1,
+            AddressLine2 = dto.AddressLine2,
+            City = dto.City,
+            Postcode = dto.Postcode,
+            CreatedAt = dto.CreatedAt,
+            // These would need separate API calls or be included in HouseDto
+            TotalRooms = 0, // TODO: Backend doesn't have this yet
+            ActiveTenantCount = dto.ActiveTenantCount,
+            TotalMonthlyRent = dto.TotalMonthlyRent
+        };
+    }
+}

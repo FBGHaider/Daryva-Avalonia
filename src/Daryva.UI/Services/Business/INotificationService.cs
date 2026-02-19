@@ -33,10 +33,12 @@ namespace Daryva.Services.Business
     public class NotificationRecipient
     {
         public int TenantId { get; set; }
+        public Guid? ApiTenantId { get; set; }
         public string TenantName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? PhoneNumber { get; set; }
         public int? TenancyId { get; set; }
+        public Guid? ApiTenancyId { get; set; }
         public string HouseAddress { get; set; } = string.Empty;
         public bool HasEmail { get; set; }
         public bool HasWhatsApp { get; set; }
@@ -59,13 +61,16 @@ namespace Daryva.Services.Business
     public class NotificationDto
     {
         public int TenantId { get; set; }
+        public Guid? TenantApiId { get; set; }
         public int? TenancyId { get; set; }
+        public Guid? TenancyApiId { get; set; }
         public string Channel { get; set; } = "Email";
         public string Type { get; set; } = "General";
         public string Subject { get; set; } = string.Empty;
         public string Body { get; set; } = string.Empty;
         public DateTime ScheduledFor { get; set; }
         public int? TemplateId { get; set; }
+        public Guid? TemplateApiId { get; set; }
     }
 
     public class NotificationFilter

@@ -1,5 +1,6 @@
 {
   "AppSettings": {
-    "UpdateFeedUrl": "https://github.com/FBGHaider/Daryva-Updates"
+    "UpdateFeedUrl": "https://github.com/FBGHaider/Daryva-Updates",
+    "ApiBaseUrl": "http://localhost:5000"
   }
 }

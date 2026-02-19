@@ -21,6 +21,12 @@
         <DataTemplate DataType="viewModels:DashboardViewModel">
             <views:DashboardView />
         </DataTemplate>
+        <DataTemplate DataType="viewModels:ApiTestViewModel">
+            <views:ApiTestView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:MigrationViewModel">
+            <views:MigrationView />
+        </DataTemplate>
         <DataTemplate DataType="viewModels:HousesViewModel">
             <views:HousesView />
         </DataTemplate>

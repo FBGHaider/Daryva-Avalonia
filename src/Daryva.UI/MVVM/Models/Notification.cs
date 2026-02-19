@@ -3,6 +3,7 @@ namespace Daryva.MVVM.Models
     public class Notification
     {
         public int NotificationId { get; set; }
+        public Guid? ApiId { get; set; }
         public int TenantId { get; set; }
         public int? TenancyId { get; set; }
         public string Channel { get; set; } = string.Empty; // Email, WhatsApp

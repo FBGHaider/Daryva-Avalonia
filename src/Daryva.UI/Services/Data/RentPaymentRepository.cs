@@ -67,7 +67,7 @@ namespace Daryva.Services.Data
             return paymentId;
         }
 
-        public async Task<decimal> GetTotalRentPaidFromDepositAsync(int tenancyId)
+        public Task<decimal> GetTotalRentPaidFromDepositAsync(int tenancyId)
         {
             try
             {
@@ -76,11 +76,11 @@ namespace Daryva.Services.Data
                     FROM RentPayment
                     WHERE TenancyId = @TenancyId AND PaidFromDeposit = 1";
                 var result = _dbContext.ExecuteScalar<object>(sql, new { TenancyId = tenancyId });
-                return ConvertToDecimal(result);
+                return Task.FromResult(ConvertToDecimal(result));
             }
             catch
             {
-                return 0m;
+                return Task.FromResult(0m);
             }
 
             static decimal ConvertToDecimal(object? value)

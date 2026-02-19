@@ -1,0 +1,135 @@
+namespace Daryva.Api.Domain;
+
+/// <summary>
+/// Tenant in an organization (person who rents).
+/// </summary>
+public class Tenant : IOrgScopedEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OrganizationId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? UniversityName { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsArchived { get; set; }
+
+    // Navigation
+    public Organization Organization { get; set; } = null!;
+    public ICollection<Tenancy> Tenancies { get; set; } = new List<Tenancy>();
+}
+
+/// <summary>
+/// Tenancy (assignment of tenant to house with rent details).
+/// </summary>
+public class Tenancy : IOrgScopedEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OrganizationId { get; set; }
+    public Guid HouseId { get; set; }
+    public Guid TenantId { get; set; }
+    public DateTime MoveInDate { get; set; }
+    public DateTime? MoveOutDate { get; set; }
+    public int? RentStartMonth { get; set; }
+    public int? RentStartYear { get; set; }
+    public decimal RentAmountMonthly { get; set; }
+    public decimal DepositAmount { get; set; }
+    public byte PaymentDueDay { get; set; }
+    public string Status { get; set; } = "Active"; // Active, Ended
+    public string? Notes { get; set; }
+
+    // Navigation
+    public Organization Organization { get; set; } = null!;
+    public House House { get; set; } = null!;
+    public Tenant Tenant { get; set; } = null!;
+}
+
+/// <summary>
+/// House expense.
+/// </summary>
+public class Expense : IOrgScopedEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OrganizationId { get; set; }
+    public Guid HouseId { get; set; }
+    public DateTime DateIncurred { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string? Vendor { get; set; }
+    public string? Notes { get; set; }
+    public Guid? ReceiptDocumentId { get; set; }
+
+    // Navigation
+    public Organization Organization { get; set; } = null!;
+    public House House { get; set; } = null!;
+    public Document? ReceiptDocument { get; set; }
+}
+
+/// <summary>
+/// Document (file attachment for tenant, tenancy, or house).
+/// </summary>
+public class Document : IOrgScopedEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OrganizationId { get; set; }
+    public Guid? TenantId { get; set; }
+    public Guid? TenancyId { get; set; }
+    public Guid? HouseId { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string? FileMimeType { get; set; }
+    public string? StoragePath { get; set; }
+    public string? Source { get; set; }
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ValidFrom { get; set; }
+    public DateTime? ValidTo { get; set; }
+    public int Version { get; set; } = 1;
+    public bool IsActive { get; set; } = true;
+
+    // Navigation
+    public Organization Organization { get; set; } = null!;
+    public Tenant? Tenant { get; set; }
+    public Tenancy? Tenancy { get; set; }
+    public House? House { get; set; }
+}
+
+/// <summary>
+/// Rent payment.
+/// </summary>
+public class RentPayment : IOrgScopedEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OrganizationId { get; set; }
+    public Guid TenancyId { get; set; }
+    public DateTime DatePaid { get; set; }
+    public decimal AmountPaid { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string? ReferenceNumber { get; set; }
+    public string? Notes { get; set; }
+    public string? CollectedBy { get; set; }
+
+    // Navigation
+    public Organization Organization { get; set; } = null!;
+    public Tenancy Tenancy { get; set; } = null!;
+}
+
+/// <summary>
+/// Deposit payment.
+/// </summary>
+public class DepositPayment : IOrgScopedEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OrganizationId { get; set; }
+    public Guid TenancyId { get; set; }
+    public DateTime DatePaid { get; set; }
+    public decimal AmountPaid { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string? ProtectionScheme { get; set; }
+    public string? ProtectionReference { get; set; }
+    public string? Notes { get; set; }
+
+    // Navigation
+    public Organization Organization { get; set; } = null!;
+    public Tenancy Tenancy { get; set; } = null!;
+}

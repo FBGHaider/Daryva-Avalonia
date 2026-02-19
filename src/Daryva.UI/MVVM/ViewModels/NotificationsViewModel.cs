@@ -365,10 +365,12 @@ namespace Daryva.MVVM.ViewModels
                     Recipients.Add(new RecipientViewModel
                     {
                         TenantId = recipient.TenantId,
+                        ApiTenantId = recipient.ApiTenantId,
                         TenantName = recipient.TenantName,
                         Email = recipient.Email,
                         PhoneNumber = recipient.PhoneNumber,
                         TenancyId = recipient.TenancyId,
+                        ApiTenancyId = recipient.ApiTenancyId,
                         HouseAddress = recipient.HouseAddress,
                         HasEmail = recipient.HasEmail,
                         HasWhatsApp = recipient.HasWhatsApp,
@@ -483,6 +485,7 @@ namespace Daryva.MVVM.ViewModels
                     var row = new NotificationRowViewModel
                     {
                         NotificationId = notification.NotificationId,
+                        ApiId = notification.ApiId,
                         ScheduledFor = notification.ScheduledFor,
                         TenantName = notification.Tenant?.FullName ?? "Unknown",
                         HouseAddress = notification.Tenancy?.House != null 
@@ -523,6 +526,7 @@ namespace Daryva.MVVM.ViewModels
                     var row = new NotificationRowViewModel
                     {
                         NotificationId = notification.NotificationId,
+                        ApiId = notification.ApiId,
                         ScheduledFor = notification.ScheduledFor,
                         SentAt = notification.SentAt,
                         TenantName = notification.Tenant?.FullName ?? "Unknown",
@@ -635,13 +639,16 @@ namespace Daryva.MVVM.ViewModels
                     var dto = new NotificationDto
                     {
                         TenantId = recipient.TenantId,
+                        TenantApiId = recipient.ApiTenantId,
                         TenancyId = recipient.TenancyId,
+                        TenancyApiId = recipient.ApiTenancyId,
                         Channel = SelectedChannel,
                         Type = GetNotificationType(),
                         Subject = renderedSubject,
                         Body = renderedBody,
                         ScheduledFor = DateTime.Now,
-                        TemplateId = SelectedTemplateId
+                        TemplateId = SelectedTemplateId,
+                        TemplateApiId = Templates.FirstOrDefault(t => t.TemplateId == SelectedTemplateId)?.ApiId
                     };
 
                     var notification = await _notificationService.QueueNotificationAsync(dto);
@@ -704,13 +711,16 @@ namespace Daryva.MVVM.ViewModels
                     var dto = new NotificationDto
                     {
                         TenantId = recipient.TenantId,
+                        TenantApiId = recipient.ApiTenantId,
                         TenancyId = recipient.TenancyId,
+                        TenancyApiId = recipient.ApiTenancyId,
                         Channel = SelectedChannel,
                         Type = GetNotificationType(),
                         Subject = renderedSubject,
                         Body = renderedBody,
                         ScheduledFor = dt,
-                        TemplateId = SelectedTemplateId
+                        TemplateId = SelectedTemplateId,
+                        TemplateApiId = Templates.FirstOrDefault(t => t.TemplateId == SelectedTemplateId)?.ApiId
                     };
 
                     await _notificationService.QueueNotificationAsync(dto);

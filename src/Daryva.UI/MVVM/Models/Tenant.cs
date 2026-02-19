@@ -3,6 +3,7 @@ namespace Daryva.MVVM.Models
     public class Tenant
     {
         public int TenantId { get; set; }
+        public Guid? ApiId { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;

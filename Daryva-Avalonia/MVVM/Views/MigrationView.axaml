@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Daryva.MVVM.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="Daryva.MVVM.Views.MigrationView"
+             x:DataType="vm:MigrationViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="40" Spacing="20" MaxWidth="700">
+            
+            <!-- Header -->
+            <TextBlock Text="Data Migration: SQLite to API" 
+                       FontSize="24" 
+                       FontWeight="Bold" 
+                       Margin="0,0,0,10"/>
+            
+            <TextBlock TextWrapping="Wrap"
+                       Opacity="0.7"
+                       Margin="0,0,0,20">
+                This will migrate all your local SQLite data (houses, tenants, tenancies, expenses, documents, and payments) to the backend API.
+                This operation cannot be undone. Make sure you have a backup before proceeding.
+            </TextBlock>
+
+            <!-- Current Step -->
+            <Border Background="#f5f5f5"
+                    CornerRadius="8"
+                    Padding="20">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Status:" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding CurrentStep}" 
+                               FontSize="16"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Progress Bar -->
+            <StackPanel Spacing="10" IsVisible="{Binding IsMigrating}">
+                <ProgressBar Value="{Binding ProgressPercent}" 
+                             Minimum="0" 
+                             Maximum="100"
+                             Height="8"/>
+                <TextBlock HorizontalAlignment="Center" 
+                           FontSize="12" 
+                           Opacity="0.7">
+                    <Run Text="{Binding CompletedSteps}"/>
+                    <Run Text="of"/>
+                    <Run Text="{Binding TotalSteps}"/>
+                    <Run Text="steps completed"/>
+                </TextBlock>
+            </StackPanel>
+
+            <!-- Stats Grid -->
+            <Border Background="#f9f9f9" 
+                    BorderBrush="#e0e0e0" 
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="20"
+                    IsVisible="{Binding IsMigrating}">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                    
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Houses:" Margin="0,5"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Stats.HousesImported}" 
+                               FontWeight="SemiBold" Margin="0,5"/>
+                    
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tenants:" Margin="0,5"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Stats.TenantsImported}" 
+                               FontWeight="SemiBold" Margin="0,5"/>
+                    
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Tenancies:" Margin="0,5"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Stats.TenanciesImported}" 
+                               FontWeight="SemiBold" Margin="0,5"/>
+                    
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Expenses:" Margin="0,5"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Stats.ExpensesImported}" 
+                               FontWeight="SemiBold" Margin="0,5"/>
+                    
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Documents:" Margin="0,5"/>
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Stats.DocumentsImported}" 
+                               FontWeight="SemiBold" Margin="0,5"/>
+                    
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Rent Payments:" Margin="0,5"/>
+                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Stats.RentPaymentsImported}" 
+                               FontWeight="SemiBold" Margin="0,5"/>
+                    
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Deposit Payments:" Margin="0,5"/>
+                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Stats.DepositPaymentsImported}" 
+                               FontWeight="SemiBold" Margin="0,5"/>
+                </Grid>
+            </Border>
+
+            <!-- Error Message -->
+            <Border Background="#ffebee" 
+                    BorderBrush="#f44336" 
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="15"
+                    IsVisible="{Binding HasErrors}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Error" 
+                               FontWeight="SemiBold" 
+                               Foreground="#c62828"/>
+                    <TextBlock Text="{Binding ErrorMessage}" 
+                               TextWrapping="Wrap"
+                               Foreground="#c62828"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Success Message -->
+            <Border Background="#e8f5e9" 
+                    BorderBrush="#4caf50" 
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="15"
+                    IsVisible="{Binding IsComplete}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="✓ Migration Completed Successfully" 
+                               FontWeight="SemiBold" 
+                               Foreground="#2e7d32"
+                               FontSize="16"/>
+                    <TextBlock TextWrapping="Wrap"
+                               Foreground="#2e7d32">
+                        Your data has been successfully migrated to the API. You can now switch to API mode in the application settings.
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <!-- Action Button -->
+            <Button Content="Start Migration" 
+                    Command="{Binding StartMigrationCommand}"
+                    HorizontalAlignment="Center"
+                    Width="200"
+                    Height="40"
+                    FontSize="16"
+                    IsEnabled="{Binding !IsMigrating}"
+                    Margin="0,10,0,0"/>
+
+            <!-- Warning -->
+            <Border Background="#fff3e0" 
+                    BorderBrush="#ff9800" 
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="15"
+                    IsVisible="{Binding !IsMigrating}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="⚠️ Important" 
+                               FontWeight="SemiBold" 
+                               Foreground="#e65100"/>
+                    <TextBlock TextWrapping="Wrap"
+                               Foreground="#e65100">
+                        • Make sure the backend API is running before starting migration
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap"
+                               Foreground="#e65100">
+                        • This process may take several minutes depending on data size
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap"
+                               Foreground="#e65100">
+                        • Do not close the application during migration
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

@@ -3,6 +3,7 @@ namespace Daryva.MVVM.ViewModels
     public class NotificationRowViewModel
     {
         public int NotificationId { get; set; }
+        public Guid? ApiId { get; set; }
         public DateTime ScheduledFor { get; set; }
         public DateTime? SentAt { get; set; }
         public string TenantName { get; set; } = string.Empty;

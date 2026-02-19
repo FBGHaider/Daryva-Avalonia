@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Daryva.MVVM.ViewModels"
+             x:Class="Daryva.MVVM.Views.ApiTestView"
+             x:DataType="vm:ApiTestViewModel">
+
+    <Design.DataContext>
+        <vm:ApiTestViewModel/>
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Spacing="15" Margin="20">
+            <!-- Header -->
+            <TextBlock Text="API Integration Test"
+                      FontSize="24"
+                      FontWeight="Bold"/>
+
+            <!-- Status Section -->
+            <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                   Padding="15"
+                   CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Status" FontWeight="SemiBold" FontSize="16"/>
+                    
+                    <!-- Loading Indicator -->
+                    <ProgressBar IsIndeterminate="True"
+                                IsVisible="{Binding IsLoading}"
+                                Height="4"/>
+                    
+                    <!-- Status Message -->
+                    <TextBlock Text="{Binding StatusMessage}"
+                              IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                              Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                    
+                    <!-- Error Message -->
+                    <TextBlock Text="{Binding ErrorMessage}"
+                              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                              Foreground="Red"
+                              TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Action Buttons -->
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="🔄 Refresh Organizations"
+                       Command="{Binding LoadOrganizationsCommand}"
+                       IsEnabled="{Binding !IsLoading}"/>
+                
+                <Button Content="➕ Create Test Org"
+                       Command="{Binding CreateOrganizationCommand}"
+                       IsEnabled="{Binding !IsLoading}"/>
+            </StackPanel>
+
+            <!-- Organizations List -->
+            <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                   Padding="15"
+                   CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Organizations" FontWeight="SemiBold" FontSize="16"/>
+                    
+                    <TextBlock Text="No organizations found. API may not be running."
+                              IsVisible="{Binding !Organizations.Count}"
+                              Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                    
+                    <ListBox ItemsSource="{Binding Organizations}"
+                            SelectedItem="{Binding SelectedOrganization}"
+                            IsVisible="{Binding Organizations.Count}"
+                            MinHeight="150"
+                            MaxHeight="300">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="10" Margin="0,2">
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="{Binding Name}"
+                                                  FontWeight="SemiBold"
+                                                  FontSize="14"/>
+                                        <TextBlock Text="{Binding CurrentUserRole, StringFormat='Role: {0}'}"
+                                                  FontSize="12"
+                                                  Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                        <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}"
+                                                  FontSize="11"
+                                                  Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Selected Organization Details -->
+            <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                   Padding="15"
+                   CornerRadius="8"
+                   IsVisible="{Binding SelectedOrganization, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Selected Organization" FontWeight="SemiBold" FontSize="16"/>
+                    
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,0,10,8"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedOrganization.Name}" Margin="0,0,0,8"/>
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Role:" FontWeight="SemiBold" Margin="0,0,10,8"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedOrganization.CurrentUserRole}" Margin="0,0,0,8"/>
+                        
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Created:" FontWeight="SemiBold" Margin="0,0,10,8"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedOrganization.CreatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Margin="0,0,0,8"/>
+                        
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="ID:" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedOrganization.Id}" TextWrapping="Wrap"/>
+                    </Grid>
+
+                    <TextBlock Text="✓ X-Org-Id header is now set for all API requests"
+                              FontSize="12"
+                              Foreground="Green"
+                              Margin="0,10,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Help Text -->
+            <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                   Padding="15"
+                   CornerRadius="8">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="ℹ️ Instructions:" FontWeight="SemiBold"/>
+                    <TextBlock Text="1. Ensure backend API is running at http://localhost:5000" TextWrapping="Wrap"/>
+                    <TextBlock Text="2. Click 'Refresh Organizations' to load data from API" TextWrapping="Wrap"/>
+                    <TextBlock Text="3. Select an organization to set X-Org-Id header" TextWrapping="Wrap"/>
+                    <TextBlock Text="4. Create test organizations with the '+ Create Test Org' button" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

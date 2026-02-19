@@ -3,9 +3,13 @@ namespace Daryva.MVVM.Models
     public class Document
     {
         public int DocumentId { get; set; }
+        public Guid? ApiId { get; set; }
         public int? TenantId { get; set; }
+        public Guid? ApiTenantId { get; set; }
         public int? TenancyId { get; set; }
+        public Guid? ApiTenancyId { get; set; }
         public int? HouseId { get; set; }
+        public Guid? ApiHouseId { get; set; }
         public string Type { get; set; } = string.Empty; // StudentConfirmationLetter, PhotoId, RightToRent, TenancyAgreementSigned, GuarantorAgreement, InventoryCheckIn, DepositProtectionCertificate, NoticeToLeave, Other
         public string DisplayName { get; set; } = string.Empty; // Human-readable name (e.g., "Student Letter 2025/26")
         public string FileName { get; set; } = string.Empty;

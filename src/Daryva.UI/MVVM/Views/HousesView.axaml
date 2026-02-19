@@ -22,7 +22,7 @@
             <!-- Filters -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,16,0,16">
                 <TextBox Width="260"
-                         Watermark="Search by address/city/postcode"
+                         Watermark="Search by name/address/city/postcode"
                          Text="{Binding SearchTerm}"/>
                 <CheckBox Content="Active Only"
                           IsChecked="{Binding ShowActiveOnly}"
@@ -38,13 +38,14 @@
                             BorderBrush="{DynamicResource BorderBrush}" 
                             BorderThickness="0,0,0,1"
                             Padding="8,10">
-                        <Grid ColumnDefinitions="200,120,100,80,120,120">
-                            <TextBlock Grid.Column="0" Text="Address" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            <TextBlock Grid.Column="1" Text="City" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            <TextBlock Grid.Column="2" Text="Postcode" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            <TextBlock Grid.Column="3" Text="Rooms" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            <TextBlock Grid.Column="4" Text="Active Tenants" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            <TextBlock Grid.Column="5" Text="Monthly Rent" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <Grid ColumnDefinitions="180,180,120,100,80,120,120">
+                            <TextBlock Grid.Column="0" Text="Name" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="1" Text="Address" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="2" Text="City" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="3" Text="Postcode" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="4" Text="Rooms" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="5" Text="Active Tenants" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Grid.Column="6" Text="Monthly Rent" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         </Grid>
                     </Border>
                     
@@ -62,13 +63,14 @@
                                             Padding="8,8"
                                             Background="Transparent"
                                             Cursor="Hand">
-                                        <Grid ColumnDefinitions="200,120,100,80,120,120">
-                                            <TextBlock Grid.Column="0" Text="{Binding AddressLine1}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding City}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding Postcode}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding TotalRooms}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding ActiveTenantCount}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="5" Text="{Binding TotalMonthlyRent, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                        <Grid ColumnDefinitions="180,180,120,100,80,120,120">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding AddressLine1}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding City}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding Postcode}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding TotalRooms}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding ActiveTenantCount}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding TotalMonthlyRent, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

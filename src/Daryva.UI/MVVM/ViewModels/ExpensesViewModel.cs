@@ -286,7 +286,8 @@ namespace Daryva.MVVM.ViewModels
                     Expenses.Clear();
                     foreach (var expense in expenses)
                     {
-                        var houseAddress = expense.House != null ? $"{expense.House.AddressLine1}, {expense.House.City}" : "Unknown";
+                        var houseAddress = !string.IsNullOrEmpty(expense.HouseAddress) ? expense.HouseAddress : 
+                                         expense.House != null ? $"{expense.House.AddressLine1}, {expense.House.City}" : "Unknown";
                         var row = new ExpenseRowViewModel
                         {
                             ExpenseId = expense.HouseExpenseId,

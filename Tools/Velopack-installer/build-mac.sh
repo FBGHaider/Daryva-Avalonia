@@ -8,7 +8,7 @@ set -e
 VERSION="${1:-1.0.0}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROJECT_DIR="$REPO_ROOT/Daryva-Avalonia"
+PROJECT_DIR="$REPO_ROOT/src/Daryva.UI"
 ARTIFACTS_DIR="$REPO_ROOT/artifacts"
 RELEASES_DIR="$REPO_ROOT/releases"
 PUBLISH_DIR="$ARTIFACTS_DIR/osx-arm64"

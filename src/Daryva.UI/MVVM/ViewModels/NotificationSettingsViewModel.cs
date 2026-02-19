@@ -95,7 +95,7 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _defaultNotificationChannel, value);
         }
 
-        public List<string> NotificationChannelOptions { get; } = new() { "Email", "WhatsApp" };
+        public List<string> NotificationChannelOptions { get; } = new() { "Email", "SMS", "WhatsApp" };
 
         private async Task LoadAsync()
         {

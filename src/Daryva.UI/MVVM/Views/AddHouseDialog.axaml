@@ -21,6 +21,12 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="15">
                 <Grid ColumnDefinitions="120,*">
+                    <TextBlock Grid.Column="0" Text="Name:" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding Name}" Watermark="e.g., Main St Apartment A"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="120,*">
                     <TextBlock Grid.Column="0" Text="Address Line 1:" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                     <TextBox Grid.Column="1" Text="{Binding AddressLine1}"/>

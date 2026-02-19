@@ -1,21 +1,21 @@
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: daryva-sqlserver
+  postgres:
+    image: postgres:16-alpine
+    container_name: daryva-postgres
     environment:
-      - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=YourStrong@Password123
-      - MSSQL_PID=Developer
+      POSTGRES_DB: daryva
+      POSTGRES_USER: daryva
+      POSTGRES_PASSWORD: daryva_dev_password
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Password123 -Q "SELECT 1" || exit 1
+      test: ["CMD-SHELL", "pg_isready -U daryva"]
       interval: 10s
-      timeout: 3s
-      retries: 10
+      timeout: 5s
+      retries: 5
 
 volumes:
-  sqlserver_data:
+  postgres_data:
