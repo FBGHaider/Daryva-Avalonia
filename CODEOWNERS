@@ -1,8 +1,0 @@
-# Everything needs review from core
-* @fbg-engineering/daryva-core
-
-# UI owned by UI team
-/src/Daryva.UI/ @fbg-engineering/daryva-ui
-
-# Data layer owned by data team
-/src/Daryva.Data/ @fbg-engineering/daryva-data

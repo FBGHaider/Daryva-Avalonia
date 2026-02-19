@@ -32,6 +32,8 @@ bld/
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
+**/bin/
+**/obj/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -366,8 +368,13 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+# VS Code user-specific settings (keep launch.json and tasks.json tracked)
+.vscode/settings.json
+.vscode/*.log
+.vscode/.ropeproject/
+
 # Local configuration files with sensitive data (SMTP, etc.)
-Daryva-Avalonia/App.config.local
+src/Daryva.UI/App.config.local
 *.config.local
 
 # Database backups and scripts with credentials/passwords

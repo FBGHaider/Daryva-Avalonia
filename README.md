@@ -39,20 +39,20 @@ The app uses SQLite. Create the schema before first use.
 
 1. Download [DB Browser for SQLite](https://sqlitebrowser.org/)
 2. Create new database: `%AppData%\Daryva\Database\DaryvaDB.db` (Windows) or `~/Library/Application Support/Daryva/Database/DaryvaDB.db` (macOS)
-3. Execute SQL: **File → Open SQL file** → `Database/Migrations/001_CreateDatabase_SQLite.sql` → **Execute SQL**
+3. Execute SQL: **File → Open SQL file** → `src/Daryva.Data/Migrations/001_CreateDatabase_SQLite.sql` → **Execute SQL**
 
 ### Option 2: Command line
 
 **Windows:**
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:APPDATA\Daryva\Database"
-sqlite3 "$env:APPDATA\Daryva\Database\DaryvaDB.db" < Database\Migrations\001_CreateDatabase_SQLite.sql
+sqlite3 "$env:APPDATA\Daryva\Database\DaryvaDB.db" < src\Daryva.Data\Migrations\001_CreateDatabase_SQLite.sql
 ```
 
 **macOS:**
 ```bash
 mkdir -p ~/Library/Application\ Support/Daryva/Database
-sqlite3 ~/Library/Application\ Support/Daryva/Database/DaryvaDB.db < Database/Migrations/001_CreateDatabase_SQLite.sql
+sqlite3 ~/Library/Application\ Support/Daryva/Database/DaryvaDB.db < src/Daryva.Data/Migrations/001_CreateDatabase_SQLite.sql
 ```
 
 ### Option 3: Let app create file, then run migration
@@ -138,21 +138,21 @@ Check **"Column names in first line"** when importing.
 
 Prerequisites: `dotnet tool install -g vpk`
 
-Build scripts are in `velopack-installer/`:
+Build scripts are in `Tools/Velopack-installer/`:
 
 | Script | Platform | Output |
 |--------|----------|--------|
-| `velopack-installer/build-win.ps1 [version]` | Windows (win-x64) | `artifacts/win-x64`, `releases/` |
-| `velopack-installer/build-mac.sh [version]` | macOS Apple Silicon | `artifacts/osx-arm64`, `releases/` |
-| `velopack-installer/build-mac-intel.sh [version]` | macOS Intel | `artifacts/osx-x64`, `releases/` |
+| `Tools/Velopack-installer/build-win.ps1 [version]` | Windows (win-x64) | `artifacts/win-x64`, `releases/` |
+| `Tools/Velopack-installer/build-mac.sh [version]` | macOS Apple Silicon | `artifacts/osx-arm64`, `releases/` |
+| `Tools/Velopack-installer/build-mac-intel.sh [version]` | macOS Intel | `artifacts/osx-x64`, `releases/` |
 
 Example:
 ```powershell
-.\velopack-installer\build-win.ps1 1.0.0
+.\Tools\Velopack-installer\build-win.ps1 1.0.0
 ```
 
 ```bash
-./velopack-installer/build-mac.sh 1.0.0
+./Tools/Velopack-installer/build-mac.sh 1.0.0
 ```
 
 Upload the `releases/` contents to [GitHub Releases](https://github.com/FBGHaider/Daryva-Updates/releases) for auto-updates.
@@ -166,7 +166,7 @@ Upload the `releases/` contents to [GitHub Releases](https://github.com/FBGHaide
 
 **Recommended:** `Daryva-Setup-{version}.exe` gives you both the full wizard and GitHub updates. It runs Velopack Setup.exe during install (with `--silent` to avoid full-screen splash). Velopack installs to `%LocalAppData%\FBGHaider.Daryva`, enabling Check for updates in Settings → General.
 
-**Build:** Run `.\velopack-installer\build-win.ps1 -Version 1.0.0` (full build). Upload `Daryva-Setup-{version}.exe` and the Velopack files to [Daryva-Updates releases](https://github.com/FBGHaider/Daryva-Updates/releases).
+**Build:** Run `.\Tools\Velopack-installer\build-win.ps1 -Version 1.0.0` (full build). Upload `Daryva-Setup-{version}.exe` and the Velopack files to [Daryva-Updates releases](https://github.com/FBGHaider/Daryva-Updates/releases).
 
 ### Branded Installer (no updates)
 
@@ -183,7 +183,7 @@ Use `-SkipInnoSetup` to skip the Inno wizard and build only `FBGHaider.Daryva-wi
 
 **macOS:** The `.pkg` installer includes Welcome, License (terms), and Conclusion pages. Users can choose `/Applications` or `~/Applications`.
 
-**Assets:** Customize `velopack-installer/installer-assets/`:
+**Assets:** Customize `Tools/Velopack-installer/installer-assets/`:
 - `logo.png` or `splash.png` – used to generate `logo-small.bmp` (smaller logo in progress window)
 - `terms.rtf`, `welcome.rtf`, `conclusion.rtf` – macOS pkg pages
 
@@ -203,9 +203,9 @@ Exports: `~/Documents/Daryva Exports/` (or user-selected path)
 
 ## Project Layout
 
-- `Daryva-Avalonia/` – Avalonia app (MVVM, services, themes)
-- `Database/Migrations/` – SQLite schema and migrations
-- `velopack-installer/` – Velopack build scripts and installer assets (logo, terms, welcome)
+- `src/Daryva.UI/` – Avalonia app (MVVM, services, themes)
+- `src/Daryva.Data/Migrations/` – SQLite schema and migrations
+- `Tools/Velopack-installer/` – Velopack build scripts and installer assets (logo, terms, welcome)
 
 ---
 

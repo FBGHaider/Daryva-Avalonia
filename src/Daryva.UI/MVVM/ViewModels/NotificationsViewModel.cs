@@ -418,7 +418,7 @@ namespace Daryva.MVVM.ViewModels
                 {
                     _dialogService.ShowMessage(
                         "The NotificationTemplate table doesn't exist yet. Please run the migration script:\n\n" +
-                        "Database/Migrations/009_CreateNotificationTables.sql\n\n" +
+                        "src/Daryva.Data/Migrations/009_CreateNotificationTables.sql\n\n" +
                         "This will create the required tables and default templates.",
                         "Migration Required");
                 }

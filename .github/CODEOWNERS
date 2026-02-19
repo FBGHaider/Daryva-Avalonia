@@ -1,0 +1,8 @@
+* @ORG/daryva-core
+
+/src/Daryva.UI/ @ORG/daryva-ui
+/src/Daryva.Data/ @ORG/daryva-data
+/src/Daryva.Core/ @ORG/daryva-core
+/Tests/ @ORG/qa-testing
+/Scripts/ @ORG/daryva-devops
+/Tools/ @ORG/daryva-devops
