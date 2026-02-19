@@ -883,48 +883,6 @@ namespace Daryva.Services.Business
             }
         }
 
-        public async Task<IEnumerable<DashboardRentDueItem>> GetRentDueInNext7DaysAsync()
-        {
-            try
-            {
-                var currentDate = DateTime.Now;
-                var endDate = currentDate.AddDays(7);
-                var items = new List<DashboardRentDueItem>();
-
-                // Use the ledger method which already handles all the connection logic properly
-                var currentMonthRows = await GetRentLedgerForMonthAsync(currentDate.Year, currentDate.Month).ConfigureAwait(false);
-                
-                // Also check next month if needed
-                IEnumerable<RentLedgerRowViewModel> nextMonthRows = Enumerable.Empty<RentLedgerRowViewModel>();
-                if (endDate.Month != currentDate.Month || endDate.Year != currentDate.Year)
-                {
-                    nextMonthRows = await GetRentLedgerForMonthAsync(endDate.Year, endDate.Month).ConfigureAwait(false);
-                }
-
-                // Combine and filter for due dates in next 7 days
-                var allRows = currentMonthRows.Concat(nextMonthRows)
-                    .Where(r => r.DueDate >= currentDate && r.DueDate <= endDate && r.Balance > 0);
-
-                foreach (var row in allRows)
-                {
-                    items.Add(new DashboardRentDueItem
-                    {
-                        TenancyId = row.TenancyId,
-                        TenantName = row.TenantName,
-                        HouseAddress = row.HouseAddress,
-                        Amount = row.Balance,
-                        DueDate = row.DueDate
-                    });
-                }
-
-                return items.OrderBy(i => i.DueDate);
-            }
-            catch
-            {
-                return Enumerable.Empty<DashboardRentDueItem>();
-            }
-        }
-
         public async Task<IEnumerable<DashboardOverdueRentItem>> GetOverdueRentAsync()
         {
             try

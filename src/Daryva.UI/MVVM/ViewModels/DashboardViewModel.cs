@@ -24,7 +24,6 @@ namespace Daryva.MVVM.ViewModels
 
         private int _housesCount;
         private int _activeTenantsCount;
-        private decimal _rentDueThisMonth;
         private int _overdueRentCount;
         private decimal _overdueRentAmount;
         private int _documentsExpiringSoonCount;
@@ -46,7 +45,6 @@ namespace Daryva.MVVM.ViewModels
             _dialogService = dialogService;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
-            RentDueInNext7Days = new ObservableCollection<RentDueItem>();
             OverdueRent = new ObservableCollection<OverdueRentItem>();
             MissingDocuments = new ObservableCollection<MissingDocumentItem>();
             DepositReturnReminders = new ObservableCollection<DepositReturnReminderItem>();
@@ -180,12 +178,6 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _activeTenantsCount, value);
         }
 
-        public decimal RentDueThisMonth
-        {
-            get => _rentDueThisMonth;
-            set => SetProperty(ref _rentDueThisMonth, value);
-        }
-
         public int OverdueRentCount
         {
             get => _overdueRentCount;
@@ -204,7 +196,6 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _documentsExpiringSoonCount, value);
         }
 
-        public ObservableCollection<RentDueItem> RentDueInNext7Days { get; }
         public ObservableCollection<OverdueRentItem> OverdueRent { get; }
         public ObservableCollection<MissingDocumentItem> MissingDocuments { get; }
         public ObservableCollection<DepositReturnReminderItem> DepositReturnReminders { get; }
@@ -258,49 +249,12 @@ namespace Daryva.MVVM.ViewModels
 
                     // Rent due total: use charge-based unpaid balance (payments linked by RentChargeId) so it matches
                     // reality when all tenants have paid. Ledger aggregation can differ; this is the source of truth.
+                    // NOTE: Rent due calculation kept for overdue rent logic but not displayed separately anymore
                     var currentMonthUnpaid = await _paymentService.GetTotalUnpaidBalanceForMonthAsync(currentDate.Year, currentDate.Month);
-                    var overdueFromPreviousMonths = 0m;
-                    for (int i = 1; i <= 12; i++)
-                    {
-                        var past = currentDate.AddMonths(-i);
-                        overdueFromPreviousMonths += await _paymentService.GetTotalUnpaidBalanceForMonthAsync(past.Year, past.Month);
-                    }
-                    var totalRentDue = currentMonthUnpaid + overdueFromPreviousMonths;
 
                     // Calculate rent due in next 7 days - includes current month and next month if needed
+                    // NOTE: This calculation is kept internally but the "Rent Due in Next 7 Days" table is no longer displayed
                     var endDate = currentDate.AddDays(7);
-                    var rentDueInNext7DaysList = new List<RentDueItem>();
-                    
-                    // Also check next month if 7 days spans into it
-                    var nextMonthRows = new List<RentLedgerRowViewModel>();
-                    if (endDate.Month != currentDate.Month || endDate.Year != currentDate.Year)
-                    {
-                        var nextMonthDate = endDate;
-                        var nextMonthLedger = await _paymentService.GetRentLedgerForMonthAsync(
-                            nextMonthDate.Year, nextMonthDate.Month, null, null, null);
-                        nextMonthRows = nextMonthLedger.ToList();
-                    }
-                    
-                    // Combine current month rows with next month rows for the 7-day window
-                    var allRowsFor7Days = ledgerList
-                        .Where(r => r.DueDate.Year == currentDate.Year && r.DueDate.Month == currentDate.Month)
-                        .Concat(nextMonthRows)
-                        .Where(r => r.DueDate >= currentDate && r.DueDate <= endDate && r.Balance > 0)
-                        .OrderBy(r => r.DueDate)
-                        .ToList();
-                    
-                    foreach (var row in allRowsFor7Days)
-                    {
-                        var item = new RentDueItem
-                        {
-                            TenantName = row.TenantName,
-                            HouseAddress = row.HouseAddress,
-                            Amount = row.Balance,
-                            DueDate = row.DueDate
-                        };
-                        item.DueDateDisplay = "Due " + DateTimeFormatProvider.FormatDate(row.DueDate);
-                        rentDueInNext7DaysList.Add(item);
-                    }
 
                     // Calculate overdue rent - only show tenants whose MOST RECENT period is unpaid/overdue
                     // If a tenant paid their most recent period, they should NOT appear, even if they have older unpaid periods
@@ -355,14 +309,14 @@ namespace Daryva.MVVM.ViewModels
                     if (Dispatcher.UIThread.CheckAccess())
                     {
                         // Already on UI thread - update directly
-                        UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
+                        UpdateDashboardProperties(houseCount, activeTenantCount, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
                     }
                     else
                     {
                         // Need to marshal to UI thread
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            UpdateDashboardProperties(houseCount, activeTenantCount, totalRentDue, rentDueInNext7DaysList, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
+                            UpdateDashboardProperties(houseCount, activeTenantCount, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
                         });
                     }
 
@@ -390,23 +344,13 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void UpdateDashboardProperties(int houseCount, int activeTenantCount, decimal totalRentDue, 
-            List<RentDueItem> rentDueInNext7DaysList, List<OverdueRentItem> overdueRentList, 
+        private void UpdateDashboardProperties(int houseCount, int activeTenantCount, 
+            List<OverdueRentItem> overdueRentList, 
             int overdueCount, decimal overdueAmount, List<DepositReturnReminderItem> depositRemindersList)
         {
             // Update basic counts
             HousesCount = houseCount;
             ActiveTenantsCount = activeTenantCount;
-            
-            // Update rent due this month
-            RentDueThisMonth = totalRentDue;
-            
-            // Update rent due in next 7 days
-            RentDueInNext7Days.Clear();
-            foreach (var item in rentDueInNext7DaysList)
-            {
-                RentDueInNext7Days.Add(item);
-            }
             
             // Update overdue rent
             OverdueRent.Clear();
@@ -427,12 +371,10 @@ namespace Daryva.MVVM.ViewModels
             DocumentsExpiringSoonCount = 0;
             
             // Force property change notifications
-            OnPropertyChanged(nameof(RentDueThisMonth));
             OnPropertyChanged(nameof(OverdueRentAmount));
             OnPropertyChanged(nameof(OverdueRentCount));
             OnPropertyChanged(nameof(HousesCount));
             OnPropertyChanged(nameof(ActiveTenantsCount));
-            OnPropertyChanged(nameof(RentDueInNext7Days));
             OnPropertyChanged(nameof(OverdueRent));
             OnPropertyChanged(nameof(DepositReturnReminders));
             OnPropertyChanged(nameof(ShowEmptyDepositMessage));
@@ -512,15 +454,6 @@ namespace Daryva.MVVM.ViewModels
         {
             _navigationService.NavigateTo<DocumentsViewModel>();
         }
-    }
-
-    public class RentDueItem
-    {
-        public string TenantName { get; set; } = string.Empty;
-        public string HouseAddress { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
-        public DateTime DueDate { get; set; }
-        public string DueDateDisplay { get; set; } = string.Empty;
     }
 
     public class OverdueRentItem

@@ -16,7 +16,7 @@
     <!-- Dashboard Card Colors -->
     <Color x:Key="CardHousesBackground">#1E3A5F</Color>
     <Color x:Key="CardTenantsBackground">#2E5A3E</Color>
-    <Color x:Key="CardRentDueBackground">#5A5A2E</Color>
+
     <Color x:Key="CardOverdueBackground">#5A2E2E</Color>
     <Color x:Key="CardDocumentsBackground">#4A3A2E</Color>
     
@@ -40,7 +40,6 @@
     <!-- Dashboard Card Brushes -->
     <SolidColorBrush x:Key="CardHousesBackgroundBrush" Color="{StaticResource CardHousesBackground}"/>
     <SolidColorBrush x:Key="CardTenantsBackgroundBrush" Color="{StaticResource CardTenantsBackground}"/>
-    <SolidColorBrush x:Key="CardRentDueBackgroundBrush" Color="{StaticResource CardRentDueBackground}"/>
     <SolidColorBrush x:Key="CardOverdueBackgroundBrush" Color="{StaticResource CardOverdueBackground}"/>
     <SolidColorBrush x:Key="CardDocumentsBackgroundBrush" Color="{StaticResource CardDocumentsBackground}"/>
     

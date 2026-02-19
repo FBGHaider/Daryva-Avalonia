@@ -11,7 +11,7 @@
                        FontWeight="Bold"/>
 
             <!-- Summary Cards Row -->
-            <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,8,0,0">
+            <Grid ColumnDefinitions="*,*,*" Margin="0,8,0,0">
                 <Grid.Styles>
                     <Style Selector="Border.stat-card">
                         <Setter Property="Padding" Value="16"/>
@@ -54,14 +54,6 @@
                     </StackPanel>
                 </Border>
                 
-                <!-- Rent Due This Month Card -->
-                <Border Grid.Column="2" Classes="stat-card" Background="{DynamicResource CardRentDueBackgroundBrush}">
-                    <StackPanel>
-                        <TextBlock Classes="stat-label" Text="Rent Due This Month"/>
-                        <TextBlock Classes="stat-value" Text="{Binding RentDueThisMonth, StringFormat='£{0:N2}'}"/>
-                    </StackPanel>
-                </Border>
-                
                 <!-- Overdue Rent Card -->
                 <Border Grid.Column="3" Classes="stat-card" Background="{DynamicResource CardOverdueBackgroundBrush}">
                     <StackPanel>
@@ -93,39 +85,6 @@
                     <Button Content="Upload Document" Command="{Binding UploadDocumentCommand}"
                             Padding="16,10" Background="{DynamicResource AccentBrush}" Foreground="White"/>
                 </StackPanel>
-            </StackPanel>
-
-            <!-- Rent Due in Next 7 Days Table -->
-            <StackPanel Spacing="12" Margin="0,8,0,0">
-                <TextBlock Text="Rent Due in Next 7 Days" FontSize="18" FontWeight="SemiBold"/>
-                
-                <!-- Table Header -->
-                <Border Background="{DynamicResource TableHeaderBackgroundBrush}" CornerRadius="4,4,0,0" Padding="0">
-                    <Grid ColumnDefinitions="2*,2*,*,*">
-                        <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" Foreground="White" Padding="16,12"/>
-                        <TextBlock Grid.Column="1" Text="House" FontWeight="SemiBold" Foreground="White" Padding="16,12"/>
-                        <TextBlock Grid.Column="2" Text="Amount" FontWeight="SemiBold" Foreground="White" Padding="16,12" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="3" Text="Due Date" FontWeight="SemiBold" Foreground="White" Padding="16,12" HorizontalAlignment="Right"/>
-                    </Grid>
-                </Border>
-                
-                <!-- Table Rows -->
-                <ItemsControl ItemsSource="{Binding RentDueInNext7Days}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{DynamicResource TableRowEvenBackgroundBrush}" 
-                                    BorderBrush="{DynamicResource BorderBrush}" 
-                                    BorderThickness="0,0,0,1">
-                                <Grid ColumnDefinitions="2*,2*,*,*">
-                                    <TextBlock Grid.Column="0" Text="{Binding TenantName}" Padding="16,10" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" Padding="16,10" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Amount, StringFormat='£{0:N2}'}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding DueDateDisplay}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
             </StackPanel>
 
             <!-- Deposit Return Reminders (left tenants with deposit to return) -->

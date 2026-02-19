@@ -13,10 +13,8 @@ namespace Daryva.Services.Business
         Task<IEnumerable<DepositLedgerRowViewModel>> GetDepositLedgerForMonthAsync(int year, int month, int? houseId = null, string? statusFilter = null, string? searchTerm = null);
         Task<IEnumerable<TransactionRowViewModel>> GetTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null, string? paymentType = null, int? houseId = null, int? tenantId = null, string? method = null);
         Task<IEnumerable<PaymentDetailViewModel>> GetPaymentsForRentChargeAsync(int rentChargeId);
-        Task<decimal> GetTotalRentDueThisMonthAsync();
         /// <summary>Total unpaid balance for a given month, using payments linked to each charge (RentChargeId). One balance per tenancy; dedupes duplicate charges.</summary>
         Task<decimal> GetTotalUnpaidBalanceForMonthAsync(int year, int month);
-        Task<IEnumerable<DashboardRentDueItem>> GetRentDueInNext7DaysAsync();
         Task<IEnumerable<DashboardOverdueRentItem>> GetOverdueRentAsync();
         Task<IEnumerable<DepositReturnReminderItem>> GetDepositReturnRemindersAsync();
         Task<bool> UnrecordPaymentAsync(int paymentId, string paymentType);
@@ -27,15 +25,6 @@ namespace Daryva.Services.Business
         Task<int> RepairRentPaymentChargeLinksAsync();
         /// <summary>Record that deposit was paid back to the tenant (so they disappear from deposit-return list and deposit ledger after that date).</summary>
         Task RecordDepositReturnedAsync(int tenancyId, DateTime returnedDate, decimal amountReturned, string? notes = null);
-    }
-
-    public class DashboardRentDueItem
-    {
-        public string TenantName { get; set; } = string.Empty;
-        public string HouseAddress { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
-        public DateTime DueDate { get; set; }
-        public int TenancyId { get; set; }
     }
 
     public class DashboardOverdueRentItem

@@ -10,8 +10,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = $PSScriptRoot
-$RepoRoot = Split-Path -Parent $ScriptDir
-$ProjectDir = Join-Path $RepoRoot "Daryva-Avalonia"
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+$ProjectDir = Join-Path $RepoRoot "src\Daryva.UI"
 $ArtifactsDir = Join-Path $RepoRoot "artifacts"
 $ReleasesDir = Join-Path $RepoRoot "releases"
 $PublishDir = Join-Path $ArtifactsDir "win-x64"
