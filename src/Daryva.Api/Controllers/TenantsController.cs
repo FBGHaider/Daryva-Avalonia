@@ -148,8 +148,8 @@ public class TenantsController : ControllerBase
             Id = Guid.NewGuid(),
             OrganizationId = _tenantContext.CurrentOrgId.Value,
             FullName = request.FullName,
-            Email = request.Email,
-            PhoneNumber = request.PhoneNumber,
+            Email = request.Email ?? string.Empty,
+            PhoneNumber = request.PhoneNumber ?? string.Empty,
             CreatedAt = DateTime.UtcNow,
             IsArchived = false
         };

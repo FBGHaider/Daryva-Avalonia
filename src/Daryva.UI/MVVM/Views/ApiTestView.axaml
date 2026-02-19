@@ -49,6 +49,10 @@
                 <Button Content="➕ Create Test Org"
                        Command="{Binding CreateOrganizationCommand}"
                        IsEnabled="{Binding !IsLoading}"/>
+
+                  <Button Content="🗑 Delete Selected Org"
+                      Command="{Binding DeleteSelectedOrganizationCommand}"
+                      IsEnabled="{Binding !IsLoading}"/>
             </StackPanel>
 
             <!-- Organizations List -->
@@ -63,7 +67,7 @@
                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
                     
                     <ListBox ItemsSource="{Binding Organizations}"
-                            SelectedItem="{Binding SelectedOrganization}"
+                            SelectedItem="{Binding SelectedOrganization, Mode=TwoWay}"
                             IsVisible="{Binding Organizations.Count}"
                             MinHeight="150"
                             MaxHeight="300">

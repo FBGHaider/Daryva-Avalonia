@@ -29,6 +29,9 @@ public class HouseDto
     [JsonPropertyName("postcode")]
     public string Postcode { get; set; } = string.Empty;
 
+    [JsonPropertyName("totalRooms")]
+    public int TotalRooms { get; set; }
+
     [JsonPropertyName("createdAt")]
     public DateTime CreatedAt { get; set; }
 
@@ -55,6 +58,9 @@ public class CreateHouseDto
 
     [JsonPropertyName("postcode")]
     public string Postcode { get; set; } = string.Empty;
+
+    [JsonPropertyName("totalRooms")]
+    public int TotalRooms { get; set; }
 }
 
 public class UpdateHouseDto
@@ -73,6 +79,9 @@ public class UpdateHouseDto
 
     [JsonPropertyName("postcode")]
     public string? Postcode { get; set; }
+
+    [JsonPropertyName("totalRooms")]
+    public int? TotalRooms { get; set; }
 }
 
 /// <summary>

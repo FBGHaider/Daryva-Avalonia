@@ -79,6 +79,8 @@ public class BulkImportService : IBulkImportService
         var tenantIdMap = new Dictionary<int, Guid>();
         var tenancyIdMap = new Dictionary<int, Guid>();
         var documentIdMap = new Dictionary<int, Guid>();
+        var rentPaymentIdMap = new Dictionary<int, Guid>();
+        var depositPaymentIdMap = new Dictionary<int, Guid>();
         var templateIdMap = new Dictionary<int, Guid>();
         var notificationIdMap = new Dictionary<int, Guid>();
 
@@ -125,6 +127,16 @@ public class BulkImportService : IBulkImportService
 
                     if (existingHouse != null)
                     {
+                        if (existingHouse.TotalRooms != importHouse.TotalRooms)
+                        {
+                            var trackedExisting = await _dbContext.Houses
+                                .FirstOrDefaultAsync(h => h.Id == existingHouse.Id, cancellationToken);
+                            if (trackedExisting != null)
+                            {
+                                trackedExisting.TotalRooms = importHouse.TotalRooms;
+                            }
+                        }
+
                         _logger.LogInformation("House already exists: {Address}, {City}, {Postcode}", addressLine1, city, postcode);
                         houseIdMap[importHouse.OldId] = existingHouse.Id;
                         continue;
@@ -144,6 +156,7 @@ public class BulkImportService : IBulkImportService
                         AddressLine2 = string.IsNullOrWhiteSpace(importHouse.AddressLine2) ? null : importHouse.AddressLine2.Trim(),
                         City = city,
                         Postcode = postcode,
+                        TotalRooms = importHouse.TotalRooms,
                         CreatedAt = importHouse.CreatedAt > DateTime.MinValue ? importHouse.CreatedAt : DateTime.UtcNow
                     };
 
@@ -214,8 +227,8 @@ public class BulkImportService : IBulkImportService
                         Id = Guid.NewGuid(),
                         OrganizationId = organizationId,
                         FullName = fullName,
-                        PhoneNumber = string.IsNullOrWhiteSpace(importTenant.PhoneNumber) ? null : importTenant.PhoneNumber.Trim(),
-                        Email = string.IsNullOrWhiteSpace(importTenant.Email) ? null : importTenant.Email.Trim(),
+                        PhoneNumber = string.IsNullOrWhiteSpace(importTenant.PhoneNumber) ? string.Empty : importTenant.PhoneNumber.Trim(),
+                        Email = string.IsNullOrWhiteSpace(importTenant.Email) ? string.Empty : importTenant.Email.Trim(),
                         UniversityName = string.IsNullOrWhiteSpace(importTenant.UniversityName) ? null : importTenant.UniversityName.Trim(),
                         CreatedAt = importTenant.CreatedAt > DateTime.MinValue ? importTenant.CreatedAt : DateTime.UtcNow,
                         IsArchived = importTenant.IsArchived
@@ -473,6 +486,7 @@ public class BulkImportService : IBulkImportService
                     };
 
                     _dbContext.RentPayments.Add(payment);
+                    rentPaymentIdMap[importPayment.OldId] = payment.Id;
                     response.Stats.RentPaymentsImported++;
                 }
                 catch (Exception ex)
@@ -527,6 +541,7 @@ public class BulkImportService : IBulkImportService
                     };
 
                     _dbContext.DepositPayments.Add(deposit);
+                    depositPaymentIdMap[importDeposit.OldId] = deposit.Id;
                     response.Stats.DepositPaymentsImported++;
                 }
                 catch (Exception ex)
@@ -692,6 +707,8 @@ public class BulkImportService : IBulkImportService
             response.IdMappings["houses"] = houseIdMap.ToDictionary(k => k.Key, v => v.Value);
             response.IdMappings["tenants"] = tenantIdMap.ToDictionary(k => k.Key, v => v.Value);
             response.IdMappings["tenancies"] = tenancyIdMap.ToDictionary(k => k.Key, v => v.Value);
+            response.IdMappings["rentPayments"] = rentPaymentIdMap.ToDictionary(k => k.Key, v => v.Value);
+            response.IdMappings["depositPayments"] = depositPaymentIdMap.ToDictionary(k => k.Key, v => v.Value);
             response.IdMappings["notificationTemplates"] = templateIdMap.ToDictionary(k => k.Key, v => v.Value);
             response.IdMappings["notifications"] = notificationIdMap.ToDictionary(k => k.Key, v => v.Value);
 

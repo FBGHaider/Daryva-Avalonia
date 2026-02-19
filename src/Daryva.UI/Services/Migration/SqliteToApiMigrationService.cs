@@ -3,14 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Daryva.Services.Api;
 using Daryva.Services.Data;
+using Daryva.Services;
 
 namespace Daryva.Services.Migration;
 
 public class SqliteToApiMigrationService : IMigrationService
 {
+    private const string HouseIdMapSettingKey = "ApiMigration.HouseIdMap";
+    private const string TenantIdMapSettingKey = "ApiMigration.TenantIdMap";
+    private const string TenancyIdMapSettingKey = "ApiMigration.TenancyIdMap";
+    private const string RentPaymentIdMapSettingKey = "ApiMigration.RentPaymentIdMap";
+    private const string DepositPaymentIdMapSettingKey = "ApiMigration.DepositPaymentIdMap";
+
     private readonly IHouseRepository _houseRepository;
     private readonly ITenantRepository _tenantRepository;
     private readonly ITenancyRepository _tenancyRepository;
@@ -20,6 +28,7 @@ public class SqliteToApiMigrationService : IMigrationService
     private readonly IDepositPaymentRepository _depositPaymentRepository;
     private readonly INotificationRepository _notificationRepository;
     private readonly IApiClient _apiClient;
+    private readonly IConfigurationService _configurationService;
 
     public SqliteToApiMigrationService(
         IHouseRepository houseRepository,
@@ -30,7 +39,8 @@ public class SqliteToApiMigrationService : IMigrationService
         IRentPaymentRepository rentPaymentRepository,
         IDepositPaymentRepository depositPaymentRepository,
         INotificationRepository notificationRepository,
-        IApiClient apiClient)
+        IApiClient apiClient,
+        IConfigurationService configurationService)
     {
         _houseRepository = houseRepository;
         _tenantRepository = tenantRepository;
@@ -41,6 +51,7 @@ public class SqliteToApiMigrationService : IMigrationService
         _depositPaymentRepository = depositPaymentRepository;
         _notificationRepository = notificationRepository;
         _apiClient = apiClient;
+        _configurationService = configurationService;
     }
 
     // Helper methods to ensure DateTime is treated as UTC for PostgreSQL
@@ -92,7 +103,8 @@ public class SqliteToApiMigrationService : IMigrationService
                 AddressLine1 = h.AddressLine1,
                 AddressLine2 = h.AddressLine2,
                 City = h.City,
-                Postcode = h.Postcode
+                Postcode = h.Postcode,
+                TotalRooms = h.TotalRooms
             }).ToList();
 
             // Step 2: Read Tenants
@@ -474,6 +486,21 @@ public class SqliteToApiMigrationService : IMigrationService
                 stats.NotificationAttemptsImported = apiResponse.Stats.NotificationAttemptsImported;
             }
 
+            if (apiResponse.IdMappings.TryGetValue("houses", out var houseIdMap) && houseIdMap.Count > 0)
+                _configurationService.SetLocalValue(HouseIdMapSettingKey, JsonSerializer.Serialize(houseIdMap));
+
+            if (apiResponse.IdMappings.TryGetValue("tenants", out var tenantIdMap) && tenantIdMap.Count > 0)
+                _configurationService.SetLocalValue(TenantIdMapSettingKey, JsonSerializer.Serialize(tenantIdMap));
+
+            if (apiResponse.IdMappings.TryGetValue("tenancies", out var tenancyIdMap) && tenancyIdMap.Count > 0)
+                _configurationService.SetLocalValue(TenancyIdMapSettingKey, JsonSerializer.Serialize(tenancyIdMap));
+
+            if (apiResponse.IdMappings.TryGetValue("rentPayments", out var rentPaymentIdMap) && rentPaymentIdMap.Count > 0)
+                _configurationService.SetLocalValue(RentPaymentIdMapSettingKey, JsonSerializer.Serialize(rentPaymentIdMap));
+
+            if (apiResponse.IdMappings.TryGetValue("depositPayments", out var depositPaymentIdMap) && depositPaymentIdMap.Count > 0)
+                _configurationService.SetLocalValue(DepositPaymentIdMapSettingKey, JsonSerializer.Serialize(depositPaymentIdMap));
+
             currentStep++;
             progress.Report(new MigrationProgress
             {
@@ -501,6 +528,7 @@ public class SqliteToApiMigrationService : IMigrationService
             };
         }
     }
+
 }
 
 public class ImportHouseDto
@@ -655,6 +683,7 @@ public class BulkImportResponseDto
     public string Message { get; set; } = string.Empty;
     public ImportStatsDto? Stats { get; set; }
     public List<string> Errors { get; set; } = new();
+    public Dictionary<string, Dictionary<int, Guid>> IdMappings { get; set; } = new();
 }
 
 public class ImportStatsDto

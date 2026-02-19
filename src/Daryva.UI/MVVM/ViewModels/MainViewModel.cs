@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Navigation;
@@ -13,6 +14,7 @@ namespace Daryva.MVVM.ViewModels
     {
         private readonly INavigationService _navigationService;
         private readonly ISettingsService _settingsService;
+        private readonly IConfigurationService _configurationService;
         private readonly IApiClient _apiClient;
         private readonly IOrganizationApiService _organizationApiService;
         private BaseViewModel? _currentViewModel;
@@ -20,10 +22,11 @@ namespace Daryva.MVVM.ViewModels
         private EventHandler<BaseViewModel?>? _navigationHandler;
         private bool _isNavigationCollapsed;
 
-        public MainViewModel(INavigationService navigationService, ISettingsService settingsService, IApiClient apiClient, IOrganizationApiService organizationApiService)
+        public MainViewModel(INavigationService navigationService, ISettingsService settingsService, IConfigurationService configurationService, IApiClient apiClient, IOrganizationApiService organizationApiService)
         {
             _navigationService = navigationService;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
             _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _organizationApiService = organizationApiService ?? throw new ArgumentNullException(nameof(organizationApiService));
 
@@ -31,8 +34,6 @@ namespace Daryva.MVVM.ViewModels
             NavigationItems = new ObservableCollection<NavigationItem>
             {
                 new NavigationItem { Title = "Dashboard", Icon = "🏠", ViewModelType = typeof(DashboardViewModel) },
-                new NavigationItem { Title = "API Test", Icon = "🔌", ViewModelType = typeof(ApiTestViewModel) },
-                new NavigationItem { Title = "Migration", Icon = "📦", ViewModelType = typeof(MigrationViewModel) },
                 new NavigationItem { Title = "Houses", Icon = "🏘️", ViewModelType = typeof(HousesViewModel) },
                 new NavigationItem { Title = "Tenants", Icon = "👥", ViewModelType = typeof(TenantsViewModel) },
                 new NavigationItem { Title = "Rent & Payments", Icon = "💰", ViewModelType = typeof(RentPaymentsViewModel) },
@@ -72,8 +73,20 @@ namespace Daryva.MVVM.ViewModels
             {
                 // Try to load organizations and auto-select
                 var orgs = await _organizationApiService.GetUserOrganizationsAsync();
+
+                var preferredOrgRaw = _configurationService.GetValue("ApiCurrentOrgId");
+                Guid? preferredOrgId = Guid.TryParse(preferredOrgRaw, out var parsedOrgId) ? parsedOrgId : null;
+                var preferredOrg = preferredOrgId.HasValue
+                    ? orgs.FirstOrDefault(o => o.Id == preferredOrgId.Value)
+                    : null;
                 
-                if (orgs.Count == 1)
+                if (preferredOrg != null)
+                {
+                    _apiClient.SetCurrentOrgId(preferredOrg.Id);
+                    NavigateToDashboard();
+                    _ = LoadAppStartPageAndNavigateAsync();
+                }
+                else if (orgs.Count == 1)
                 {
                     // Auto-select single organization
                     _apiClient.SetCurrentOrgId(orgs[0].Id);
@@ -82,8 +95,10 @@ namespace Daryva.MVVM.ViewModels
                 }
                 else if (orgs.Count > 1)
                 {
-                    // Multiple orgs - navigate to API Test to let user choose
-                    NavigateToApiTest();
+                    // Multiple orgs - default to first, user can change in API Test
+                    _apiClient.SetCurrentOrgId(orgs[0].Id);
+                    NavigateToDashboard();
+                    _ = LoadAppStartPageAndNavigateAsync();
                 }
                 else
                 {
@@ -161,10 +176,6 @@ namespace Daryva.MVVM.ViewModels
 
             if (item.ViewModelType == typeof(DashboardViewModel))
                 NavigateToDashboard();
-            else if (item.ViewModelType == typeof(ApiTestViewModel))
-                NavigateToApiTest();
-            else if (item.ViewModelType == typeof(MigrationViewModel))
-                NavigateToMigration();
             else if (item.ViewModelType == typeof(HousesViewModel))
                 NavigateToHouses();
             else if (item.ViewModelType == typeof(TenantsViewModel))
@@ -191,12 +202,6 @@ namespace Daryva.MVVM.ViewModels
         {
             _navigationService.NavigateTo<ApiTestViewModel>();
             SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(ApiTestViewModel));
-        }
-
-        private void NavigateToMigration()
-        {
-            _navigationService.NavigateTo<MigrationViewModel>();
-            SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(MigrationViewModel));
         }
 
         private void NavigateToHouses()

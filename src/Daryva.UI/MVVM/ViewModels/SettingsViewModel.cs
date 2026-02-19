@@ -47,7 +47,7 @@ namespace Daryva.MVVM.ViewModels
         {
             "General",
             "Theme",
-            "Database",
+            "Advanced",
             "Rent & Finance",
             "Documents",
             "Notifications",
@@ -63,7 +63,9 @@ namespace Daryva.MVVM.ViewModels
                 {
                     "General" => _serviceProvider.GetRequiredService<GeneralSettingsViewModel>(),
                     "Theme" => _serviceProvider.GetRequiredService<ThemeSettingsViewModel>(),
-                    "Database" => _serviceProvider.GetRequiredService<DatabaseSettingsViewModel>(),
+                    "Advanced" => _serviceProvider.GetRequiredService<AdvancedSettingsViewModel>(),
+                    "API" => _serviceProvider.GetRequiredService<AdvancedSettingsViewModel>(),
+                    "Database" => _serviceProvider.GetRequiredService<AdvancedSettingsViewModel>(),
                     "Rent & Finance" => _serviceProvider.GetRequiredService<RentSettingsViewModel>(),
                     "Documents" => _serviceProvider.GetRequiredService<DocumentSettingsViewModel>(),
                     "Notifications" => _serviceProvider.GetRequiredService<NotificationSettingsViewModel>(),

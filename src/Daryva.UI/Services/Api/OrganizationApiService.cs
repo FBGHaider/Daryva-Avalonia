@@ -73,4 +73,17 @@ public class OrganizationApiService : IOrganizationApiService
             throw new InvalidOperationException($"Failed to fetch organization: {ex.Message}", ex);
         }
     }
+
+    public async Task DeleteOrganizationAsync(Guid orgId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _apiClient.HttpClient.DeleteAsync($"api/orgs/{orgId}", cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException($"Failed to delete organization: {ex.Message}", ex);
+        }
+    }
 }

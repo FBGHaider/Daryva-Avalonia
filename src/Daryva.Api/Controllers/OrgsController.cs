@@ -192,4 +192,41 @@ public class OrgsController : ControllerBase
 
         return Ok(members);
     }
+
+    /// <summary>
+    /// Delete an organization (Owner only).
+    ///
+    /// DELETE /api/orgs/{orgId}
+    /// </summary>
+    [HttpDelete("{orgId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DeleteOrganization(
+        Guid orgId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var deleted = await _orgService.DeleteOrganizationAsync(
+                orgId,
+                _tenantContext.UserId,
+                cancellationToken);
+
+            if (!deleted)
+                return NotFound(new { error = "Organization not found or not a member." });
+
+            _logger.LogInformation(
+                "User {UserId} deleted organization {OrgId}.",
+                _tenantContext.UserId,
+                orgId);
+
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+    }
 }

@@ -11,6 +11,11 @@ namespace Daryva.Services.Business
         Task<string> CreateBackupAsync(string? backupPath = null);
 
         /// <summary>
+        /// Restores backup data from a JSON file into the current organization.
+        /// </summary>
+        Task RestoreBackupAsync(string backupFilePath);
+
+        /// <summary>
         /// Gets the default backup location.
         /// </summary>
         string GetDefaultBackupLocation();

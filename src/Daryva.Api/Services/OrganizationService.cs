@@ -44,6 +44,14 @@ public interface IOrganizationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Delete an organization (Owner only).
+    /// </summary>
+    Task<bool> DeleteOrganizationAsync(
+        Guid orgId,
+        string userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Get all members of an organization (if user is member).
     /// </summary>
     Task<IEnumerable<OrganizationMemberResponse>> GetOrganizationMembersAsync(
@@ -175,6 +183,33 @@ public class OrganizationService : IOrganizationService
             request.Email, orgId, request.Role);
 
         return MapToResponse(newMember);
+    }
+
+    public async Task<bool> DeleteOrganizationAsync(
+        Guid orgId,
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        var membership = await _dbContext.OrganizationMembers
+            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
+
+        if (membership == null)
+            return false;
+
+        if (!string.Equals(membership.Role, OrganizationMember.Roles.Owner, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only organization owners can delete an organization.");
+
+        var org = await _dbContext.Organizations
+            .FirstOrDefaultAsync(o => o.Id == orgId, cancellationToken);
+
+        if (org == null)
+            return false;
+
+        _dbContext.Organizations.Remove(org);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Organization {OrgId} deleted by user {UserId}.", orgId, userId);
+        return true;
     }
 
     public async Task<IEnumerable<OrganizationMemberResponse>> GetOrganizationMembersAsync(

@@ -6,14 +6,10 @@ namespace Daryva.Services
     public interface IConfigurationService
     {
         /// <summary>
-        /// Gets the database connection string.
+        /// Gets the internal local storage connection string used by UI-side repositories and settings.
+        /// This is separate from the API base URL and not exposed as a user-facing database switch.
         /// </summary>
         string GetConnectionString();
-
-        /// <summary>
-        /// Returns the current database file path (for display and export).
-        /// </summary>
-        string GetCurrentDatabasePath();
 
         /// <summary>
         /// Gets a configuration value by key.

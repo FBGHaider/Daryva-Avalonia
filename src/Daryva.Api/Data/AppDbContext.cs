@@ -77,6 +77,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.AddressLine2).HasMaxLength(256);
             entity.Property(e => e.City).IsRequired().HasMaxLength(128);
             entity.Property(e => e.Postcode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.TotalRooms).HasDefaultValue(0);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             // Index on OrganizationId for query filtering

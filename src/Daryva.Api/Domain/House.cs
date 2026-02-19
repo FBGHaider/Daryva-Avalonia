@@ -43,6 +43,11 @@ public class House : IOrgScopedEntity
     public required string Postcode { get; set; }
 
     /// <summary>
+    /// Total number of rentable rooms in this property.
+    /// </summary>
+    public int TotalRooms { get; set; }
+
+    /// <summary>
     /// Timestamp when property was added to system.
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

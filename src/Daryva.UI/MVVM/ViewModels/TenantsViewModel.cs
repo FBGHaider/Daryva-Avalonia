@@ -211,15 +211,10 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
-                var houseId = SelectedHouseFilter?.HouseId;
-                var tenants = await _tenantService.GetTenantsByHouseIdAsync(houseId, includeArchived: ShowArchivedOnly);
+                var tenants = await GetFilteredTenantsAsync();
                 Tenants.Clear();
                 foreach (var tenant in tenants)
                 {
-                    if (ShowArchivedOnly && !tenant.IsArchived)
-                        continue;
-                    if (!ShowArchivedOnly && tenant.IsArchived)
-                        continue;
                     Tenants.Add(tenant);
                 }
             }
@@ -232,41 +227,40 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task SearchTenantsAsync()
         {
-            if (string.IsNullOrWhiteSpace(SearchTerm))
-            {
-                await LoadTenantsAsync();
-                return;
-            }
-
             try
             {
-                var houseId = SelectedHouseFilter?.HouseId;
-                if (houseId.HasValue)
-                {
-                    var tenantsForHouse = await _tenantService.GetTenantsByHouseIdAsync(houseId, includeArchived: ShowArchivedOnly);
-                    var term = SearchTerm.Trim().ToLowerInvariant();
-                    var tenants = tenantsForHouse.Where(t =>
-                        (t.FullName?.ToLowerInvariant().Contains(term) == true) ||
-                        (t.Email?.ToLowerInvariant().Contains(term) == true) ||
-                        (t.PhoneNumber?.ToLowerInvariant().Contains(term) == true) ||
-                        (t.UniversityName?.ToLowerInvariant().Contains(term) == true));
-                    Tenants.Clear();
-                    foreach (var tenant in tenants)
-                        Tenants.Add(tenant);
-                }
-                else
-                {
-                    var tenants = await _tenantService.SearchTenantsAsync(SearchTerm);
-                    Tenants.Clear();
-                    foreach (var tenant in tenants)
-                        Tenants.Add(tenant);
-                }
+                var tenants = await GetFilteredTenantsAsync();
+                Tenants.Clear();
+                foreach (var tenant in tenants)
+                    Tenants.Add(tenant);
             }
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error searching tenants: {ex.Message}", "Database Error");
                 System.Diagnostics.Debug.WriteLine($"Error searching tenants: {ex}");
             }
+        }
+
+        private async Task<IEnumerable<Tenant>> GetFilteredTenantsAsync()
+        {
+            var houseId = SelectedHouseFilter?.HouseId;
+            var tenants = await _tenantService.GetTenantsByHouseIdAsync(houseId, includeArchived: true);
+
+            tenants = ShowArchivedOnly
+                ? tenants.Where(t => t.IsArchived)
+                : tenants.Where(t => !t.IsArchived);
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var term = SearchTerm.Trim().ToLowerInvariant();
+                tenants = tenants.Where(t =>
+                    (t.FullName?.ToLowerInvariant().Contains(term) == true) ||
+                    (t.Email?.ToLowerInvariant().Contains(term) == true) ||
+                    (t.PhoneNumber?.ToLowerInvariant().Contains(term) == true) ||
+                    (t.UniversityName?.ToLowerInvariant().Contains(term) == true));
+            }
+
+            return tenants;
         }
 
         private async void ShowAddTenantDialog()

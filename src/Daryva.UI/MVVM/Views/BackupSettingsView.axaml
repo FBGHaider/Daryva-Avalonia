@@ -17,19 +17,24 @@
             <TextBlock Text="Data &amp; Backup Settings"
                        FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
 
-            <!-- Database Information -->
+            <!-- Storage Information -->
             <Border BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
                     Background="{DynamicResource SecondaryBackgroundBrush}"
                     Padding="20,16">
                 <StackPanel Spacing="20">
-                    <TextBlock Text="Database Information"
+                    <TextBlock Text="Cloud Storage Information"
                                FontSize="13" FontWeight="Medium" Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="Backups in this section export cloud/API data to a JSON file."
+                               FontSize="12"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               TextWrapping="Wrap"
                                Margin="0,0,0,4"/>
 
                     <Grid ColumnDefinitions="240,*" RowDefinitions="Auto">
-                        <TextBlock Text="Database Type:"
+                        <TextBlock Text="Storage Type:"
                                    VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,12,0"/>
                         <TextBox Grid.Column="1"
                                  Text="{Binding DatabaseType, Mode=OneWay}"
@@ -40,7 +45,7 @@
                     </Grid>
 
                     <Grid ColumnDefinitions="240,*" RowDefinitions="Auto">
-                        <TextBlock Text="Connection Status:"
+                        <TextBlock Text="Service Status:"
                                    VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,12,0"/>
                         <TextBox Grid.Column="1"
                                  Text="{Binding IsDatabaseConnected, Converter={StaticResource BoolToConnectionStatusConverter}, Mode=OneWay}"
@@ -51,7 +56,7 @@
                     </Grid>
 
                     <Grid ColumnDefinitions="240,*" RowDefinitions="Auto">
-                        <TextBlock Text="Database Size:"
+                        <TextBlock Text="Data Size:"
                                    VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,12,0"/>
                         <TextBox Grid.Column="1"
                                  Text="{Binding DatabaseSizeMB, Converter={StaticResource DecimalToDatabaseSizeConverter}, Mode=OneWay}"
@@ -72,6 +77,11 @@
                 <StackPanel Spacing="20">
                     <TextBlock Text="Backup Settings"
                                FontSize="13" FontWeight="Medium" Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="To restore this JSON into another API instance, use the import endpoint on that target API."
+                               FontSize="12"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               TextWrapping="Wrap"
                                Margin="0,0,0,4"/>
 
                     <Grid ColumnDefinitions="240,*" RowDefinitions="Auto">
@@ -96,6 +106,14 @@
                                 Foreground="White"
                                 BorderThickness="0"
                                 Padding="16,8"/>
+                        <Button Content="Restore Backup..."
+                            Command="{Binding RestoreBackupCommand}"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            Foreground="{DynamicResource PrimaryTextBrush}"
+                            BorderThickness="1"
+                            Padding="16,8"
+                            Margin="8,0,0,0"/>
                     </StackPanel>
 
                     <StackPanel Spacing="12" Margin="0,8,0,0">

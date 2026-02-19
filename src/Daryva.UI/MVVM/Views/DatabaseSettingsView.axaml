@@ -7,66 +7,84 @@
              x:CompileBindings="False">
     <ScrollViewer>
         <StackPanel Margin="0,0,0,24" Spacing="24">
-            <TextBlock Text="Database"
+            <TextBlock Text="API Connection"
                        FontSize="24"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryTextBrush}"/>
 
-            <!-- Current database -->
+            <!-- Current API endpoint -->
             <Border BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
                     Background="{DynamicResource ControlBackgroundBrush}"
                     Padding="20,16">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Current database"
+                    <TextBlock Text="API endpoint"
                                FontSize="13"
                                FontWeight="Medium"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                Margin="0,0,0,4"/>
-                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto">
-                        <TextBlock Text="Path:"
+                    <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto">
+                        <TextBlock Text="Base URL:"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
                                    Margin="0,0,12,0"/>
                         <TextBox Grid.Column="1"
-                                 Text="{Binding CurrentDatabasePath, Mode=OneWay}"
-                                 IsReadOnly="True"
+                                 Text="{Binding ApiBaseUrl, Mode=TwoWay}"
                                  Background="{DynamicResource ControlBackgroundHoverBrush}"
                                  Foreground="{DynamicResource PrimaryTextBrush}"
                                  Padding="8,6"
                                  TextWrapping="Wrap"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="Connection:"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,12,12,0"/>
+                        <TextBox Grid.Row="1"
+                                 Grid.Column="1"
+                                 Text="{Binding ConnectionStatus, Mode=OneWay}"
+                                 IsReadOnly="True"
+                                 Background="{DynamicResource ControlBackgroundHoverBrush}"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"
+                                 Padding="8,6"
+                                 Margin="0,12,0,0"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
-            <!-- Connect to another database -->
+            <!-- API actions -->
             <Border BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
                     Background="{DynamicResource ControlBackgroundBrush}"
                     Padding="20,16">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Connect to another database"
+                    <TextBlock Text="API settings"
                                FontSize="13"
                                FontWeight="Medium"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                Margin="0,0,0,4"/>
-                    <TextBlock Text="Use an existing Daryva database (e.g. from another PC or backup). The app will use the selected file after you restart."
+                    <TextBlock Text="Set the API base URL for backend requests. Changes apply after app restart because API client is initialized at startup."
                                FontSize="12"
                                Foreground="{DynamicResource PrimaryTextBrush}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,8"/>
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Content="Connect to another database..."
-                                Command="{Binding ConnectToAnotherDatabaseCommand}"
+                        <Button Content="Test connection"
+                                Command="{Binding TestApiConnectionCommand}"
                                 Background="Transparent"
                                 BorderBrush="{DynamicResource BorderBrush}"
                                 Foreground="{DynamicResource PrimaryTextBrush}"
                                 BorderThickness="1"/>
-                        <Button Content="Use default database"
-                                Command="{Binding UseDefaultDatabaseCommand}"
-                                IsVisible="{Binding HasOverride}"
+                        <Button Content="Reset to default"
+                                Command="{Binding ResetApiSettingsCommand}"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                BorderThickness="1"/>
+                        <Button Content="Save API URL"
+                                Command="{Binding SaveApiSettingsCommand}"
                                 Background="Transparent"
                                 BorderBrush="{DynamicResource BorderBrush}"
                                 Foreground="{DynamicResource PrimaryTextBrush}"
@@ -75,30 +93,33 @@
                 </StackPanel>
             </Border>
 
-            <!-- Export -->
+            <!-- Organization context -->
             <Border BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
                     Background="{DynamicResource ControlBackgroundBrush}"
                     Padding="20,16">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Export this database"
+                    <TextBlock Text="Organization context"
                                FontSize="13"
                                FontWeight="Medium"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                Margin="0,0,0,4"/>
-                    <TextBlock Text="Save a copy of the current database to a file (e.g. for backup or to move to another PC)."
+                    <TextBlock Text="Current org header (X-Org-Id):"
                                FontSize="12"
                                Foreground="{DynamicResource PrimaryTextBrush}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,8"/>
-                    <Button Content="Export database..."
-                            Command="{Binding ExportDatabaseCommand}"
-                            Background="Transparent"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            Foreground="{DynamicResource PrimaryTextBrush}"
-                            BorderThickness="1"
-                            HorizontalAlignment="Left"/>
+                    <TextBox Text="{Binding CurrentOrganization, Mode=OneWay}"
+                             IsReadOnly="True"
+                             Background="{DynamicResource ControlBackgroundHoverBrush}"
+                             Foreground="{DynamicResource PrimaryTextBrush}"
+                             Padding="8,6"/>
+                    <TextBlock Text="Use Data &amp; Backup to export/restore API data as JSON."
+                               FontSize="12"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,8,0,0"/>
                 </StackPanel>
             </Border>
         </StackPanel>

@@ -30,6 +30,11 @@ public class CreateHouseRequest
     /// Postal code.
     /// </summary>
     public required string Postcode { get; set; }
+
+    /// <summary>
+    /// Total number of rentable rooms.
+    /// </summary>
+    public int TotalRooms { get; set; }
 }
 
 /// <summary>
@@ -61,6 +66,11 @@ public class UpdateHouseRequest
     /// Postal code.
     /// </summary>
     public string? Postcode { get; set; }
+
+    /// <summary>
+    /// Total number of rentable rooms.
+    /// </summary>
+    public int? TotalRooms { get; set; }
 }
 
 /// <summary>
@@ -102,6 +112,11 @@ public class HouseResponse
     /// Postal code.
     /// </summary>
     public string Postcode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Total number of rentable rooms.
+    /// </summary>
+    public int TotalRooms { get; set; }
 
     /// <summary>
     /// Timestamp when property was added to system.

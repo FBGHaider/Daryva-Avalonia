@@ -25,10 +25,12 @@ public class TenantApiServiceAdapter : ITenantService
 
     public async Task<IEnumerable<Tenant>> GetTenantsByHouseIdAsync(int? houseId, bool includeArchived = false)
     {
-        // Get all tenants and filter client-side
-        // TODO: Backend should support filtering by houseId for better performance
         var allTenants = await GetAllTenantsAsync(includeArchived);
-        return allTenants;
+
+        if (!houseId.HasValue)
+            return allTenants;
+
+        return allTenants.Where(t => t.CurrentHouseId == houseId.Value);
     }
 
     public async Task<Tenant?> GetTenantByIdAsync(int tenantId)
@@ -105,9 +107,10 @@ public class TenantApiServiceAdapter : ITenantService
 
         var lowerSearchTerm = searchTerm.ToLowerInvariant();
         return allTenants.Where(t =>
-            t.FullName.ToLowerInvariant().Contains(lowerSearchTerm) ||
-            t.Email.ToLowerInvariant().Contains(lowerSearchTerm) ||
-            t.PhoneNumber.ToLowerInvariant().Contains(lowerSearchTerm));
+            (t.FullName?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false) ||
+            (t.Email?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false) ||
+            (t.PhoneNumber?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false) ||
+            (t.UniversityName?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false));
     }
 
     public async Task DeleteTenantAsync(int tenantId)
@@ -138,6 +141,7 @@ public class TenantApiServiceAdapter : ITenantService
             CreatedAt = dto.CreatedAt,
             IsArchived = dto.IsArchived,
             CurrentHouseAddress = dto.CurrentHouseAddress,
+            CurrentHouseId = dto.CurrentHouseId.HasValue ? (int?)dto.CurrentHouseId.Value.GetHashCode() : null,
             CurrentTenancyId = dto.CurrentTenancyId.HasValue ? (int?)dto.CurrentTenancyId.Value.GetHashCode() : null,
             LeaveDate = null
         };

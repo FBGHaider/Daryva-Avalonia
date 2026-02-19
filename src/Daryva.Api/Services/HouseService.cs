@@ -79,7 +79,10 @@ public class HouseService : IHouseService
         var today = DateTime.UtcNow.Date;
         var activeTenancyStats = await _dbContext.Tenancies
             .AsNoTracking()
-            .Where(t => !t.MoveOutDate.HasValue || t.MoveOutDate >= today)
+            .Where(t =>
+                t.Status == "Active" &&
+                (!t.MoveOutDate.HasValue || t.MoveOutDate >= today) &&
+                !t.Tenant.IsArchived)
             .GroupBy(t => t.HouseId)
             .Select(g => new
             {
@@ -115,7 +118,11 @@ public class HouseService : IHouseService
         var today = DateTime.UtcNow.Date;
         var stats = await _dbContext.Tenancies
             .AsNoTracking()
-            .Where(t => t.HouseId == houseId && (!t.MoveOutDate.HasValue || t.MoveOutDate >= today))
+            .Where(t =>
+                t.HouseId == houseId &&
+                t.Status == "Active" &&
+                (!t.MoveOutDate.HasValue || t.MoveOutDate >= today) &&
+                !t.Tenant.IsArchived)
             .GroupBy(t => t.HouseId)
             .Select(g => new
             {
@@ -143,6 +150,7 @@ public class HouseService : IHouseService
             AddressLine2 = request.AddressLine2?.Trim(),
             City = request.City.Trim(),
             Postcode = request.Postcode.Trim(),
+            TotalRooms = request.TotalRooms,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -182,6 +190,12 @@ public class HouseService : IHouseService
 
         if (!string.IsNullOrWhiteSpace(request.Postcode))
             house.Postcode = request.Postcode.Trim();
+
+        if (request.TotalRooms.HasValue && request.TotalRooms.Value < 0)
+            throw new ArgumentException("Total rooms cannot be negative.", nameof(request.TotalRooms));
+
+        if (request.TotalRooms.HasValue)
+            house.TotalRooms = request.TotalRooms.Value;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -223,6 +237,9 @@ public class HouseService : IHouseService
 
         if (string.IsNullOrWhiteSpace(request.Postcode))
             throw new ArgumentException("Postcode cannot be empty.", nameof(request.Postcode));
+
+        if (request.TotalRooms < 0)
+            throw new ArgumentException("Total rooms cannot be negative.", nameof(request.TotalRooms));
     }
 
     private static HouseResponse MapToResponse(House house, int activeTenantCount, decimal totalMonthlyRent)
@@ -235,6 +252,7 @@ public class HouseService : IHouseService
             AddressLine2 = house.AddressLine2,
             City = house.City,
             Postcode = house.Postcode,
+            TotalRooms = house.TotalRooms,
             CreatedAt = house.CreatedAt,
             ActiveTenantCount = activeTenantCount,
             TotalMonthlyRent = totalMonthlyRent

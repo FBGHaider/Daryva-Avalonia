@@ -1,7 +1,7 @@
-using System.Data;
 using System.IO;
-using Dapper;
-using Daryva.Services.Database;
+using System.Net.Http;
+using System.Text;
+using Daryva.Services.Api;
 using Daryva.Services.Platform;
 
 namespace Daryva.Services.Business
@@ -12,108 +12,65 @@ namespace Daryva.Services.Business
     /// </summary>
     public class BackupService : IBackupService
     {
-        private readonly IDbContext _dbContext;
         private readonly ISettingsService _settingsService;
         private readonly IAppPaths _appPaths;
+        private readonly IApiClient _apiClient;
 
-        public BackupService(IDbContext dbContext, ISettingsService settingsService, IAppPaths appPaths)
+        public BackupService(ISettingsService settingsService, IAppPaths appPaths, IApiClient apiClient)
         {
-            _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _appPaths = appPaths ?? throw new ArgumentNullException(nameof(appPaths));
+            _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
         }
 
         public async Task<string> CreateBackupAsync(string? backupPath = null)
         {
-            // For SQLite, backup is a simple file copy
-            var connectionString = _dbContext.Connection.ConnectionString;
-            var dbPath = ExtractDatabasePath(connectionString);
-            
-            if (string.IsNullOrWhiteSpace(dbPath) || !File.Exists(dbPath))
+            var backupDirectory = await ResolveBackupDirectoryAsync(backupPath);
+
+            if (!_apiClient.CurrentOrgId.HasValue)
             {
-                throw new InvalidOperationException($"Database file not found at: {dbPath}");
+                throw new InvalidOperationException("An organization must be selected before creating a backup.");
             }
 
-            var databaseName = Path.GetFileNameWithoutExtension(dbPath);
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var fileName = $"{databaseName}_Backup_{timestamp}.db";
+            return await CreateApiBackupAsync(backupDirectory);
+        }
 
-            // Determine backup directory
-            string backupDirectory;
-            if (string.IsNullOrWhiteSpace(backupPath))
+        public async Task RestoreBackupAsync(string backupFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(backupFilePath))
             {
-                var defaultLocation = await _settingsService.GetSettingAsync("BackupLocation", GetDefaultBackupLocation());
-                if (string.IsNullOrWhiteSpace(defaultLocation))
+                throw new InvalidOperationException("Backup file path is required.");
+            }
+
+            var fullPath = Path.GetFullPath(backupFilePath);
+            if (!File.Exists(fullPath))
+            {
+                throw new InvalidOperationException($"Backup file not found at '{fullPath}'.");
+            }
+
+            if (!_apiClient.CurrentOrgId.HasValue)
+            {
+                throw new InvalidOperationException("An organization must be selected before restoring a backup.");
+            }
+
+            var json = await File.ReadAllTextAsync(fullPath);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                throw new InvalidOperationException("Backup file is empty.");
+            }
+
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _apiClient.HttpClient.PostAsync("api/import", content);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(error))
                 {
-                    defaultLocation = GetDefaultBackupLocation();
-                }
-                backupDirectory = defaultLocation;
-            }
-            else
-            {
-                backupDirectory = backupPath;
-            }
-
-            // Normalize the path
-            if (!Path.IsPathRooted(backupDirectory))
-            {
-                backupDirectory = Path.GetFullPath(backupDirectory);
-            }
-            else
-            {
-                backupDirectory = Path.GetFullPath(backupDirectory);
-            }
-
-            // Ensure directory exists
-            if (!Directory.Exists(backupDirectory))
-            {
-                try
-                {
-                    Directory.CreateDirectory(backupDirectory);
-                }
-                catch (Exception ex)
-                {
-                    throw new InvalidOperationException($"Cannot create backup directory '{backupDirectory}': {ex.Message}", ex);
-                }
-            }
-
-            // Build full backup file path
-            var fullBackupPath = Path.Combine(backupDirectory, fileName);
-            fullBackupPath = Path.GetFullPath(fullBackupPath);
-
-            // Verify the directory is writable
-            try
-            {
-                var testFile = Path.Combine(backupDirectory, "test_write.tmp");
-                File.WriteAllText(testFile, "test");
-                File.Delete(testFile);
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Backup directory '{backupDirectory}' is not writable. Error: {ex.Message}", ex);
-            }
-
-            // Perform SQLite backup (file copy with WAL checkpoint)
-            try
-            {
-                // SQLite backup: copy the database file
-                // If WAL mode is enabled, we should checkpoint first, but for simplicity, just copy
-                await Task.Run(() =>
-                {
-                    File.Copy(dbPath, fullBackupPath, overwrite: true);
-                });
-
-                // Verify the backup file was created
-                if (!File.Exists(fullBackupPath))
-                {
-                    throw new InvalidOperationException($"Backup file was not created at '{fullBackupPath}'.");
+                    error = response.ReasonPhrase ?? "Unknown error";
                 }
 
-                return fullBackupPath;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Error creating database backup: {ex.Message}", ex);
+                throw new InvalidOperationException(
+                    $"Restore failed ({(int)response.StatusCode} {response.StatusCode}): {error}");
             }
         }
 
@@ -141,36 +98,73 @@ namespace Daryva.Services.Business
 
         public string GetDatabaseName()
         {
-            var connectionString = _dbContext.Connection.ConnectionString;
-            var dbPath = ExtractDatabasePath(connectionString);
-            
-            if (string.IsNullOrWhiteSpace(dbPath))
-            {
-                return "DaryvaDB";
-            }
-
-            return Path.GetFileNameWithoutExtension(dbPath);
+            return "Daryva Cloud";
         }
 
-        private string? ExtractDatabasePath(string connectionString)
+        private async Task<string> ResolveBackupDirectoryAsync(string? backupPath)
         {
-            // SQLite connection string format: "Data Source=path;..."
-            if (string.IsNullOrWhiteSpace(connectionString))
-                return null;
-
-            var parts = connectionString.Split(';');
-            foreach (var part in parts)
+            string backupDirectory;
+            if (string.IsNullOrWhiteSpace(backupPath))
             {
-                var trimmed = part.Trim();
-                if (trimmed.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase) ||
-                    trimmed.StartsWith("DataSource=", StringComparison.OrdinalIgnoreCase))
+                var defaultLocation = await _settingsService.GetSettingAsync("BackupLocation", GetDefaultBackupLocation());
+                if (string.IsNullOrWhiteSpace(defaultLocation))
                 {
-                    var path = trimmed.Substring(trimmed.IndexOf('=') + 1).Trim();
-                    return path;
+                    defaultLocation = GetDefaultBackupLocation();
+                }
+                backupDirectory = defaultLocation;
+            }
+            else
+            {
+                backupDirectory = backupPath;
+            }
+
+            backupDirectory = Path.GetFullPath(backupDirectory);
+
+            if (!Directory.Exists(backupDirectory))
+            {
+                try
+                {
+                    Directory.CreateDirectory(backupDirectory);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Cannot create backup directory '{backupDirectory}': {ex.Message}", ex);
                 }
             }
 
-            return null;
+            try
+            {
+                var testFile = Path.Combine(backupDirectory, "test_write.tmp");
+                File.WriteAllText(testFile, "test");
+                File.Delete(testFile);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Backup directory '{backupDirectory}' is not writable. Error: {ex.Message}", ex);
+            }
+
+            return backupDirectory;
         }
+
+        private async Task<string> CreateApiBackupAsync(string backupDirectory)
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"Daryva_Api_Backup_{timestamp}.json";
+            var fullBackupPath = Path.GetFullPath(Path.Combine(backupDirectory, fileName));
+
+            var response = await _apiClient.HttpClient.GetAsync("api/backup/export");
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync();
+            await File.WriteAllTextAsync(fullBackupPath, json);
+
+            if (!File.Exists(fullBackupPath))
+            {
+                throw new InvalidOperationException($"Backup file was not created at '{fullBackupPath}'.");
+            }
+
+            return fullBackupPath;
+        }
+
     }
 }

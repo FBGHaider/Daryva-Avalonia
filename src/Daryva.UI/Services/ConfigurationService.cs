@@ -7,6 +7,7 @@ namespace Daryva.Services
     /// <summary>
     /// Cross-platform implementation of IConfigurationService that reads from JSON config files.
     /// Replaces Windows-only ConfigurationManager.
+    /// In API-first mode, this service still manages local app settings and local storage connection details.
     /// </summary>
     public class ConfigurationService : IConfigurationService
     {
@@ -87,24 +88,14 @@ namespace Daryva.Services
         }
 
         /// <summary>
-        /// Gets the database connection string from configuration.
-        /// Priority: 1) installer database path file (databasepath.txt), 2) app.config.local.json, 3) app.config.json, 4) default AppData.
-        /// Installer path wins so the app uses the new empty database in the chosen folder after install.
+        /// Gets the local storage connection string from configuration for UI-side repositories/settings.
+        /// Priority: 1) installer database path file (databasepath.txt), 2) app.config.local.json,
+        /// 3) app.config.json, 4) default AppData.
+        /// This does not control API endpoint selection.
         /// </summary>
-        private const string DatabasePathOverrideKey = "DatabasePathOverride";
 
         public string GetConnectionString()
         {
-            // User override from Settings → Database (connect to old database)
-            var overridePath = _localSettings != null && _localSettings.TryGetValue(DatabasePathOverrideKey, out var ov) ? ov?.Trim() : null;
-            if (!string.IsNullOrEmpty(overridePath))
-            {
-                var path = overridePath;
-                if (Directory.Exists(path))
-                    path = Path.Combine(path, "DaryvaDB.db");
-                return $"Data Source={path};";
-            }
-
             // Installer / custom database location: file written by installer next to the app.
             var appDir = AppContext.BaseDirectory;
             var databasePathFile = Path.Combine(appDir, "databasepath.txt");
@@ -140,22 +131,6 @@ namespace Daryva.Services
                 Directory.CreateDirectory(defaultDbDir);
             var defaultDbPath = Path.Combine(defaultDbDir, "DaryvaDB.db");
             return $"Data Source={defaultDbPath};";
-        }
-
-        /// <summary>
-        /// Returns the current database file path (for display and export). Parsed from GetConnectionString().
-        /// </summary>
-        public string GetCurrentDatabasePath()
-        {
-            var cs = GetConnectionString();
-            if (string.IsNullOrEmpty(cs)) return string.Empty;
-            const string prefix = "Data Source=";
-            var start = cs.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
-            if (start < 0) return string.Empty;
-            start += prefix.Length;
-            var end = cs.IndexOf(';', start);
-            var path = end < 0 ? cs.Substring(start) : cs.Substring(start, end - start);
-            return path?.Trim() ?? string.Empty;
         }
 
         /// <summary>

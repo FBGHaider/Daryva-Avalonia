@@ -35,11 +35,12 @@ public class HouseApiServiceAdapter : IHouseService
     {
         var createDto = new CreateHouseDto
         {
-            Name = house.Name,
+            Name = string.IsNullOrWhiteSpace(house.Name) ? house.AddressLine1 : house.Name,
             AddressLine1 = house.AddressLine1,
             AddressLine2 = house.AddressLine2,
             City = house.City,
-            Postcode = house.Postcode
+            Postcode = house.Postcode,
+            TotalRooms = house.TotalRooms
         };
 
         var createdDto = await _houseApiService.CreateHouseAsync(createDto);
@@ -57,7 +58,8 @@ public class HouseApiServiceAdapter : IHouseService
             AddressLine1 = house.AddressLine1,
             AddressLine2 = house.AddressLine2,
             City = house.City,
-            Postcode = house.Postcode
+            Postcode = house.Postcode,
+            TotalRooms = house.TotalRooms
         };
 
         var updatedDto = await _houseApiService.UpdateHouseAsync(house.ApiId.Value, updateDto);
@@ -68,6 +70,7 @@ public class HouseApiServiceAdapter : IHouseService
         house.AddressLine2 = updatedDto.AddressLine2;
         house.City = updatedDto.City;
         house.Postcode = updatedDto.Postcode;
+        house.TotalRooms = updatedDto.TotalRooms;
         house.CreatedAt = updatedDto.CreatedAt;
     }
 
@@ -126,8 +129,7 @@ public class HouseApiServiceAdapter : IHouseService
             City = dto.City,
             Postcode = dto.Postcode,
             CreatedAt = dto.CreatedAt,
-            // These would need separate API calls or be included in HouseDto
-            TotalRooms = 0, // TODO: Backend doesn't have this yet
+            TotalRooms = dto.TotalRooms,
             ActiveTenantCount = dto.ActiveTenantCount,
             TotalMonthlyRent = dto.TotalMonthlyRent
         };

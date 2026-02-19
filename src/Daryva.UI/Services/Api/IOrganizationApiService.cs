@@ -39,4 +39,9 @@ public interface IOrganizationApiService
     /// Get a specific organization by ID (if user is member).
     /// </summary>
     Task<OrganizationDto> GetOrganizationAsync(Guid orgId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Delete an organization (Owner only).
+    /// </summary>
+    Task DeleteOrganizationAsync(Guid orgId, CancellationToken cancellationToken = default);
 }

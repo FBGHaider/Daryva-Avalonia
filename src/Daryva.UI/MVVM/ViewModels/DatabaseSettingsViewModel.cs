@@ -1,122 +1,141 @@
-using System.IO;
+using System.Net.Http;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.Services;
+using Daryva.Services.Api;
 using Daryva.Services.Dialog;
 
 namespace Daryva.MVVM.ViewModels
 {
     public class DatabaseSettingsViewModel : BaseViewModel
     {
-        private const string DatabasePathOverrideKey = "DatabasePathOverride";
+        private const string ApiBaseUrlKey = "ApiBaseUrl";
+        private const string DefaultApiBaseUrl = "http://localhost:5000";
 
         private readonly IConfigurationService _configurationService;
+        private readonly IApiClient _apiClient;
         private readonly IDialogService _dialogService;
 
-        private string _currentDatabasePath = string.Empty;
-        private bool _hasOverride;
+        private string _apiBaseUrl = string.Empty;
+        private string _connectionStatus = "Not tested";
+        private string _currentOrganization = "(Not selected)";
 
         public DatabaseSettingsViewModel(
             IConfigurationService configurationService,
+            IApiClient apiClient,
             IDialogService dialogService)
         {
             _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
+            _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
-            ConnectToAnotherDatabaseCommand = new RelayCommand(async _ => await ConnectToAnotherDatabaseAsync());
-            UseDefaultDatabaseCommand = new RelayCommand(_ => UseDefaultDatabase());
-            ExportDatabaseCommand = new RelayCommand(async _ => await ExportDatabaseAsync());
+            SaveApiSettingsCommand = new RelayCommand(async _ => await SaveApiSettingsAsync());
+            ResetApiSettingsCommand = new RelayCommand(_ => ResetApiSettings());
+            TestApiConnectionCommand = new RelayCommand(async _ => await TestApiConnectionAsync());
 
-            RefreshCurrentPath();
+            RefreshState();
         }
 
-        public ICommand ConnectToAnotherDatabaseCommand { get; }
-        public ICommand UseDefaultDatabaseCommand { get; }
-        public ICommand ExportDatabaseCommand { get; }
+        public ICommand SaveApiSettingsCommand { get; }
+        public ICommand ResetApiSettingsCommand { get; }
+        public ICommand TestApiConnectionCommand { get; }
 
-        public string CurrentDatabasePath
+        public string ApiBaseUrl
         {
-            get => _currentDatabasePath;
-            set => SetProperty(ref _currentDatabasePath, value);
+            get => _apiBaseUrl;
+            set => SetProperty(ref _apiBaseUrl, value);
         }
 
-        public bool HasOverride
+        public string ConnectionStatus
         {
-            get => _hasOverride;
-            set => SetProperty(ref _hasOverride, value);
+            get => _connectionStatus;
+            set => SetProperty(ref _connectionStatus, value);
         }
 
-        private void RefreshCurrentPath()
+        public string CurrentOrganization
         {
-            CurrentDatabasePath = _configurationService.GetCurrentDatabasePath();
-            if (string.IsNullOrWhiteSpace(CurrentDatabasePath))
-                CurrentDatabasePath = "(Not set)";
-            HasOverride = !string.IsNullOrWhiteSpace(_configurationService.GetValue(DatabasePathOverrideKey));
+            get => _currentOrganization;
+            set => SetProperty(ref _currentOrganization, value);
         }
 
-        private async Task ConnectToAnotherDatabaseAsync()
+        private void RefreshState()
         {
-            var path = await _dialogService.ShowOpenFileDialogAsync(
-                "Database files|*.db|All files|*.*",
-                "Select database file (DaryvaDB.db)");
-            if (string.IsNullOrWhiteSpace(path))
-                return;
+            ApiBaseUrl = NormalizeApiBaseUrl(_configurationService.GetValue(ApiBaseUrlKey) ?? DefaultApiBaseUrl);
+            CurrentOrganization = _apiClient.CurrentOrgId?.ToString() ?? "(Not selected)";
+        }
 
-            if (!File.Exists(path))
+        private async Task SaveApiSettingsAsync()
+        {
+            var normalized = NormalizeApiBaseUrl(ApiBaseUrl);
+            if (!IsValidApiUrl(normalized))
             {
-                _dialogService.ShowMessage("The selected file does not exist.", "Invalid path");
+                _dialogService.ShowMessage("Please enter a valid API URL (http/https).", "Invalid API URL");
                 return;
             }
 
-            var dir = Path.GetDirectoryName(path);
-            if (string.IsNullOrEmpty(dir))
-            {
-                _dialogService.ShowMessage("Could not determine the folder.", "Invalid path");
-                return;
-            }
-
-            _configurationService.SetLocalValue(DatabasePathOverrideKey, path);
+            _configurationService.SetLocalValue(ApiBaseUrlKey, normalized);
             _configurationService.ReloadLocalConfig();
-            RefreshCurrentPath();
+            ApiBaseUrl = normalized;
+
+            await TestApiConnectionAsync();
+
             _dialogService.ShowMessage(
-                "Database path updated. Restart the app to use this database.",
-                "Connect to database");
+                "API URL saved. Restart the app to apply this base URL to all API calls.",
+                "API Settings");
         }
 
-        private void UseDefaultDatabase()
+        private void ResetApiSettings()
         {
-            _configurationService.SetLocalValue(DatabasePathOverrideKey, "");
+            _configurationService.SetLocalValue(ApiBaseUrlKey, DefaultApiBaseUrl);
             _configurationService.ReloadLocalConfig();
-            RefreshCurrentPath();
+            RefreshState();
+            ConnectionStatus = "Not tested";
             _dialogService.ShowMessage(
-                "Switched back to the default database. Restart the app for the change to take effect.",
-                "Default database");
+                "API URL reset to default. Restart the app to apply this base URL to all API calls.",
+                "API Settings");
         }
 
-        private async Task ExportDatabaseAsync()
+        private async Task TestApiConnectionAsync()
         {
-            var sourcePath = _configurationService.GetCurrentDatabasePath();
-            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            var normalized = NormalizeApiBaseUrl(ApiBaseUrl);
+            if (!IsValidApiUrl(normalized))
             {
-                _dialogService.ShowMessage("Current database file not found or path is not set.", "Export");
+                ConnectionStatus = "Invalid URL";
                 return;
             }
-
-            var defaultName = $"DaryvaDB_export_{DateTime.Now:yyyyMMdd_HHmmss}.db";
-            var savePath = await Task.Run(() =>
-                _dialogService.ShowSaveFileDialog(defaultName, "Database files|*.db|All files|*.*", "Export database"));
-            if (string.IsNullOrWhiteSpace(savePath))
-                return;
 
             try
             {
-                File.Copy(sourcePath, savePath, overwrite: true);
-                _dialogService.ShowMessage($"Database exported to:\n{savePath}", "Export complete");
+                using var client = new HttpClient
+                {
+                    BaseAddress = new Uri(normalized),
+                    Timeout = TimeSpan.FromSeconds(5)
+                };
+
+                var response = await client.GetAsync("health");
+                ConnectionStatus = response.IsSuccessStatusCode
+                    ? "Connected"
+                    : $"Unreachable ({(int)response.StatusCode})";
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Export failed: {ex.Message}", "Export error");
+                ConnectionStatus = $"Unreachable ({ex.Message})";
             }
+        }
+
+        private static string NormalizeApiBaseUrl(string value)
+        {
+            return (value ?? string.Empty).Trim().TrimEnd('/');
+        }
+
+        private static bool IsValidApiUrl(string value)
+        {
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
         }
     }
 }

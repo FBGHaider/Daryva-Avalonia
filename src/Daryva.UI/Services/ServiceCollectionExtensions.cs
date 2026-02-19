@@ -38,6 +38,7 @@ namespace Daryva.Services
             services.AddScoped<IExpenseApiService, ExpenseApiService>();
             services.AddScoped<IDocumentApiService, DocumentApiService>();
             services.AddScoped<INotificationApiService, NotificationApiService>();
+            services.AddScoped<IPaymentApiService, PaymentApiService>();
 
             // Database Services
             services.AddScoped<IDbContextFactory, DbContextFactory>();
@@ -61,14 +62,31 @@ namespace Daryva.Services
             services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<ISettingsRepository, SettingsRepository>();
 
-            // Business Services
-            // API Mode (uses backend API)
+            // Business Services (API-only mode)
+            services.AddScoped<HouseService>();
+            services.AddScoped<HouseApiServiceAdapter>();
             services.AddScoped<IHouseService, HouseApiServiceAdapter>();
+
+            services.AddScoped<TenantService>();
+            services.AddScoped<TenantApiServiceAdapter>();
             services.AddScoped<ITenantService, TenantApiServiceAdapter>();
+
+            services.AddScoped<ExpenseService>();
+            services.AddScoped<ExpenseApiServiceAdapter>();
             services.AddScoped<IExpenseService, ExpenseApiServiceAdapter>();
+
+            services.AddScoped<DocumentService>();
+            services.AddScoped<DocumentApiServiceAdapter>();
             services.AddScoped<IDocumentService, DocumentApiServiceAdapter>();
-            services.AddScoped<IPaymentService, PaymentService>(); // Keep SQLite for now
+
+            services.AddScoped<PaymentService>();
+            services.AddScoped<PaymentApiMigrationService>();
+            services.AddScoped<IPaymentService, PaymentApiMigrationService>();
+
+            services.AddScoped<NotificationService>();
+            services.AddScoped<NotificationApiServiceAdapter>();
             services.AddScoped<INotificationService, NotificationApiServiceAdapter>();
+
             services.AddScoped<IEmailSender>(serviceProvider =>
             {
                 var configService = serviceProvider.GetService<IConfigurationService>();
@@ -76,7 +94,7 @@ namespace Daryva.Services
             });
             services.AddScoped<IExportService, ExportService>();
             services.AddScoped<IHouseReportExportService, HouseReportExportService>();
-            services.AddScoped<ISettingsService, SettingsService>();
+            services.AddScoped<ISettingsService, ApiSettingsService>();
             services.AddScoped<IBackupService, BackupService>();
             
             // Migration Service (SQLite to API)
@@ -116,6 +134,7 @@ namespace Daryva.Services
             // Settings section ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.GeneralSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.ThemeSettingsViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.AdvancedSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.DatabaseSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.RentSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.DocumentSettingsViewModel>();

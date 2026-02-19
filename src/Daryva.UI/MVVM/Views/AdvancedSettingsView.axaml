@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.AdvancedSettingsView"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="ListBox#AdvancedSectionsList ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="ListBox#AdvancedSectionsList ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="220,*">
+        <Border Grid.Column="0"
+                Background="{DynamicResource SecondaryBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="12,16"
+                MinWidth="200">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Advanced"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           Margin="0,0,0,12"/>
+                <ListBox x:Name="AdvancedSectionsList"
+                         ItemsSource="{Binding Sections}"
+                         SelectedItem="{Binding SelectedSection}"
+                         SelectionMode="Single"
+                         Background="Transparent"
+                         BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"
+                                       Padding="10,8"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+                Margin="16,0,0,0"
+                Background="{DynamicResource SecondaryBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="24">
+            <ContentControl Content="{Binding CurrentSectionViewModel}"/>
+        </Border>
+    </Grid>
+</UserControl>
