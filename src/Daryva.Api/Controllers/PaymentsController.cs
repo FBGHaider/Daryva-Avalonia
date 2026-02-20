@@ -1,6 +1,8 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Dtos;
 using Daryva.Api.Security;
+using Daryva.Api.Services;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,11 +17,13 @@ public class PaymentsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
+    private readonly IRentLedgerService _rentLedgerService;
 
-    public PaymentsController(AppDbContext dbContext, ITenantContext tenantContext)
+    public PaymentsController(AppDbContext dbContext, ITenantContext tenantContext, IRentLedgerService rentLedgerService)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
+        _rentLedgerService = rentLedgerService;
     }
 
     [HttpPost("record")]
@@ -205,140 +209,8 @@ public class PaymentsController : ControllerBase
         [FromQuery] string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
-        if (!_tenantContext.CurrentOrgId.HasValue)
-            return BadRequest(new { error = "Organization context not set." });
-
-        var orgId = _tenantContext.CurrentOrgId.Value;
-
-        var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
-        var periodEnd = DateTime.SpecifyKind(new DateTime(year, month, DateTime.DaysInMonth(year, month)), DateTimeKind.Utc);
-        var periodEndExclusive = periodStart.AddMonths(1);
-
-        var tenanciesQuery = _dbContext.Tenancies
-            .AsNoTracking()
-            .Include(t => t.Tenant)
-            .Include(t => t.House)
-            .Where(t => t.OrganizationId == orgId)
-            .Where(t => !t.Tenant.IsArchived)
-            .Where(t => t.MoveInDate <= periodEnd && (!t.MoveOutDate.HasValue || t.MoveOutDate.Value >= periodStart));
-
-        if (houseId.HasValue)
-        {
-            tenanciesQuery = tenanciesQuery.Where(t => t.HouseId == houseId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-        {
-            var search = searchTerm.Trim().ToLower();
-            tenanciesQuery = tenanciesQuery.Where(t =>
-                t.Tenant.FullName.ToLower().Contains(search) ||
-                t.House.AddressLine1.ToLower().Contains(search));
-        }
-
-        var tenancies = await tenanciesQuery.ToListAsync(cancellationToken);
-        var tenancyIds = tenancies.Select(t => t.Id).Distinct().ToList();
-
-        var periodRentPayments = await _dbContext.RentPayments
-            .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && p.DatePaid >= periodStart && p.DatePaid < periodEndExclusive)
-            .OrderByDescending(p => p.DatePaid)
-            .ToListAsync(cancellationToken);
-
-        var paidByTenancy = periodRentPayments
-            .GroupBy(p => p.TenancyId)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
-
-        var dedupedTenancies = tenancies
-            .GroupBy(t => new
-            {
-                TenantKey = (t.Tenant != null ? t.Tenant.FullName : string.Empty).Trim().ToLower(),
-                HouseKey = $"{(t.House != null ? t.House.AddressLine1 : string.Empty).Trim().ToLower()}|{(t.House != null ? t.House.City : string.Empty).Trim().ToLower()}"
-            })
-            .Select(group => group
-                .OrderByDescending(t => paidByTenancy.TryGetValue(t.Id, out var paid) ? paid : 0m)
-                .ThenByDescending(t => t.MoveInDate)
-                .ThenByDescending(t => t.RentStartYear ?? t.MoveInDate.Year)
-                .ThenByDescending(t => t.RentStartMonth ?? t.MoveInDate.Month)
-                .First())
-            .ToList();
-
-        var totalDepositByTenancy = await _dbContext.DepositPayments
-            .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId))
-            .GroupBy(p => p.TenancyId)
-            .Select(g => new { g.Key, Amount = g.Sum(x => x.AmountPaid) })
-            .ToDictionaryAsync(x => x.Key, x => x.Amount, cancellationToken);
-
-        var result = new List<RentLedgerItemResponse>();
-        foreach (var tenancy in dedupedTenancies)
-        {
-            if (tenancy.Tenant == null || tenancy.House == null)
-            {
-                continue;
-            }
-
-            var rentStartYear = tenancy.RentStartYear ?? tenancy.MoveInDate.Year;
-            var rentStartMonth = tenancy.RentStartMonth ?? tenancy.MoveInDate.Month;
-            var selectedPeriodNum = year * 12 + month;
-            var firstRentPeriodNum = rentStartYear * 12 + rentStartMonth;
-            if (selectedPeriodNum < firstRentPeriodNum)
-            {
-                continue;
-            }
-
-            var paymentsForPeriod = periodRentPayments.Where(p => p.TenancyId == tenancy.Id).ToList();
-            var amountPaid = paymentsForPeriod.Sum(p => p.AmountPaid);
-            var amountDue = tenancy.RentAmountMonthly;
-            var dueDay = Math.Min(Math.Max((int)tenancy.PaymentDueDay, 1), 28);
-            var dueDate = new DateTime(year, month, dueDay);
-
-            if (tenancy.MoveOutDate.HasValue && tenancy.MoveOutDate.Value.Date <= dueDate.Date && amountPaid <= 0)
-            {
-                continue;
-            }
-
-            var status = amountPaid >= amountDue
-                ? "Paid"
-                : amountPaid > 0
-                    ? "PartPaid"
-                    : dueDate < DateTime.UtcNow.Date
-                        ? "Overdue"
-                        : "Unpaid";
-
-            if (!MatchesStatusFilter(statusFilter, status))
-            {
-                continue;
-            }
-
-            totalDepositByTenancy.TryGetValue(tenancy.Id, out var totalDepositPaid);
-            var depositRemaining = Math.Max(0m, tenancy.DepositAmount - totalDepositPaid);
-
-            result.Add(new RentLedgerItemResponse
-            {
-                TenancyId = tenancy.Id,
-                TenantId = tenancy.TenantId,
-                HouseId = tenancy.HouseId,
-                HouseAddress = $"{tenancy.House.AddressLine1}, {tenancy.House.City}",
-                TenantName = tenancy.Tenant.FullName,
-                DueDate = dueDate,
-                AmountDue = amountDue,
-                AmountPaid = amountPaid,
-                Status = status,
-                DepositRemaining = depositRemaining,
-                PaymentsForThisMonth = paymentsForPeriod.Select(p => new PaymentDetailApiResponse
-                {
-                    PaymentId = p.Id,
-                    PaidOn = p.DatePaid,
-                    Amount = p.AmountPaid,
-                    Method = p.PaymentMethod,
-                    Reference = p.ReferenceNumber,
-                    Notes = p.Notes,
-                    CollectedBy = p.CollectedBy
-                }).ToList()
-            });
-        }
-
-        return Ok(result.OrderBy(r => r.HouseAddress).ThenBy(r => r.TenantName));
+        var entries = await _rentLedgerService.GetRentLedgerEntriesAsync(year, month, houseId, statusFilter, searchTerm, cancellationToken);
+        return Ok(entries);
     }
 
     [HttpGet("ledger/deposit")]
@@ -637,32 +509,6 @@ public class RecordPaymentResponse
     public bool Success { get; set; }
     public Guid? DepositPaymentId { get; set; }
     public Guid? RentPaymentId { get; set; }
-}
-
-public class PaymentDetailApiResponse
-{
-    public Guid PaymentId { get; set; }
-    public DateTime PaidOn { get; set; }
-    public decimal Amount { get; set; }
-    public string Method { get; set; } = string.Empty;
-    public string? Reference { get; set; }
-    public string? Notes { get; set; }
-    public string? CollectedBy { get; set; }
-}
-
-public class RentLedgerItemResponse
-{
-    public Guid TenancyId { get; set; }
-    public Guid TenantId { get; set; }
-    public Guid HouseId { get; set; }
-    public string HouseAddress { get; set; } = string.Empty;
-    public string TenantName { get; set; } = string.Empty;
-    public DateTime DueDate { get; set; }
-    public decimal AmountDue { get; set; }
-    public decimal AmountPaid { get; set; }
-    public string Status { get; set; } = "Unpaid";
-    public decimal DepositRemaining { get; set; }
-    public List<PaymentDetailApiResponse> PaymentsForThisMonth { get; set; } = new();
 }
 
 public class DepositLedgerItemResponse

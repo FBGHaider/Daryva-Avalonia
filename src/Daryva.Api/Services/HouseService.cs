@@ -61,11 +61,13 @@ public class HouseService : IHouseService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILogger<HouseService> _logger;
+    private readonly IRentLedgerService _rentLedgerService;
 
-    public HouseService(AppDbContext dbContext, ILogger<HouseService> logger)
+    public HouseService(AppDbContext dbContext, ILogger<HouseService> logger, IRentLedgerService rentLedgerService)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _rentLedgerService = rentLedgerService;
     }
 
     public async Task<IEnumerable<HouseResponse>> GetHousesAsync(
@@ -234,53 +236,33 @@ public class HouseService : IHouseService
             TotalMonthlyRent = totalMonthlyRent
         };
 
+    /// <summary>
+    /// Builds house stats from the same data as the rent ledger for the current month,
+    /// so house "Monthly Rent" and "Active Tenants" always match the Rent & Payments tab.
+    /// </summary>
     private async Task<Dictionary<Guid, (int ActiveTenantCount, decimal TotalMonthlyRent)>> BuildCurrentActiveTenancyStatsAsync(
         CancellationToken cancellationToken)
     {
         var today = DateTime.UtcNow.Date;
-        var currentPeriodNum = today.Year * 12 + today.Month;
+        var ledgerEntries = await _rentLedgerService.GetRentLedgerEntriesAsync(
+            today.Year,
+            today.Month,
+            houseId: null,
+            statusFilter: null,
+            searchTerm: null,
+            cancellationToken);
 
-        var activeTenancies = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Where(t =>
-                t.Status == "Active" &&
-                (!t.MoveOutDate.HasValue || t.MoveOutDate >= today) &&
-                !t.Tenant.IsArchived &&
-                ((t.RentStartYear ?? t.MoveInDate.Year) * 12 + (t.RentStartMonth ?? t.MoveInDate.Month)) <= currentPeriodNum)
-            .Select(t => new
-            {
-                t.Id,
-                t.HouseId,
-                t.TenantId,
-                t.MoveInDate,
-                t.MoveOutDate,
-                t.Status,
-                t.RentAmountMonthly
-            })
-            .ToListAsync(cancellationToken);
+        var byHouse = ledgerEntries
+            .GroupBy(e => e.HouseId)
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    ActiveTenantCount: g.Count(),
+                    TotalMonthlyRent: g.Sum(e => e.AmountDue)));
 
-        var currentTenancyPerTenant = activeTenancies
-            .GroupBy(t => t.TenantId)
-            .Select(g => g
-                .OrderByDescending(t => t.MoveInDate)
-                .ThenByDescending(t => t.Id)
-                .First());
+        foreach (var kv in byHouse)
+            _logger.LogInformation("[DIAGNOSTIC] HouseId={HouseId} ActiveTenants={Count} TotalMonthlyRent={Total:F2} (from rent ledger)", kv.Key, kv.Value.ActiveTenantCount, kv.Value.TotalMonthlyRent);
 
-        var grouped = currentTenancyPerTenant.GroupBy(t => t.HouseId);
-        foreach (var group in grouped)
-        {
-            var houseId = group.Key;
-            var tenancies = group.ToList();
-            var details = string.Join("; ", tenancies.Select(t => $"TenancyId={t.Id}, TenantId={t.TenantId}, MoveIn={t.MoveInDate:yyyy-MM-dd}, MoveOut={(t.MoveOutDate.HasValue ? t.MoveOutDate.Value.ToString("yyyy-MM-dd") : "-")}, Status={t.Status}, Rent={t.RentAmountMonthly:F2}"));
-            var totalRent = tenancies.Sum(t => t.RentAmountMonthly);
-            var count = tenancies.Count;
-            _logger.LogInformation($"[DIAGNOSTIC] HouseId={houseId} ActiveTenants={count} Details=[{details}] TotalMonthlyRent={totalRent:F2}");
-        }
-
-        return grouped.ToDictionary(
-            g => g.Key,
-            g => (
-                ActiveTenantCount: g.Count(),
-                TotalMonthlyRent: g.Sum(t => t.RentAmountMonthly)));
+        return byHouse;
     }
 }

@@ -43,6 +43,7 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 // Business logic services
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRentLedgerService, RentLedgerService>();
 builder.Services.AddScoped<IHouseService, HouseService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
