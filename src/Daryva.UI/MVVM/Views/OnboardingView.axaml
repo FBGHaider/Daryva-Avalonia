@@ -10,10 +10,10 @@
         <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
         <converters:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
     </UserControl.Resources>
-    <Border Padding="24" Background="{DynamicResource PrimaryBackgroundBrush}">
+    <Border Padding="10" Background="{DynamicResource PrimaryBackgroundBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="18" MaxWidth="760" HorizontalAlignment="Center">
+        <StackPanel Spacing="18" MaxWidth="620" HorizontalAlignment="Center">
             <Image Source="/Assets/Logo/Daryva_icon.ico"
                    Width="96"
                    Height="96"
@@ -24,13 +24,19 @@
                        FontSize="28"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryTextBrush}"
+                       Width="420"
                        HorizontalAlignment="Center"
-                       TextAlignment="Center"/>
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="620"/>
 
             <TextBlock Text="Login, then select, create, or join an organization to continue."
                        Foreground="{DynamicResource SecondaryTextBrush}"
+                       Width="420"
                        HorizontalAlignment="Center"
-                       TextAlignment="Center"/>
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="620"/>
 
             <StackPanel IsVisible="{Binding ShowAuthSection}" HorizontalAlignment="Center" Width="420">
                 <Grid>

@@ -131,10 +131,10 @@ public partial class App : Application
 
             if (themeService != null)
             {
-                var savedTheme = settingsStore?.GetSetting("Theme", "Light") ?? "Light";
+                var savedTheme = settingsStore?.GetSetting("Theme", "Dark") ?? "Dark";
                 if (string.IsNullOrEmpty(savedTheme) || !themeService.AvailableThemes.Contains(savedTheme))
                 {
-                    savedTheme = "Light";
+                    savedTheme = "Dark";
                 }
                 // Always load theme on startup
                 themeService.SetTheme(savedTheme);
@@ -142,11 +142,11 @@ public partial class App : Application
         }
         catch
         {
-            // If theme initialization fails, try loading default Light theme
+            // If theme initialization fails, try loading default Dark theme
             try
             {
                 var themeService = ServiceProvider?.GetService<IThemeService>();
-                themeService?.SetTheme("Light");
+                themeService?.SetTheme("Dark");
             }
             catch { /* ignore */ }
         }

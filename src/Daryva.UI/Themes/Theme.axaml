@@ -14,6 +14,20 @@
     <Color x:Key="TextPrimary">#EAF0FF</Color>
     <Color x:Key="TextMuted">#AAB6D6</Color>
 
+    <SolidColorBrush x:Key="BrandPrimaryBrush" Color="{StaticResource BrandPrimary}"/>
+    <SolidColorBrush x:Key="BrandSecondaryBrush" Color="{StaticResource BrandSecondary}"/>
+    <SolidColorBrush x:Key="StatusDangerBrush" Color="{StaticResource StatusDanger}"/>
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccess}"/>
+    <SolidColorBrush x:Key="DeepBlueBrush" Color="{StaticResource DeepBlue}"/>
+    <SolidColorBrush x:Key="TealBrush" Color="{StaticResource Teal}"/>
+
+    <SolidColorBrush x:Key="BgBrush" Color="{StaticResource Bg}"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Surface}"/>
+    <SolidColorBrush x:Key="Surface2Brush" Color="{StaticResource Surface2}"/>
+    <SolidColorBrush x:Key="BorderTokenBrush" Color="{StaticResource Border}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMuted}"/>
+
     <Color x:Key="PrimaryBackground">#0B1020</Color>
     <Color x:Key="SecondaryBackground">#121A2E</Color>
     <Color x:Key="NavigationBackground">#090E1C</Color>
@@ -33,8 +47,7 @@
     <Color x:Key="TableHeaderBackground">#233758</Color>
     <Color x:Key="TableRowEvenBackground">#161F35</Color>
     <Color x:Key="TableRowOddBackground">#141C31</Color>
-    
-    <!-- Base Brushes -->
+
     <SolidColorBrush x:Key="PrimaryBackgroundBrush" Color="{StaticResource PrimaryBackground}"/>
     <SolidColorBrush x:Key="SecondaryBackgroundBrush" Color="{StaticResource SecondaryBackground}"/>
     <SolidColorBrush x:Key="NavigationBackgroundBrush" Color="{StaticResource NavigationBackground}"/>
@@ -45,15 +58,20 @@
     <SolidColorBrush x:Key="SecondaryTextBrush" Color="{StaticResource SecondaryText}"/>
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentColorHover}"/>
-    
-    <!-- Dashboard Card Brushes -->
+
     <SolidColorBrush x:Key="CardHousesBackgroundBrush" Color="{StaticResource CardHousesBackground}"/>
     <SolidColorBrush x:Key="CardTenantsBackgroundBrush" Color="{StaticResource CardTenantsBackground}"/>
     <SolidColorBrush x:Key="CardOverdueBackgroundBrush" Color="{StaticResource CardOverdueBackground}"/>
     <SolidColorBrush x:Key="CardDocumentsBackgroundBrush" Color="{StaticResource CardDocumentsBackground}"/>
-    
-    <!-- Table Brushes -->
+
     <SolidColorBrush x:Key="TableHeaderBackgroundBrush" Color="{StaticResource TableHeaderBackground}"/>
     <SolidColorBrush x:Key="TableRowEvenBackgroundBrush" Color="{StaticResource TableRowEvenBackground}"/>
     <SolidColorBrush x:Key="TableRowOddBackgroundBrush" Color="{StaticResource TableRowOddBackground}"/>
+
+    <x:Double x:Key="FontSizePageTitle">30</x:Double>
+    <x:Double x:Key="FontSizeSectionTitle">17</x:Double>
+    <x:Double x:Key="FontSizeCardTitle">13</x:Double>
+    <x:Double x:Key="FontSizeKpiValue">38</x:Double>
+    <x:Double x:Key="MainPagePadding">28</x:Double>
+    <x:Double x:Key="SectionGap">20</x:Double>
 </ResourceDictionary>

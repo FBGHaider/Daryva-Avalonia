@@ -65,6 +65,7 @@ namespace Daryva.Services
             services.AddScoped<ISettingsRepository, SettingsRepository>();
 
             // Business Services (API-only mode)
+            services.AddSingleton<IApiEntityIdMapper, ApiEntityIdMapper>();
             services.AddScoped<HouseService>();
             services.AddScoped<HouseApiServiceAdapter>();
             services.AddScoped<IHouseService, HouseApiServiceAdapter>();

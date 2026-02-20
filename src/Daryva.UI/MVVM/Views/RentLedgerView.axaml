@@ -113,7 +113,7 @@
         </DataTemplate>
     </UserControl.DataTemplates>
     <Border Padding="12">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,*">
             <!-- Filters -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,12">
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -168,7 +168,7 @@
             <TextBlock Grid.Row="1" Text="Rent Ledger" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
             
             <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}" Margin="0,0,0,16">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1200">
                         <!-- Header Row -->
                         <Border Grid.Row="0" 
@@ -216,7 +216,7 @@
             <TextBlock Grid.Row="3" Text="Deposit Ledger" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
             
             <Border Grid.Row="4" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1120">
                         <!-- Header Row -->
                         <Border Grid.Row="0" 

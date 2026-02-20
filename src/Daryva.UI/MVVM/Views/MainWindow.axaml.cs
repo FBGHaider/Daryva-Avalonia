@@ -114,21 +114,25 @@ public partial class MainWindow : Window
 
     private void UpdateWindowForAuthScene()
     {
-        var showCompactAuthWindow = _mainViewModel?.IsOnboardingMode == true &&
-                                    _onboardingViewModel?.ShowAuthSection == true;
+        var isOnboardingMode = _mainViewModel?.IsOnboardingMode == true;
 
-        if (showCompactAuthWindow)
+        if (isOnboardingMode)
         {
-            var compactHeight = _onboardingViewModel?.ShowRegisterScene == true
-                ? 740
-                : _onboardingViewModel?.ShowVerifyEmailScene == true
-                    ? 560
-                    : 620;
+            var isAuthSection = _onboardingViewModel?.ShowAuthSection == true;
+            var compactWidth = isAuthSection ? 560 : 640;
+            var compactHeight = isAuthSection
+                ? _onboardingViewModel?.ShowRegisterScene == true
+                    ? 740
+                    : _onboardingViewModel?.ShowVerifyEmailScene == true
+                        ? 560
+                        : 620
+                : 700;
 
-            Width = 520;
+            SizeToContent = SizeToContent.Manual;
+            Width = compactWidth;
             Height = compactHeight;
-            MinWidth = 520;
-            MaxWidth = 520;
+            MinWidth = compactWidth;
+            MaxWidth = compactWidth;
             MinHeight = compactHeight;
             MaxHeight = compactHeight;
             CanResize = false;
@@ -136,6 +140,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        SizeToContent = SizeToContent.Manual;
         Width = 1200;
         Height = 800;
         MinWidth = 900;

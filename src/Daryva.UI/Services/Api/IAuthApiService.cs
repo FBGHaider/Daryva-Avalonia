@@ -25,6 +25,12 @@ public class MeDto
     [JsonPropertyName("userId")]
     public string UserId { get; set; } = string.Empty;
 
+    [JsonPropertyName("firstName")]
+    public string FirstName { get; set; } = string.Empty;
+
+    [JsonPropertyName("lastName")]
+    public string LastName { get; set; } = string.Empty;
+
     [JsonPropertyName("email")]
     public string Email { get; set; } = string.Empty;
 }

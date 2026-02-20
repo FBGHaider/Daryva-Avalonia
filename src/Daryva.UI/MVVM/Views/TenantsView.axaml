@@ -12,7 +12,7 @@
         <converters:DateTimeToDisplayConverter x:Key="DateTimeToDisplayConverter"/>
     </UserControl.Resources>
     <Border Padding="16">
-        <Grid RowDefinitions="Auto,Auto,*,Auto,*">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
             <!-- Header -->
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">

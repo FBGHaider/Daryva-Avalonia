@@ -18,7 +18,7 @@ namespace Daryva.Services.Theme
 
         public ThemeService()
         {
-            _currentTheme = "Light";
+            _currentTheme = "Dark";
             AvailableThemes = new[] { "Light", "Dark" };
         }
 

@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             x:Class="Daryva.MVVM.Views.Controls.KpiCard"
+             x:Name="Root"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Border.kpi-card">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.kpi-card:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="kpi-card">
+        <Grid RowDefinitions="4,Auto,Auto,Auto">
+            <Border Grid.Row="0"
+                    CornerRadius="8"
+                    Background="{Binding AccentBrush, ElementName=Root}"/>
+
+            <TextBlock Grid.Row="1"
+                       Classes="card-title"
+                       Margin="0,10,0,0"
+                       Text="{Binding Title, ElementName=Root}"/>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,10,0,0">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Icon, ElementName=Root}"
+                           FontSize="30"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding HasIcon, ElementName=Root}"/>
+                <TextBlock Grid.Column="1"
+                           Classes="kpi-value"
+                           Text="{Binding Value, ElementName=Root}"
+                           Margin="10,0,0,0"
+                           VerticalAlignment="Center"/>
+            </Grid>
+
+            <TextBlock Grid.Row="3"
+                       Classes="text-muted"
+                       FontSize="12"
+                       Margin="0,10,0,0"
+                       Text="{Binding SubText, ElementName=Root}"
+                       IsVisible="{Binding HasSubText, ElementName=Root}"/>
+        </Grid>
+    </Border>
+</UserControl>

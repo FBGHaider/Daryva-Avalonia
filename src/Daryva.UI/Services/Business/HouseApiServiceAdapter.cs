@@ -11,16 +11,45 @@ namespace Daryva.Services.Business;
 public class HouseApiServiceAdapter : IHouseService
 {
     private readonly IHouseApiService _houseApiService;
+    private readonly ITenantApiService _tenantApiService;
+    private readonly IApiEntityIdMapper _idMapper;
 
-    public HouseApiServiceAdapter(IHouseApiService houseApiService)
+    public HouseApiServiceAdapter(
+        IHouseApiService houseApiService,
+        ITenantApiService tenantApiService,
+        IApiEntityIdMapper idMapper)
     {
         _houseApiService = houseApiService ?? throw new ArgumentNullException(nameof(houseApiService));
+        _tenantApiService = tenantApiService ?? throw new ArgumentNullException(nameof(tenantApiService));
+        _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
     }
 
     public async Task<IEnumerable<House>> GetAllHousesAsync()
     {
         var houseDtos = await _houseApiService.GetHousesAsync();
-        return houseDtos.Select(MapToHouse);
+        var activeTenants = await _tenantApiService.GetTenantsAsync(includeArchived: false);
+
+        var activeTenantCountsByHouse = activeTenants
+            .Where(t => !t.IsArchived && t.CurrentHouseId.HasValue)
+            .GroupBy(t => t.CurrentHouseId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(t => t.Id).Distinct().Count());
+
+        return houseDtos.Select(dto =>
+        {
+            var house = MapToHouse(dto);
+            if (house.ApiId.HasValue && activeTenantCountsByHouse.TryGetValue(house.ApiId.Value, out var count))
+            {
+                house.ActiveTenantCount = count;
+            }
+            else
+            {
+                house.ActiveTenantCount = 0;
+            }
+
+            return house;
+        });
     }
 
     public async Task<House?> GetHouseByIdAsync(int houseId)
@@ -121,7 +150,7 @@ public class HouseApiServiceAdapter : IHouseService
         return new House
         {
             // Use hash of Guid as int ID (not perfect but works for UI purposes)
-            HouseId = dto.Id.GetHashCode(),
+            HouseId = _idMapper.MapHouseId(dto.Id),
             ApiId = dto.Id,
             Name = dto.Name,
             AddressLine1 = dto.AddressLine1,

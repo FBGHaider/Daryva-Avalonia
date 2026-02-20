@@ -11,10 +11,12 @@ namespace Daryva.Services.Business;
 public class TenantApiServiceAdapter : ITenantService
 {
     private readonly ITenantApiService _tenantApiService;
+    private readonly IApiEntityIdMapper _idMapper;
 
-    public TenantApiServiceAdapter(ITenantApiService tenantApiService)
+    public TenantApiServiceAdapter(ITenantApiService tenantApiService, IApiEntityIdMapper idMapper)
     {
         _tenantApiService = tenantApiService ?? throw new ArgumentNullException(nameof(tenantApiService));
+        _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
     }
 
     public async Task<IEnumerable<Tenant>> GetAllTenantsAsync(bool includeArchived = false)
@@ -132,7 +134,7 @@ public class TenantApiServiceAdapter : ITenantService
     {
         return new Tenant
         {
-            TenantId = dto.Id.GetHashCode(),
+            TenantId = _idMapper.MapTenantId(dto.Id),
             ApiId = dto.Id,
             FullName = dto.FullName,
             Email = dto.Email ?? string.Empty,
@@ -141,8 +143,8 @@ public class TenantApiServiceAdapter : ITenantService
             CreatedAt = dto.CreatedAt,
             IsArchived = dto.IsArchived,
             CurrentHouseAddress = dto.CurrentHouseAddress,
-            CurrentHouseId = dto.CurrentHouseId.HasValue ? (int?)dto.CurrentHouseId.Value.GetHashCode() : null,
-            CurrentTenancyId = dto.CurrentTenancyId.HasValue ? (int?)dto.CurrentTenancyId.Value.GetHashCode() : null,
+            CurrentHouseId = dto.CurrentHouseId.HasValue ? (int?)_idMapper.MapHouseId(dto.CurrentHouseId.Value) : null,
+            CurrentTenancyId = dto.CurrentTenancyId.HasValue ? (int?)_idMapper.MapTenancyId(dto.CurrentTenancyId.Value) : null,
             LeaveDate = dto.LeaveDate
         };
     }

@@ -21,10 +21,12 @@ namespace Daryva.Services.Data
                         FROM Tenancy tn 
                         INNER JOIN House h ON tn.HouseId = h.HouseId 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentHouseAddress,
                        (SELECT tn.TenancyId 
                         FROM Tenancy tn 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentTenancyId,
                        (SELECT tn.MoveOutDate 
                         FROM Tenancy tn 
@@ -45,10 +47,12 @@ namespace Daryva.Services.Data
                         FROM Tenancy tn 
                         INNER JOIN House h ON tn.HouseId = h.HouseId 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentHouseAddress,
                        (SELECT tn.TenancyId 
                         FROM Tenancy tn 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentTenancyId,
                        (SELECT tn.MoveOutDate 
                         FROM Tenancy tn 
@@ -70,10 +74,12 @@ namespace Daryva.Services.Data
                         FROM Tenancy tn 
                         INNER JOIN House h ON tn.HouseId = h.HouseId 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentHouseAddress,
                        (SELECT tn.TenancyId 
                         FROM Tenancy tn 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentTenancyId
                 FROM Tenant t
                 WHERE t.TenantId = @TenantId";
@@ -126,10 +132,12 @@ namespace Daryva.Services.Data
                         FROM Tenancy tn 
                         INNER JOIN House h ON tn.HouseId = h.HouseId 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentHouseAddress,
                        (SELECT tn.TenancyId 
                         FROM Tenancy tn 
                         WHERE tn.TenantId = t.TenantId AND tn.Status = 'Active'
+                        ORDER BY tn.MoveInDate DESC, tn.TenancyId DESC
                         LIMIT 1) AS CurrentTenancyId
                 FROM Tenant t
                 WHERE t.IsArchived = 0

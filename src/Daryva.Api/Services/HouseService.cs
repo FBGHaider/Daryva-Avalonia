@@ -76,21 +76,7 @@ public class HouseService : IHouseService
         var houses = await _dbContext.Houses
             .AsNoTracking()
             .ToListAsync(cancellationToken);
-        var today = DateTime.UtcNow.Date;
-        var activeTenancyStats = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Where(t =>
-                t.Status == "Active" &&
-                (!t.MoveOutDate.HasValue || t.MoveOutDate >= today) &&
-                !t.Tenant.IsArchived)
-            .GroupBy(t => t.HouseId)
-            .Select(g => new
-            {
-                HouseId = g.Key,
-                ActiveTenantCount = g.Count(),
-                TotalMonthlyRent = g.Sum(t => t.RentAmountMonthly)
-            })
-            .ToDictionaryAsync(x => x.HouseId, cancellationToken);
+        var activeTenancyStats = await BuildCurrentActiveTenancyStatsAsync(cancellationToken);
 
         return houses.Select(house =>
         {
@@ -115,23 +101,13 @@ public class HouseService : IHouseService
         if (house == null)
             return null;
 
-        var today = DateTime.UtcNow.Date;
-        var stats = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Where(t =>
-                t.HouseId == houseId &&
-                t.Status == "Active" &&
-                (!t.MoveOutDate.HasValue || t.MoveOutDate >= today) &&
-                !t.Tenant.IsArchived)
-            .GroupBy(t => t.HouseId)
-            .Select(g => new
-            {
-                ActiveTenantCount = g.Count(),
-                TotalMonthlyRent = g.Sum(t => t.RentAmountMonthly)
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+        var statsByHouse = await BuildCurrentActiveTenancyStatsAsync(cancellationToken);
+        if (statsByHouse.TryGetValue(houseId, out var stats))
+        {
+            return MapToResponse(house, stats.ActiveTenantCount, stats.TotalMonthlyRent);
+        }
 
-        return MapToResponse(house, stats?.ActiveTenantCount ?? 0, stats?.TotalMonthlyRent ?? 0m);
+        return MapToResponse(house, 0, 0m);
     }
 
     public async Task<HouseResponse> CreateHouseAsync(
@@ -257,4 +233,51 @@ public class HouseService : IHouseService
             ActiveTenantCount = activeTenantCount,
             TotalMonthlyRent = totalMonthlyRent
         };
+
+    private async Task<Dictionary<Guid, (int ActiveTenantCount, decimal TotalMonthlyRent)>> BuildCurrentActiveTenancyStatsAsync(
+        CancellationToken cancellationToken)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        var activeTenancies = await _dbContext.Tenancies
+            .AsNoTracking()
+            .Where(t =>
+                t.Status == "Active" &&
+                (!t.MoveOutDate.HasValue || t.MoveOutDate >= today) &&
+                !t.Tenant.IsArchived)
+            .Select(t => new
+            {
+                t.Id,
+                t.HouseId,
+                t.TenantId,
+                t.MoveInDate,
+                t.RentAmountMonthly
+            })
+            .ToListAsync(cancellationToken);
+
+        var currentTenancyPerTenant = activeTenancies
+            .GroupBy(t => t.TenantId)
+            .Select(g => g
+                .OrderByDescending(t => t.MoveInDate)
+                .ThenByDescending(t => t.Id)
+                .First());
+
+            var grouped = currentTenancyPerTenant.GroupBy(t => t.HouseId);
+            foreach (var group in grouped)
+            {
+                var houseId = group.Key;
+                var tenancies = group.ToList();
+                var tenantIds = string.Join(",", tenancies.Select(t => t.TenantId));
+                var rents = string.Join(",", tenancies.Select(t => t.RentAmountMonthly.ToString("F2")));
+                var totalRent = tenancies.Sum(t => t.RentAmountMonthly);
+                var count = tenancies.Count;
+                _logger.LogInformation($"[DIAGNOSTIC] HouseId={houseId} ActiveTenants={count} TenantIds=[{tenantIds}] Rents=[{rents}] TotalMonthlyRent={totalRent:F2}");
+            }
+
+            return grouped.ToDictionary(
+                g => g.Key,
+                g => (
+                    ActiveTenantCount: g.Count(),
+                    TotalMonthlyRent: g.Sum(t => t.RentAmountMonthly)));
+    }
 }

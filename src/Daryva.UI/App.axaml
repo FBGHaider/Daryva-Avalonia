@@ -2,16 +2,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Daryva"
              x:Class="Daryva.App"
-             RequestedThemeVariant="Light"
+             RequestedThemeVariant="Dark"
              xmlns:views="clr-namespace:Daryva.MVVM.Views;assembly=Daryva"
              xmlns:viewModels="clr-namespace:Daryva.MVVM.ViewModels;assembly=Daryva">
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        <StyleInclude Source="avares://Daryva/Themes/DesignSystem.axaml"/>
     </Application.Styles>
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Theme is loaded dynamically by ThemeService -->
+                <ResourceInclude Source="avares://Daryva/Themes/Theme.axaml"/>
+                <!-- Active Light/Dark overrides are loaded dynamically by ThemeService -->
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

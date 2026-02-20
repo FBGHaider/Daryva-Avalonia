@@ -16,17 +16,30 @@ namespace Daryva.Services.Data
         public async Task<IEnumerable<House>> GetAllHousesAsync()
         {
             var sql = @"
+                WITH CurrentActiveTenancy AS (
+                    SELECT t1.TenantId, t1.HouseId, t1.RentAmountMonthly
+                    FROM Tenancy t1
+                    WHERE t1.Status = 'Active'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM Tenancy t2
+                          WHERE t2.TenantId = t1.TenantId
+                            AND t2.Status = 'Active'
+                            AND (
+                                t2.MoveInDate > t1.MoveInDate
+                                OR (t2.MoveInDate = t1.MoveInDate AND t2.TenancyId > t1.TenancyId)
+                            )
+                      )
+                )
                 SELECT h.*, 
-                       (SELECT COUNT(DISTINCT t.TenantId) 
-                        FROM Tenancy t 
-                        INNER JOIN Tenant tn ON t.TenantId = tn.TenantId 
-                        WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS ActiveTenantCount,
-                       -- Sum only monthly rent, NOT deposit amount
-                       -- Only include tenancies for non-archived tenants
-                       (SELECT COALESCE(SUM(t.RentAmountMonthly), 0) 
-                        FROM Tenancy t 
-                        INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                        WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS TotalMonthlyRent
+                       (SELECT COUNT(*)
+                        FROM CurrentActiveTenancy cat
+                        INNER JOIN Tenant tn ON cat.TenantId = tn.TenantId
+                        WHERE cat.HouseId = h.HouseId AND tn.IsArchived = 0) AS ActiveTenantCount,
+                       (SELECT COALESCE(SUM(cat.RentAmountMonthly), 0)
+                        FROM CurrentActiveTenancy cat
+                        INNER JOIN Tenant tn ON cat.TenantId = tn.TenantId
+                        WHERE cat.HouseId = h.HouseId AND tn.IsArchived = 0) AS TotalMonthlyRent
                 FROM House h
                 ORDER BY h.CreatedAt DESC";
 
@@ -36,17 +49,30 @@ namespace Daryva.Services.Data
         public async Task<House?> GetHouseByIdAsync(int houseId)
         {
             var sql = @"
+                WITH CurrentActiveTenancy AS (
+                    SELECT t1.TenantId, t1.HouseId, t1.RentAmountMonthly
+                    FROM Tenancy t1
+                    WHERE t1.Status = 'Active'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM Tenancy t2
+                          WHERE t2.TenantId = t1.TenantId
+                            AND t2.Status = 'Active'
+                            AND (
+                                t2.MoveInDate > t1.MoveInDate
+                                OR (t2.MoveInDate = t1.MoveInDate AND t2.TenancyId > t1.TenancyId)
+                            )
+                      )
+                )
                 SELECT h.*, 
-                       (SELECT COUNT(DISTINCT t.TenantId) 
-                        FROM Tenancy t 
-                        INNER JOIN Tenant tn ON t.TenantId = tn.TenantId 
-                        WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS ActiveTenantCount,
-                       -- Sum only monthly rent, NOT deposit amount
-                       -- Only include tenancies for non-archived tenants
-                       (SELECT COALESCE(SUM(t.RentAmountMonthly), 0) 
-                        FROM Tenancy t 
-                        INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                        WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS TotalMonthlyRent
+                       (SELECT COUNT(*)
+                        FROM CurrentActiveTenancy cat
+                        INNER JOIN Tenant tn ON cat.TenantId = tn.TenantId
+                        WHERE cat.HouseId = h.HouseId AND tn.IsArchived = 0) AS ActiveTenantCount,
+                       (SELECT COALESCE(SUM(cat.RentAmountMonthly), 0)
+                        FROM CurrentActiveTenancy cat
+                        INNER JOIN Tenant tn ON cat.TenantId = tn.TenantId
+                        WHERE cat.HouseId = h.HouseId AND tn.IsArchived = 0) AS TotalMonthlyRent
                 FROM House h
                 WHERE h.HouseId = @HouseId";
 
@@ -87,17 +113,30 @@ namespace Daryva.Services.Data
         public async Task<IEnumerable<House>> SearchHousesAsync(string searchTerm)
         {
             var sql = @"
+                WITH CurrentActiveTenancy AS (
+                    SELECT t1.TenantId, t1.HouseId, t1.RentAmountMonthly
+                    FROM Tenancy t1
+                    WHERE t1.Status = 'Active'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM Tenancy t2
+                          WHERE t2.TenantId = t1.TenantId
+                            AND t2.Status = 'Active'
+                            AND (
+                                t2.MoveInDate > t1.MoveInDate
+                                OR (t2.MoveInDate = t1.MoveInDate AND t2.TenancyId > t1.TenancyId)
+                            )
+                      )
+                )
                 SELECT h.*, 
-                       (SELECT COUNT(DISTINCT t.TenantId) 
-                        FROM Tenancy t 
-                        INNER JOIN Tenant tn ON t.TenantId = tn.TenantId 
-                        WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS ActiveTenantCount,
-                       -- Sum only monthly rent, NOT deposit amount
-                       -- Only include tenancies for non-archived tenants
-                       (SELECT COALESCE(SUM(t.RentAmountMonthly), 0) 
-                        FROM Tenancy t 
-                        INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                        WHERE t.HouseId = h.HouseId AND t.Status = 'Active' AND tn.IsArchived = 0) AS TotalMonthlyRent
+                       (SELECT COUNT(*)
+                        FROM CurrentActiveTenancy cat
+                        INNER JOIN Tenant tn ON cat.TenantId = tn.TenantId
+                        WHERE cat.HouseId = h.HouseId AND tn.IsArchived = 0) AS ActiveTenantCount,
+                       (SELECT COALESCE(SUM(cat.RentAmountMonthly), 0)
+                        FROM CurrentActiveTenancy cat
+                        INNER JOIN Tenant tn ON cat.TenantId = tn.TenantId
+                        WHERE cat.HouseId = h.HouseId AND tn.IsArchived = 0) AS TotalMonthlyRent
                 FROM House h
                 WHERE h.AddressLine1 LIKE @SearchTerm 
                    OR h.AddressLine2 LIKE @SearchTerm 

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -23,6 +24,7 @@ namespace Daryva.MVVM.ViewModels
         private string _searchTerm = string.Empty;
         private bool _showActiveOnly = false;
         private House? _selectedHouse;
+        private bool _isLoading;
 
         public HousesViewModel(
             IHouseService houseService,
@@ -37,12 +39,14 @@ namespace Daryva.MVVM.ViewModels
             _houseReportExportService = houseReportExportService ?? throw new ArgumentNullException(nameof(houseReportExportService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             Houses = new ObservableCollection<House>();
+            Houses.CollectionChanged += OnHousesCollectionChanged;
 
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             SearchCommand = new RelayCommand(async _ => await SearchHousesAsync());
             AddHouseCommand = new RelayCommand(async _ => await ShowAddHouseDialogAsync());
             RemoveHouseCommand = new RelayCommand(async _ => await RemoveHouseAsync(), _ => SelectedHouse != null);
             ExportReportCommand = new RelayCommand(async _ => await ExportHouseReportAsync(), _ => SelectedHouse != null);
+            ClearSearchCommand = new RelayCommand(_ => SearchTerm = string.Empty, _ => !string.IsNullOrWhiteSpace(SearchTerm));
 
             LoadHousesCommand.Execute(null);
         }
@@ -52,8 +56,21 @@ namespace Daryva.MVVM.ViewModels
         public ICommand AddHouseCommand { get; }
         public ICommand RemoveHouseCommand { get; }
         public ICommand ExportReportCommand { get; }
+        public ICommand ClearSearchCommand { get; }
 
         public ObservableCollection<House> Houses { get; }
+
+        public bool IsLoading
+        {
+            get => _isLoading;
+            private set => SetProperty(ref _isLoading, value);
+        }
+
+        public int HouseCount => Houses.Count;
+        public int TotalRooms => Houses.Sum(h => h.TotalRooms);
+        public int TotalActiveTenants => Houses.Sum(h => h.ActiveTenantCount);
+        public decimal TotalMonthlyRent => Houses.Sum(h => h.TotalMonthlyRent);
+        public bool HasHouses => Houses.Count > 0;
 
         public string SearchTerm
         {
@@ -62,6 +79,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _searchTerm, value))
                 {
+                    ((RelayCommand)ClearSearchCommand).RaiseCanExecuteChanged();
                     SearchCommand.Execute(null);
                 }
             }
@@ -97,6 +115,7 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
+                IsLoading = true;
                 var houses = await _houseService.GetAllHousesAsync();
                 
                 // Clear and reload on UI thread
@@ -120,6 +139,10 @@ namespace Daryva.MVVM.ViewModels
                 _dialogService.ShowMessage($"Error loading houses: {ex.Message}\n\nStack trace: {ex.StackTrace}", "Database Error");
                 System.Diagnostics.Debug.WriteLine($"Error loading houses: {ex}");
             }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         private async Task SearchHousesAsync()
@@ -132,6 +155,7 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
+                IsLoading = true;
                 var houses = await _houseService.SearchHousesAsync(SearchTerm);
                 
                 Houses.Clear();
@@ -146,6 +170,19 @@ namespace Daryva.MVVM.ViewModels
                 _dialogService.ShowMessage($"Error searching houses: {ex.Message}", "Database Error");
                 System.Diagnostics.Debug.WriteLine($"Error searching houses: {ex}");
             }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private void OnHousesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            OnPropertyChanged(nameof(HouseCount));
+            OnPropertyChanged(nameof(TotalRooms));
+            OnPropertyChanged(nameof(TotalActiveTenants));
+            OnPropertyChanged(nameof(TotalMonthlyRent));
+            OnPropertyChanged(nameof(HasHouses));
         }
 
         private async Task ShowAddHouseDialogAsync()

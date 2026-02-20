@@ -99,14 +99,14 @@ public class PaymentApiService : IPaymentApiService
         return value ?? "Unpaid";
     }
 
-    public async Task<Guid?> ResolveTenancyApiIdAsync(int localTenancyId, CancellationToken cancellationToken = default)
+    public Task<Guid?> ResolveTenancyApiIdAsync(int localTenancyId, CancellationToken cancellationToken = default)
     {
         EnsureMapsLoaded();
 
         if (_tenancyMap.TryGetValue(localTenancyId, out var cached))
-            return cached;
+            return Task.FromResult<Guid?>(cached);
 
-        return null;
+        return Task.FromResult<Guid?>(null);
     }
 
     public Task<Guid?> ResolveHouseApiIdAsync(int localHouseId, CancellationToken cancellationToken = default)

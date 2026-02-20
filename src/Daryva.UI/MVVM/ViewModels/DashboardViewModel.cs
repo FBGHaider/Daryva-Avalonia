@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services;
+using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 using Daryva.Services.Navigation;
@@ -21,6 +22,8 @@ namespace Daryva.MVVM.ViewModels
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
         private readonly ISettingsService _settingsService;
+        private readonly IAuthApiService _authApiService;
+        private readonly IAuthSessionService _authSessionService;
 
         private int _housesCount;
         private int _activeTenantsCount;
@@ -28,6 +31,7 @@ namespace Daryva.MVVM.ViewModels
         private decimal _overdueRentAmount;
         private int _documentsExpiringSoonCount;
         private bool _showEmptyDepositMessage = true;
+        private string _greetingText = "Hello";
 
         // Static event to notify all DashboardViewModel instances when payment is recorded/unrecorded
         public static event EventHandler? PaymentDataChanged;
@@ -35,7 +39,7 @@ namespace Daryva.MVVM.ViewModels
         private EventHandler<BaseViewModel?>? _navigationHandler;
         private EventHandler? _paymentDataHandler;
 
-        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService)
+        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService)
         {
             _houseService = houseService;
             _tenantService = tenantService;
@@ -44,6 +48,8 @@ namespace Daryva.MVVM.ViewModels
             _navigationService = navigationService;
             _dialogService = dialogService;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _authApiService = authApiService ?? throw new ArgumentNullException(nameof(authApiService));
+            _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
 
             OverdueRent = new ObservableCollection<OverdueRentItem>();
             MissingDocuments = new ObservableCollection<MissingDocumentItem>();
@@ -196,6 +202,12 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _documentsExpiringSoonCount, value);
         }
 
+        public string GreetingText
+        {
+            get => _greetingText;
+            private set => SetProperty(ref _greetingText, value);
+        }
+
         public ObservableCollection<OverdueRentItem> OverdueRent { get; }
         public ObservableCollection<MissingDocumentItem> MissingDocuments { get; }
         public ObservableCollection<DepositReturnReminderItem> DepositReturnReminders { get; }
@@ -220,6 +232,8 @@ namespace Daryva.MVVM.ViewModels
 
                     var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
                     DateTimeFormatProvider.DateFormat = dateFormat;
+
+                    await UpdateGreetingAsync();
 
                     var houses = await _houseService.GetAllHousesAsync();
                     var houseCount = houses.Count();
@@ -342,6 +356,52 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
             }
+        }
+
+        private async Task UpdateGreetingAsync()
+        {
+            string? firstName = null;
+
+            try
+            {
+                var me = await _authApiService.GetMeAsync();
+                firstName = me?.FirstName?.Trim();
+            }
+            catch
+            {
+            }
+
+            if (string.IsNullOrWhiteSpace(firstName))
+            {
+                firstName = ExtractFirstNameFromEmail(_authSessionService.Email);
+            }
+
+            GreetingText = string.IsNullOrWhiteSpace(firstName) ? "Hello" : $"Hello, {firstName}";
+        }
+
+        private static string? ExtractFirstNameFromEmail(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return null;
+            }
+
+            var localPart = email.Split('@', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(localPart))
+            {
+                return null;
+            }
+
+            var firstChunk = localPart
+                .Split(new[] { '.', '_', '-' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(firstChunk))
+            {
+                return null;
+            }
+
+            return char.ToUpperInvariant(firstChunk[0]) + firstChunk[1..].ToLowerInvariant();
         }
 
         private void UpdateDashboardProperties(int houseCount, int activeTenantCount, 
