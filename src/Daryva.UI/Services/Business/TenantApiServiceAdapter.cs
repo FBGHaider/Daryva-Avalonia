@@ -143,7 +143,7 @@ public class TenantApiServiceAdapter : ITenantService
             CurrentHouseAddress = dto.CurrentHouseAddress,
             CurrentHouseId = dto.CurrentHouseId.HasValue ? (int?)dto.CurrentHouseId.Value.GetHashCode() : null,
             CurrentTenancyId = dto.CurrentTenancyId.HasValue ? (int?)dto.CurrentTenancyId.Value.GetHashCode() : null,
-            LeaveDate = null
+            LeaveDate = dto.LeaveDate
         };
     }
 }

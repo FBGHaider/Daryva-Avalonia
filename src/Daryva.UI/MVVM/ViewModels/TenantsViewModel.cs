@@ -428,14 +428,20 @@ namespace Daryva.MVVM.ViewModels
                 var tenantId = SelectedTenant.TenantId;
                 await _tenantService.UnarchiveTenantAsync(tenantId);
 
-                // Reactivate their most recent ended tenancy so there is only one (active) tenancy—no duplicate
-                var tenancies = (await _tenancyRepository.GetTenanciesByTenantIdAsync(tenantId)).ToList();
-                var mostRecentEnded = tenancies
-                    .Where(t => string.Equals(t.Status, "Ended", StringComparison.OrdinalIgnoreCase) && t.MoveOutDate.HasValue)
-                    .OrderByDescending(t => t.MoveOutDate)
-                    .FirstOrDefault();
-                if (mostRecentEnded != null)
-                    await _tenancyRepository.ReactivateTenancyAsync(mostRecentEnded.TenancyId);
+                try
+                {
+                    var tenancies = (await _tenancyRepository.GetTenanciesByTenantIdAsync(tenantId)).ToList();
+                    var mostRecentEnded = tenancies
+                        .Where(t => string.Equals(t.Status, "Ended", StringComparison.OrdinalIgnoreCase) && t.MoveOutDate.HasValue)
+                        .OrderByDescending(t => t.MoveOutDate)
+                        .FirstOrDefault();
+                    if (mostRecentEnded != null)
+                        await _tenancyRepository.ReactivateTenancyAsync(mostRecentEnded.TenancyId);
+                }
+                catch (Exception tenancyEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Tenancy reactivation skipped: {tenancyEx.Message}");
+                }
 
                 _dialogService.ShowMessage("Tenant recovered. They now appear in Active Tenants.", "Success");
                 SelectedTenant = null;

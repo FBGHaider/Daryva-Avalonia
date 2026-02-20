@@ -61,6 +61,17 @@ public class TenantsController : ControllerBase
                 .Where(te => !te.MoveOutDate.HasValue || te.MoveOutDate >= today)
                 .OrderByDescending(te => te.MoveInDate)
                 .FirstOrDefault();
+
+            var leaveDate = t.Tenancies
+                .Where(te => te.MoveOutDate.HasValue)
+                .OrderByDescending(te => te.MoveOutDate)
+                .Select(te => te.MoveOutDate)
+                .FirstOrDefault();
+
+            if (t.IsArchived && !leaveDate.HasValue)
+            {
+                leaveDate = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            }
             
             return new TenantResponse
             {
@@ -73,7 +84,8 @@ public class TenantsController : ControllerBase
                 IsArchived = t.IsArchived,
                 CurrentHouseAddress = currentTenancy?.House?.AddressLine1 ?? string.Empty,
                 CurrentHouseId = currentTenancy?.HouseId,
-                CurrentTenancyId = currentTenancy?.Id
+                CurrentTenancyId = currentTenancy?.Id,
+                LeaveDate = leaveDate
             };
         }).ToList();
 
@@ -107,6 +119,17 @@ public class TenantsController : ControllerBase
             .OrderByDescending(te => te.MoveInDate)
             .FirstOrDefault();
 
+        var leaveDate = tenant.Tenancies
+            .Where(te => te.MoveOutDate.HasValue)
+            .OrderByDescending(te => te.MoveOutDate)
+            .Select(te => te.MoveOutDate)
+            .FirstOrDefault();
+
+        if (tenant.IsArchived && !leaveDate.HasValue)
+        {
+            leaveDate = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        }
+
         var response = new TenantResponse
         {
             Id = tenant.Id,
@@ -118,7 +141,8 @@ public class TenantsController : ControllerBase
             IsArchived = tenant.IsArchived,
             CurrentHouseAddress = currentTenancy?.House?.AddressLine1 ?? string.Empty,
             CurrentHouseId = currentTenancy?.HouseId,
-            CurrentTenancyId = currentTenancy?.Id
+            CurrentTenancyId = currentTenancy?.Id,
+            LeaveDate = leaveDate
         };
 
         return Ok(response);
@@ -229,6 +253,18 @@ public class TenantsController : ControllerBase
         if (tenant == null)
             return NotFound();
 
+        var archiveDate = DateTime.UtcNow.Date;
+        var activeTenancies = tenant.Tenancies
+            .Where(te => string.Equals(te.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            .Where(te => !te.MoveOutDate.HasValue || te.MoveOutDate.Value.Date > archiveDate)
+            .ToList();
+
+        foreach (var tenancy in activeTenancies)
+        {
+            tenancy.MoveOutDate = archiveDate;
+            tenancy.Status = "Ended";
+        }
+
         tenant.IsArchived = true;
         await _tenantService.UpdateTenantAsync(tenant);
 
@@ -315,4 +351,5 @@ public class TenantResponse
     public string? CurrentHouseAddress { get; set; }
     public Guid? CurrentHouseId { get; set; }
     public Guid? CurrentTenancyId { get; set; }
+    public DateTime? LeaveDate { get; set; }
 }

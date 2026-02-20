@@ -17,6 +17,7 @@ public class TenantDto
     public string? CurrentHouseAddress { get; set; }
     public Guid? CurrentTenancyId { get; set; }
     public Guid? CurrentHouseId { get; set; }
+    public DateTime? LeaveDate { get; set; }
 }
 
 /// <summary>

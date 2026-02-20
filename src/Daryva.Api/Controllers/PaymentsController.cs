@@ -219,6 +219,7 @@ public class PaymentsController : ControllerBase
             .Include(t => t.Tenant)
             .Include(t => t.House)
             .Where(t => t.OrganizationId == orgId)
+            .Where(t => !t.Tenant.IsArchived)
             .Where(t => t.MoveInDate <= periodEnd && (!t.MoveOutDate.HasValue || t.MoveOutDate.Value >= periodStart));
 
         if (houseId.HasValue)
@@ -360,6 +361,7 @@ public class PaymentsController : ControllerBase
             .Include(t => t.Tenant)
             .Include(t => t.House)
             .Where(t => t.OrganizationId == orgId)
+            .Where(t => !t.Tenant.IsArchived)
             .Where(t => t.MoveInDate <= periodEnd);
 
         if (houseId.HasValue)
