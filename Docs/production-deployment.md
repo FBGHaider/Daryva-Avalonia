@@ -90,6 +90,7 @@ Set these repository secrets in GitHub:
 - `DEPLOY_SSH_KEY` (private key for deploy user)
 - `DEPLOY_PORT` (optional, default `22`)
 - `DEPLOY_PATH` (folder on VPS containing `docker-compose.prod.yml`)
+- `GHCR_USERNAME` (GitHub username that owns the PAT and can read the package)
 - `GHCR_PAT` (PAT with `read:packages` so VPS can pull GHCR images)
 
 Server prerequisites:
