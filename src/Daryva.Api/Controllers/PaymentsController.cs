@@ -204,6 +204,8 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        var orgId = _tenantContext.CurrentOrgId.Value;
+
         var periodStart = new DateTime(year, month, 1);
         var periodEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
 
@@ -211,6 +213,7 @@ public class PaymentsController : ControllerBase
             .AsNoTracking()
             .Include(t => t.Tenant)
             .Include(t => t.House)
+            .Where(t => t.OrganizationId == orgId)
             .Where(t => t.MoveInDate <= periodEnd && (!t.MoveOutDate.HasValue || t.MoveOutDate.Value >= periodStart));
 
         if (houseId.HasValue)
@@ -231,13 +234,13 @@ public class PaymentsController : ControllerBase
 
         var periodRentPayments = await _dbContext.RentPayments
             .AsNoTracking()
-            .Where(p => tenancyIds.Contains(p.TenancyId) && p.DatePaid.Year == year && p.DatePaid.Month == month)
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && p.DatePaid.Year == year && p.DatePaid.Month == month)
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
         var totalDepositByTenancy = await _dbContext.DepositPayments
             .AsNoTracking()
-            .Where(p => tenancyIds.Contains(p.TenancyId))
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId))
             .GroupBy(p => p.TenancyId)
             .Select(g => new { g.Key, Amount = g.Sum(x => x.AmountPaid) })
             .ToDictionaryAsync(x => x.Key, x => x.Amount, cancellationToken);
@@ -245,6 +248,11 @@ public class PaymentsController : ControllerBase
         var result = new List<RentLedgerItemResponse>();
         foreach (var tenancy in tenancies)
         {
+            if (tenancy.Tenant == null || tenancy.House == null)
+            {
+                continue;
+            }
+
             var rentStartYear = tenancy.RentStartYear ?? tenancy.MoveInDate.Year;
             var rentStartMonth = tenancy.RentStartMonth ?? tenancy.MoveInDate.Month;
             var selectedPeriodNum = year * 12 + month;
@@ -257,7 +265,8 @@ public class PaymentsController : ControllerBase
             var paymentsForPeriod = periodRentPayments.Where(p => p.TenancyId == tenancy.Id).ToList();
             var amountPaid = paymentsForPeriod.Sum(p => p.AmountPaid);
             var amountDue = tenancy.RentAmountMonthly;
-            var dueDate = new DateTime(year, month, Math.Min((int)tenancy.PaymentDueDay, 28));
+            var dueDay = Math.Min(Math.Max((int)tenancy.PaymentDueDay, 1), 28);
+            var dueDate = new DateTime(year, month, dueDay);
 
             var status = amountPaid >= amountDue
                 ? "Paid"
@@ -315,11 +324,14 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        var orgId = _tenantContext.CurrentOrgId.Value;
+
         var periodEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
         var tenanciesQuery = _dbContext.Tenancies
             .AsNoTracking()
             .Include(t => t.Tenant)
             .Include(t => t.House)
+            .Where(t => t.OrganizationId == orgId)
             .Where(t => t.MoveInDate <= periodEnd);
 
         if (houseId.HasValue)
@@ -340,13 +352,18 @@ public class PaymentsController : ControllerBase
 
         var depositPayments = await _dbContext.DepositPayments
             .AsNoTracking()
-            .Where(p => tenancyIds.Contains(p.TenancyId))
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId))
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
         var result = new List<DepositLedgerItemResponse>();
         foreach (var tenancy in tenancies)
         {
+            if (tenancy.Tenant == null || tenancy.House == null)
+            {
+                continue;
+            }
+
             var payments = depositPayments.Where(p => p.TenancyId == tenancy.Id).ToList();
             var amountPaid = payments.Sum(p => p.AmountPaid);
             var required = tenancy.DepositAmount;

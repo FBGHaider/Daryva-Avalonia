@@ -65,6 +65,17 @@ public class SqliteToApiMigrationService : IMigrationService
         return dateTime.HasValue ? DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc) : null;
     }
 
+    private static DateTime? NormalizeMoveOutDate(DateTime? moveOutDate)
+    {
+        if (!moveOutDate.HasValue)
+            return null;
+
+        if (moveOutDate.Value <= DateTime.MinValue.AddDays(1))
+            return null;
+
+        return ToUtc(moveOutDate);
+    }
+
     // Helper method to truncate strings to max length for database constraints
     private static string? TruncateString(string? value, int maxLength)
     {
@@ -234,7 +245,7 @@ public class SqliteToApiMigrationService : IMigrationService
                 OldHouseId = t.HouseId,
                 OldTenantId = t.TenantId,
                 MoveInDate = ToUtc(t.MoveInDate),
-                MoveOutDate = ToUtc(t.MoveOutDate),
+                MoveOutDate = NormalizeMoveOutDate(t.MoveOutDate),
                 RentStartMonth = t.RentStartMonth,
                 RentStartYear = t.RentStartYear,
                 RentAmountMonthly = t.RentAmountMonthly,
