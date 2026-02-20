@@ -4,23 +4,23 @@ services:
     container_name: daryva-api
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=daryva;Username=daryva;Password=change_me
+      ConnectionStrings__DefaultConnection: ${API_CONNECTION_STRING:?set_in_server_env}
       Jwt__Authority: ""
       Jwt__Audience: daryva-api
       Jwt__Issuer: daryva-api
-      Jwt__SigningKey: change_me_with_at_least_32_chars
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?set_in_server_env}
       Jwt__AccessTokenMinutes: 30
       Jwt__RefreshTokenDays: 14
       Auth__AllowAnyLogin: "false"
       Auth__VerificationUrlBase: https://api.daryva.com/api/auth/verify-email
       Cors__AllowedOrigins__0: https://daryva.com
       Cors__AllowedOrigins__1: https://www.daryva.com
-      Smtp__Server: smtp.gmail.com
-      Smtp__Port: 587
-      Smtp__Username: no-reply@daryva.com
-      Smtp__Password: change_me
-      Smtp__EnableSsl: "true"
-      Smtp__FromAddress: no-reply@daryva.com
+      Smtp__Server: ${SMTP_SERVER:?set_in_server_env}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__Username: ${SMTP_USERNAME:?set_in_server_env}
+      Smtp__Password: ${SMTP_PASSWORD:?set_in_server_env}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Smtp__FromAddress: ${SMTP_FROM_ADDRESS:?set_in_server_env}
     ports:
       - "8080:8080"
     depends_on:
@@ -32,9 +32,9 @@ services:
     image: postgres:16-alpine
     container_name: daryva-postgres-prod
     environment:
-      POSTGRES_DB: daryva
-      POSTGRES_USER: daryva
-      POSTGRES_PASSWORD: change_me
+      POSTGRES_DB: ${POSTGRES_DB:-daryva}
+      POSTGRES_USER: ${POSTGRES_USER:-daryva}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set_in_server_env}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:

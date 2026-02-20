@@ -38,10 +38,12 @@ Swagger: http://localhost:5000/swagger
 
 - Deployment runbook: `Docs/production-deployment.md`
 - Production compose template: `docker-compose.prod.yml`
+- Production env template: `.env.prod.example`
 - API container image build file: `src/Daryva.Api/Dockerfile`
 - Nginx reverse proxy config: `deploy/nginx/daryva.conf`
 - Nginx setup guide: `deploy/nginx/README.md`
 - GitHub Actions API deploy workflow: `.github/workflows/deploy-api.yml`
+- Launch-week checklist: `Docs/launch-this-week.md`
 
 ## Configuration
 

@@ -26,10 +26,15 @@ Recommended sender:
 
 Use `docker-compose.prod.yml` as a base. Before deploying, replace all `change_me` values.
 
+Use `.env.prod.example` as your server template:
+- copy to `.env` on the VPS
+- set real secrets there
+- never commit `.env`
+
 Run on your server:
 
 ```powershell
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ## 4) Required API environment values
@@ -75,6 +80,9 @@ Reference Nginx files in this repo:
 
 Workflow file:
 - `.github/workflows/deploy-api.yml`
+
+Launch schedule guide:
+- `Docs/launch-this-week.md`
 
 Set these repository secrets in GitHub:
 - `DEPLOY_HOST` (VPS hostname/IP)
