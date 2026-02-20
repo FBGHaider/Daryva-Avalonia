@@ -243,7 +243,7 @@ public class PaymentsController : ControllerBase
             .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
 
         var dedupedTenancies = tenancies
-            .GroupBy(t => new { t.TenantId, t.HouseId, t.RentAmountMonthly, t.PaymentDueDay })
+            .GroupBy(t => new { t.TenantId, t.HouseId })
             .Select(group => group
                 .OrderByDescending(t => paidByTenancy.TryGetValue(t.Id, out var paid) ? paid : 0m)
                 .ThenByDescending(t => t.MoveInDate)
@@ -370,8 +370,22 @@ public class PaymentsController : ControllerBase
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
+        var paidDepositByTenancy = depositPayments
+            .GroupBy(p => p.TenancyId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
+
+        var dedupedTenancies = tenancies
+            .GroupBy(t => new { t.TenantId, t.HouseId })
+            .Select(group => group
+                .OrderByDescending(t => paidDepositByTenancy.TryGetValue(t.Id, out var paid) ? paid : 0m)
+                .ThenByDescending(t => t.MoveInDate)
+                .ThenByDescending(t => t.RentStartYear ?? t.MoveInDate.Year)
+                .ThenByDescending(t => t.RentStartMonth ?? t.MoveInDate.Month)
+                .First())
+            .ToList();
+
         var result = new List<DepositLedgerItemResponse>();
-        foreach (var tenancy in tenancies)
+        foreach (var tenancy in dedupedTenancies)
         {
             if (tenancy.Tenant == null || tenancy.House == null)
             {
