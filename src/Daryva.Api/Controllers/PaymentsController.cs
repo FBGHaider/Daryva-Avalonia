@@ -112,11 +112,13 @@ public class PaymentsController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var orgId = _tenantContext.CurrentOrgId.Value;
+        var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
+        var periodEndExclusive = periodStart.AddMonths(1);
         var total = await _dbContext.RentPayments
             .Where(p => p.OrganizationId == orgId &&
                         p.TenancyId == tenancyId &&
-                        p.DatePaid.Year == year &&
-                        p.DatePaid.Month == month)
+                        p.DatePaid >= periodStart &&
+                        p.DatePaid < periodEndExclusive)
             .Select(p => p.AmountPaid)
             .DefaultIfEmpty(0m)
             .SumAsync(cancellationToken);
@@ -173,11 +175,13 @@ public class PaymentsController : ControllerBase
         if (tenancy == null)
             return NotFound(new { error = "Tenancy not found." });
 
+        var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
+        var periodEndExclusive = periodStart.AddMonths(1);
         var paid = await _dbContext.RentPayments
             .Where(p => p.OrganizationId == orgId &&
                         p.TenancyId == tenancyId &&
-                        p.DatePaid.Year == year &&
-                        p.DatePaid.Month == month)
+                        p.DatePaid >= periodStart &&
+                        p.DatePaid < periodEndExclusive)
             .Select(p => p.AmountPaid)
             .DefaultIfEmpty(0m)
             .SumAsync(cancellationToken);
@@ -208,6 +212,7 @@ public class PaymentsController : ControllerBase
 
         var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
         var periodEnd = DateTime.SpecifyKind(new DateTime(year, month, DateTime.DaysInMonth(year, month)), DateTimeKind.Utc);
+        var periodEndExclusive = periodStart.AddMonths(1);
 
         var tenanciesQuery = _dbContext.Tenancies
             .AsNoTracking()
@@ -234,7 +239,7 @@ public class PaymentsController : ControllerBase
 
         var periodRentPayments = await _dbContext.RentPayments
             .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && p.DatePaid.Year == year && p.DatePaid.Month == month)
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && p.DatePaid >= periodStart && p.DatePaid < periodEndExclusive)
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
@@ -243,7 +248,11 @@ public class PaymentsController : ControllerBase
             .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
 
         var dedupedTenancies = tenancies
-            .GroupBy(t => new { t.TenantId, t.HouseId })
+            .GroupBy(t => new
+            {
+                TenantKey = (t.Tenant != null ? t.Tenant.FullName : string.Empty).Trim().ToLower(),
+                HouseKey = $"{(t.House != null ? t.House.AddressLine1 : string.Empty).Trim().ToLower()}|{(t.House != null ? t.House.City : string.Empty).Trim().ToLower()}"
+            })
             .Select(group => group
                 .OrderByDescending(t => paidByTenancy.TryGetValue(t.Id, out var paid) ? paid : 0m)
                 .ThenByDescending(t => t.MoveInDate)
@@ -281,6 +290,11 @@ public class PaymentsController : ControllerBase
             var amountDue = tenancy.RentAmountMonthly;
             var dueDay = Math.Min(Math.Max((int)tenancy.PaymentDueDay, 1), 28);
             var dueDate = new DateTime(year, month, dueDay);
+
+            if (tenancy.MoveOutDate.HasValue && tenancy.MoveOutDate.Value.Date <= dueDate.Date && amountPaid <= 0)
+            {
+                continue;
+            }
 
             var status = amountPaid >= amountDue
                 ? "Paid"
@@ -375,7 +389,11 @@ public class PaymentsController : ControllerBase
             .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
 
         var dedupedTenancies = tenancies
-            .GroupBy(t => new { t.TenantId, t.HouseId })
+            .GroupBy(t => new
+            {
+                TenantKey = (t.Tenant != null ? t.Tenant.FullName : string.Empty).Trim().ToLower(),
+                HouseKey = $"{(t.House != null ? t.House.AddressLine1 : string.Empty).Trim().ToLower()}|{(t.House != null ? t.House.City : string.Empty).Trim().ToLower()}"
+            })
             .Select(group => group
                 .OrderByDescending(t => paidDepositByTenancy.TryGetValue(t.Id, out var paid) ? paid : 0m)
                 .ThenByDescending(t => t.MoveInDate)
@@ -448,6 +466,12 @@ public class PaymentsController : ControllerBase
         var includeRent = string.IsNullOrWhiteSpace(paymentType) || paymentType == "All" || paymentType == "Rent";
         var includeDeposit = string.IsNullOrWhiteSpace(paymentType) || paymentType == "All" || paymentType == "Deposit";
         var normalizedMethod = NormalizeMethod(method);
+        var startDateUtc = startDate?.ToUniversalTime();
+        var endDateUtc = endDate?.ToUniversalTime();
+        var endDateIsDateOnly = endDate.HasValue && endDate.Value.TimeOfDay == TimeSpan.Zero;
+        var endDateExclusiveUtc = endDateIsDateOnly && endDateUtc.HasValue
+            ? DateTime.SpecifyKind(endDateUtc.Value.Date.AddDays(1), DateTimeKind.Utc)
+            : endDateUtc;
         var transactions = new List<TransactionItemResponse>();
 
         if (includeRent)
@@ -460,8 +484,13 @@ public class PaymentsController : ControllerBase
                     .ThenInclude(t => t.House)
                 .AsQueryable();
 
-            if (startDate.HasValue) rentQuery = rentQuery.Where(p => p.DatePaid >= startDate.Value);
-            if (endDate.HasValue) rentQuery = rentQuery.Where(p => p.DatePaid <= endDate.Value);
+            if (startDateUtc.HasValue) rentQuery = rentQuery.Where(p => p.DatePaid >= startDateUtc.Value);
+            if (endDateExclusiveUtc.HasValue)
+            {
+                rentQuery = endDateIsDateOnly
+                    ? rentQuery.Where(p => p.DatePaid < endDateExclusiveUtc.Value)
+                    : rentQuery.Where(p => p.DatePaid <= endDateExclusiveUtc.Value);
+            }
             if (houseId.HasValue) rentQuery = rentQuery.Where(p => p.Tenancy.HouseId == houseId.Value);
             if (tenantId.HasValue) rentQuery = rentQuery.Where(p => p.Tenancy.TenantId == tenantId.Value);
             if (!string.IsNullOrWhiteSpace(normalizedMethod))
@@ -495,8 +524,13 @@ public class PaymentsController : ControllerBase
                     .ThenInclude(t => t.House)
                 .AsQueryable();
 
-            if (startDate.HasValue) depositQuery = depositQuery.Where(p => p.DatePaid >= startDate.Value);
-            if (endDate.HasValue) depositQuery = depositQuery.Where(p => p.DatePaid <= endDate.Value);
+            if (startDateUtc.HasValue) depositQuery = depositQuery.Where(p => p.DatePaid >= startDateUtc.Value);
+            if (endDateExclusiveUtc.HasValue)
+            {
+                depositQuery = endDateIsDateOnly
+                    ? depositQuery.Where(p => p.DatePaid < endDateExclusiveUtc.Value)
+                    : depositQuery.Where(p => p.DatePaid <= endDateExclusiveUtc.Value);
+            }
             if (houseId.HasValue) depositQuery = depositQuery.Where(p => p.Tenancy.HouseId == houseId.Value);
             if (tenantId.HasValue) depositQuery = depositQuery.Where(p => p.Tenancy.TenantId == tenantId.Value);
             if (!string.IsNullOrWhiteSpace(normalizedMethod))
