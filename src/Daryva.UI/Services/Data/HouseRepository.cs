@@ -20,6 +20,7 @@ namespace Daryva.Services.Data
                     SELECT t1.TenantId, t1.HouseId, t1.RentAmountMonthly
                     FROM Tenancy t1
                     WHERE t1.Status = 'Active'
+                      AND (t1.MoveOutDate IS NULL OR date(t1.MoveOutDate) >= date('now'))
                       AND NOT EXISTS (
                           SELECT 1
                           FROM Tenancy t2
@@ -53,6 +54,7 @@ namespace Daryva.Services.Data
                     SELECT t1.TenantId, t1.HouseId, t1.RentAmountMonthly
                     FROM Tenancy t1
                     WHERE t1.Status = 'Active'
+                      AND (t1.MoveOutDate IS NULL OR date(t1.MoveOutDate) >= date('now'))
                       AND NOT EXISTS (
                           SELECT 1
                           FROM Tenancy t2
@@ -117,6 +119,7 @@ namespace Daryva.Services.Data
                     SELECT t1.TenantId, t1.HouseId, t1.RentAmountMonthly
                     FROM Tenancy t1
                     WHERE t1.Status = 'Active'
+                      AND (t1.MoveOutDate IS NULL OR date(t1.MoveOutDate) >= date('now'))
                       AND NOT EXISTS (
                           SELECT 1
                           FROM Tenancy t2

@@ -238,19 +238,23 @@ public class HouseService : IHouseService
         CancellationToken cancellationToken)
     {
         var today = DateTime.UtcNow.Date;
+        var currentPeriodNum = today.Year * 12 + today.Month;
 
         var activeTenancies = await _dbContext.Tenancies
             .AsNoTracking()
             .Where(t =>
                 t.Status == "Active" &&
                 (!t.MoveOutDate.HasValue || t.MoveOutDate >= today) &&
-                !t.Tenant.IsArchived)
+                !t.Tenant.IsArchived &&
+                ((t.RentStartYear ?? t.MoveInDate.Year) * 12 + (t.RentStartMonth ?? t.MoveInDate.Month)) <= currentPeriodNum)
             .Select(t => new
             {
                 t.Id,
                 t.HouseId,
                 t.TenantId,
                 t.MoveInDate,
+                t.MoveOutDate,
+                t.Status,
                 t.RentAmountMonthly
             })
             .ToListAsync(cancellationToken);
@@ -262,22 +266,21 @@ public class HouseService : IHouseService
                 .ThenByDescending(t => t.Id)
                 .First());
 
-            var grouped = currentTenancyPerTenant.GroupBy(t => t.HouseId);
-            foreach (var group in grouped)
-            {
-                var houseId = group.Key;
-                var tenancies = group.ToList();
-                var tenantIds = string.Join(",", tenancies.Select(t => t.TenantId));
-                var rents = string.Join(",", tenancies.Select(t => t.RentAmountMonthly.ToString("F2")));
-                var totalRent = tenancies.Sum(t => t.RentAmountMonthly);
-                var count = tenancies.Count;
-                _logger.LogInformation($"[DIAGNOSTIC] HouseId={houseId} ActiveTenants={count} TenantIds=[{tenantIds}] Rents=[{rents}] TotalMonthlyRent={totalRent:F2}");
-            }
+        var grouped = currentTenancyPerTenant.GroupBy(t => t.HouseId);
+        foreach (var group in grouped)
+        {
+            var houseId = group.Key;
+            var tenancies = group.ToList();
+            var details = string.Join("; ", tenancies.Select(t => $"TenancyId={t.Id}, TenantId={t.TenantId}, MoveIn={t.MoveInDate:yyyy-MM-dd}, MoveOut={(t.MoveOutDate.HasValue ? t.MoveOutDate.Value.ToString("yyyy-MM-dd") : "-")}, Status={t.Status}, Rent={t.RentAmountMonthly:F2}"));
+            var totalRent = tenancies.Sum(t => t.RentAmountMonthly);
+            var count = tenancies.Count;
+            _logger.LogInformation($"[DIAGNOSTIC] HouseId={houseId} ActiveTenants={count} Details=[{details}] TotalMonthlyRent={totalRent:F2}");
+        }
 
-            return grouped.ToDictionary(
-                g => g.Key,
-                g => (
-                    ActiveTenantCount: g.Count(),
-                    TotalMonthlyRent: g.Sum(t => t.RentAmountMonthly)));
+        return grouped.ToDictionary(
+            g => g.Key,
+            g => (
+                ActiveTenantCount: g.Count(),
+                TotalMonthlyRent: g.Sum(t => t.RentAmountMonthly)));
     }
 }
