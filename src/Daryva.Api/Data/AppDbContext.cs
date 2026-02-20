@@ -114,10 +114,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppUser>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.FirstName).IsRequired().HasMaxLength(128);
+            entity.Property(e => e.LastName).IsRequired().HasMaxLength(128);
             entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
             entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(1024);
+            entity.Property(e => e.EmailVerificationTokenHash).HasMaxLength(512);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.EmailVerificationTokenHash).IsUnique();
         });
 
         // ========== REFRESH TOKEN (Global/Auth Entity) ==========

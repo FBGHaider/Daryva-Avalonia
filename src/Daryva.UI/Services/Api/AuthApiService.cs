@@ -26,17 +26,33 @@ public class AuthApiService : IAuthApiService
         return tokens;
     }
 
-    public async Task<AuthTokensDto> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
+    public async Task<RegisterResultDto> RegisterAsync(string email, string password, string? firstName = null, string? lastName = null, CancellationToken cancellationToken = default)
     {
-        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/register", new { email, password }, cancellationToken);
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/register", new { email, password, firstName, lastName }, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var tokens = await response.Content.ReadFromJsonAsync<AuthTokensDto>(cancellationToken: cancellationToken)
+        var registerResult = await response.Content.ReadFromJsonAsync<RegisterResultDto>(cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException("Invalid register response.");
 
-        _authSession.SetSession(tokens.AccessToken, tokens.RefreshToken, tokens.AccessTokenExpiresAt, tokens.UserId, tokens.Email);
-        _apiClient.ApplyAuthState();
-        return tokens;
+        return registerResult;
+    }
+
+    public async Task<VerifyEmailResultDto> VerifyEmailAsync(string token, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/verify-email", new { token }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<VerifyEmailResultDto>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Invalid verify email response.");
+    }
+
+    public async Task<RegisterResultDto> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/resend-verification", new { email }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<RegisterResultDto>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Invalid resend verification response.");
     }
 
     public async Task<MeDto?> GetMeAsync(CancellationToken cancellationToken = default)

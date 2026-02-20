@@ -1,27 +1,101 @@
 using System.Net;
 using System.Net.Mail;
+using System.Text.Json;
 
 namespace Daryva.Api.Services;
 
 public class EmailSender : IEmailSender
 {
     private readonly IConfiguration _configuration;
+    private readonly Dictionary<string, string> _localAppSettings;
 
     public EmailSender(IConfiguration configuration)
     {
         _configuration = configuration;
+        _localAppSettings = LoadLocalAppSettings();
+    }
+
+    private static Dictionary<string, string> LoadLocalAppSettings()
+    {
+        try
+        {
+            var localPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Daryva",
+                "app.config.local.json");
+
+            if (!File.Exists(localPath))
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            using var stream = File.OpenRead(localPath);
+            using var doc = JsonDocument.Parse(stream);
+            if (!doc.RootElement.TryGetProperty("AppSettings", out var appSettingsElement) ||
+                appSettingsElement.ValueKind != JsonValueKind.Object)
+            {
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in appSettingsElement.EnumerateObject())
+            {
+                if (prop.Value.ValueKind == JsonValueKind.String)
+                {
+                    var text = prop.Value.GetString();
+                    if (!string.IsNullOrWhiteSpace(text))
+                        values[prop.Name] = text;
+                }
+            }
+
+            return values;
+        }
+        catch
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private string? GetConfigValue(params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (_localAppSettings.TryGetValue(key, out var exactLocalValue) && !string.IsNullOrWhiteSpace(exactLocalValue))
+                return exactLocalValue;
+
+            var compactKey = key.Replace(":", string.Empty, StringComparison.Ordinal);
+            if (_localAppSettings.TryGetValue(compactKey, out var compactLocalValue) && !string.IsNullOrWhiteSpace(compactLocalValue))
+                return compactLocalValue;
+
+            var appSettingsKey = key.StartsWith("AppSettings:", StringComparison.OrdinalIgnoreCase)
+                ? key["AppSettings:".Length..]
+                : key;
+            if (_localAppSettings.TryGetValue(appSettingsKey, out var appSettingsLocalValue) && !string.IsNullOrWhiteSpace(appSettingsLocalValue))
+                return appSettingsLocalValue;
+
+            var value = _configuration[key];
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
     }
 
     private void GetSmtpSettings(out string? smtpServer, out int smtpPort, out string? smtpUsername, out string? smtpPassword, out bool enableSsl, out string? fromAddress)
     {
-        smtpServer = _configuration["Smtp:Server"] ?? _configuration["SmtpServer"];
-        var portStr = _configuration["Smtp:Port"] ?? _configuration["SmtpPort"];
+        smtpServer = GetConfigValue("Smtp:Server", "SmtpServer", "AppSettings:SmtpServer");
+        var portStr = GetConfigValue("Smtp:Port", "SmtpPort", "AppSettings:SmtpPort");
         smtpPort = int.TryParse(portStr, out var port) ? port : 587;
-        smtpUsername = _configuration["Smtp:Username"] ?? _configuration["SmtpUsername"];
-        smtpPassword = _configuration["Smtp:Password"] ?? _configuration["SmtpPassword"];
-        var sslStr = _configuration["Smtp:EnableSsl"] ?? _configuration["SmtpEnableSsl"];
+        smtpUsername = GetConfigValue("Smtp:Username", "SmtpUsername", "AppSettings:SmtpUsername");
+        smtpPassword = GetConfigValue("Smtp:Password", "SmtpPassword", "AppSettings:SmtpPassword");
+        var sslStr = GetConfigValue("Smtp:EnableSsl", "SmtpEnableSsl", "AppSettings:SmtpEnableSsl");
         enableSsl = sslStr != null && bool.TryParse(sslStr, out var ssl) && ssl;
-        fromAddress = _configuration["Smtp:FromAddress"] ?? _configuration["SmtpFromAddress"];
+        fromAddress = GetConfigValue("Smtp:FromAddress", "SmtpFromAddress", "AppSettings:SmtpFromAddress");
+
+        if (!string.IsNullOrWhiteSpace(smtpServer) &&
+            smtpServer.Contains("gmail", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(smtpPassword))
+        {
+            smtpPassword = smtpPassword.Replace(" ", string.Empty, StringComparison.Ordinal).Trim();
+        }
     }
 
     public async Task<bool> SendEmailAsync(string toAddress, string subject, string body, string? fromAddress = null)
@@ -31,10 +105,10 @@ public class EmailSender : IEmailSender
         {
             GetSmtpSettings(out smtpServer, out var smtpPort, out var smtpUsername, out var smtpPassword, out var enableSsl, out var fromAddr);
 
-            if (string.IsNullOrWhiteSpace(smtpServer) || string.IsNullOrWhiteSpace(smtpUsername) || string.IsNullOrWhiteSpace(smtpPassword))
+            if (string.IsNullOrWhiteSpace(smtpServer))
             {
                 throw new InvalidOperationException(
-                    "SMTP is not configured. Set Smtp:Server, Smtp:Port, Smtp:Username, Smtp:Password, Smtp:EnableSsl, Smtp:FromAddress in appsettings.json.");
+                    "SMTP is not configured. Set at least Smtp:Server (and usually Smtp:Port). For authenticated SMTP also set Smtp:Username and Smtp:Password.");
             }
 
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -42,10 +116,18 @@ public class EmailSender : IEmailSender
             using var client = new SmtpClient(smtpServer, smtpPort)
             {
                 EnableSsl = enableSsl,
-                Credentials = new NetworkCredential(smtpUsername, smtpPassword),
                 DeliveryMethod = SmtpDeliveryMethod.Network,
                 UseDefaultCredentials = false
             };
+
+            if (!string.IsNullOrWhiteSpace(smtpUsername) && !string.IsNullOrWhiteSpace(smtpPassword))
+            {
+                client.Credentials = new NetworkCredential(smtpUsername, smtpPassword);
+            }
+            else
+            {
+                client.Credentials = CredentialCache.DefaultNetworkCredentials;
+            }
 
             var from = fromAddress ?? fromAddr ?? smtpUsername ?? "noreply@daryva.local";
 

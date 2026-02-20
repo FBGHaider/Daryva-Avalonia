@@ -1,0 +1,48 @@
+services:
+  api:
+    image: ${DARYVA_API_IMAGE:-ghcr.io/your-org/daryva-api:latest}
+    container_name: daryva-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=daryva;Username=daryva;Password=change_me
+      Jwt__Authority: ""
+      Jwt__Audience: daryva-api
+      Jwt__Issuer: daryva-api
+      Jwt__SigningKey: change_me_with_at_least_32_chars
+      Jwt__AccessTokenMinutes: 30
+      Jwt__RefreshTokenDays: 14
+      Auth__AllowAnyLogin: "false"
+      Auth__VerificationUrlBase: https://api.daryva.com/api/auth/verify-email
+      Cors__AllowedOrigins__0: https://daryva.com
+      Cors__AllowedOrigins__1: https://www.daryva.com
+      Smtp__Server: smtp.gmail.com
+      Smtp__Port: 587
+      Smtp__Username: no-reply@daryva.com
+      Smtp__Password: change_me
+      Smtp__EnableSsl: "true"
+      Smtp__FromAddress: no-reply@daryva.com
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: daryva-postgres-prod
+    environment:
+      POSTGRES_DB: daryva
+      POSTGRES_USER: daryva
+      POSTGRES_PASSWORD: change_me
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daryva"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_prod_data:

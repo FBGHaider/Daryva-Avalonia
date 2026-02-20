@@ -52,31 +52,73 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
-            var mainViewModel = ServiceProvider.GetRequiredService<MainViewModel>();
-            mainWindow.DataContext = mainViewModel;
-            desktop.MainWindow = mainWindow;
-
-            _ = ServiceProvider.GetRequiredService<Daryva.Services.Business.ScheduledNotificationProcessor>();
-            _ = EnsureApiAvailabilityAfterStartupAsync(desktop);
+            var loadingWindow = new StartupLoadingWindow();
+            desktop.MainWindow = loadingWindow;
+            _ = InitializeDesktopAsync(desktop, loadingWindow);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private async Task EnsureApiAvailabilityAfterStartupAsync(IClassicDesktopStyleApplicationLifetime desktop)
+    private async Task InitializeDesktopAsync(
+        IClassicDesktopStyleApplicationLifetime desktop,
+        StartupLoadingWindow loadingWindow)
+    {
+        var splashShownAtUtc = DateTime.UtcNow;
+
+        try
+        {
+            var serviceProvider = ServiceProvider!;
+            ApplyLoginPersistencePolicy(serviceProvider);
+
+            var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
+            var mainViewModel = serviceProvider.GetRequiredService<MainViewModel>();
+            mainWindow.DataContext = mainViewModel;
+
+            _ = serviceProvider.GetRequiredService<Daryva.Services.Business.ScheduledNotificationProcessor>();
+
+            var elapsed = DateTime.UtcNow - splashShownAtUtc;
+            var minSplashDuration = TimeSpan.FromSeconds(5);
+            var remaining = minSplashDuration - elapsed;
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(remaining).ConfigureAwait(false);
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                desktop.MainWindow = mainWindow;
+                mainWindow.Show();
+                loadingWindow.Close();
+            });
+        }
+        catch
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                loadingWindow.Close();
+                desktop.Shutdown();
+            });
+        }
+    }
+
+    private static void ApplyLoginPersistencePolicy(IServiceProvider serviceProvider)
     {
         try
         {
-            var apiAvailable = await EnsureApiAvailableOnStartupAsync().ConfigureAwait(false);
-            if (!apiAvailable)
+            var configurationService = serviceProvider.GetRequiredService<IConfigurationService>();
+            var keepLoggedInRaw = configurationService.GetValue("KeepMeLoggedIn");
+            var keepLoggedIn = string.Equals(keepLoggedInRaw, "true", StringComparison.OrdinalIgnoreCase);
+
+            if (!keepLoggedIn)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => desktop.Shutdown());
+                var authSession = serviceProvider.GetRequiredService<IAuthSessionService>();
+                authSession.ClearSession();
             }
         }
         catch
         {
-            await Dispatcher.UIThread.InvokeAsync(() => desktop.Shutdown());
+            // If anything fails here, keep startup resilient and continue.
         }
     }
 

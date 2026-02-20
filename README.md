@@ -34,6 +34,15 @@ dotnet run
 API: http://localhost:5000
 Swagger: http://localhost:5000/swagger
 
+## Production (daryva.com)
+
+- Deployment runbook: `Docs/production-deployment.md`
+- Production compose template: `docker-compose.prod.yml`
+- API container image build file: `src/Daryva.Api/Dockerfile`
+- Nginx reverse proxy config: `deploy/nginx/daryva.conf`
+- Nginx setup guide: `deploy/nginx/README.md`
+- GitHub Actions API deploy workflow: `.github/workflows/deploy-api.yml`
+
 ## Configuration
 
 ### UI (local config)

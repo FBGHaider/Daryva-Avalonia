@@ -29,10 +29,36 @@ public class MeDto
     public string Email { get; set; } = string.Empty;
 }
 
+public class RegisterResultDto
+{
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("requiresEmailVerification")]
+    public bool RequiresEmailVerification { get; set; }
+
+    [JsonPropertyName("verificationEmailSent")]
+    public bool VerificationEmailSent { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
+public class VerifyEmailResultDto
+{
+    [JsonPropertyName("verified")]
+    public bool Verified { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
 public interface IAuthApiService
 {
     Task<AuthTokensDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
-    Task<AuthTokensDto> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<RegisterResultDto> RegisterAsync(string email, string password, string? firstName = null, string? lastName = null, CancellationToken cancellationToken = default);
+    Task<VerifyEmailResultDto> VerifyEmailAsync(string token, CancellationToken cancellationToken = default);
+    Task<RegisterResultDto> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<MeDto?> GetMeAsync(CancellationToken cancellationToken = default);
     Task LogoutAsync(CancellationToken cancellationToken = default);
 }

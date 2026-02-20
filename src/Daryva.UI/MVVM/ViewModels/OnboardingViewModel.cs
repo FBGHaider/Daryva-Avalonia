@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
+using Daryva.Services;
 using Daryva.Services.Api;
 using Daryva.Services.Navigation;
 
@@ -13,12 +14,15 @@ public class OnboardingViewModel : BaseViewModel
     private readonly IOrganizationApiService _organizationApiService;
     private readonly IApiClient _apiClient;
     private readonly INavigationService _navigationService;
+    private readonly IConfigurationService _configurationService;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
     private bool _isAuthenticated;
     private string _loginEmail = string.Empty;
     private string _loginPassword = string.Empty;
+    private string _registerFirstName = string.Empty;
+    private string _registerLastName = string.Empty;
     private string _registerEmail = string.Empty;
     private string _registerPassword = string.Empty;
     private string _registerConfirmPassword = string.Empty;
@@ -26,6 +30,10 @@ public class OnboardingViewModel : BaseViewModel
     private string _joinCode = string.Empty;
     private string _inviteToken = string.Empty;
     private OrganizationDto? _selectedOrganization;
+    private bool _keepMeLoggedIn;
+    private bool _isLoginScene = true;
+    private bool _isVerifyEmailScene;
+    private string _verifyEmailAddress = string.Empty;
 
     public ObservableCollection<OrganizationDto> Organizations { get; } = new();
 
@@ -58,12 +66,58 @@ public class OnboardingViewModel : BaseViewModel
             {
                 OnPropertyChanged(nameof(ShowAuthSection));
                 OnPropertyChanged(nameof(ShowOrgSection));
+                OnPropertyChanged(nameof(ShowLoginScene));
+                OnPropertyChanged(nameof(ShowRegisterScene));
+                OnPropertyChanged(nameof(ShowVerifyEmailScene));
             }
         }
     }
 
     public bool ShowAuthSection => !IsAuthenticated;
     public bool ShowOrgSection => IsAuthenticated;
+    public bool ShowLoginScene => ShowAuthSection && IsLoginScene && !IsVerifyEmailScene;
+    public bool ShowRegisterScene => ShowAuthSection && !IsLoginScene && !IsVerifyEmailScene;
+    public bool ShowVerifyEmailScene => ShowAuthSection && IsVerifyEmailScene;
+
+    public bool IsLoginScene
+    {
+        get => _isLoginScene;
+        set
+        {
+            if (SetProperty(ref _isLoginScene, value))
+            {
+                if (IsVerifyEmailScene)
+                {
+                    _isVerifyEmailScene = false;
+                    OnPropertyChanged(nameof(IsVerifyEmailScene));
+                }
+
+                OnPropertyChanged(nameof(ShowLoginScene));
+                OnPropertyChanged(nameof(ShowRegisterScene));
+                OnPropertyChanged(nameof(ShowVerifyEmailScene));
+            }
+        }
+    }
+
+    public bool IsVerifyEmailScene
+    {
+        get => _isVerifyEmailScene;
+        set
+        {
+            if (SetProperty(ref _isVerifyEmailScene, value))
+            {
+                OnPropertyChanged(nameof(ShowLoginScene));
+                OnPropertyChanged(nameof(ShowRegisterScene));
+                OnPropertyChanged(nameof(ShowVerifyEmailScene));
+            }
+        }
+    }
+
+    public string VerifyEmailAddress
+    {
+        get => _verifyEmailAddress;
+        set => SetProperty(ref _verifyEmailAddress, value);
+    }
 
     public bool HasOrganizations => Organizations.Count > 0;
 
@@ -83,6 +137,18 @@ public class OnboardingViewModel : BaseViewModel
     {
         get => _registerEmail;
         set => SetProperty(ref _registerEmail, value);
+    }
+
+    public string RegisterFirstName
+    {
+        get => _registerFirstName;
+        set => SetProperty(ref _registerFirstName, value);
+    }
+
+    public string RegisterLastName
+    {
+        get => _registerLastName;
+        set => SetProperty(ref _registerLastName, value);
     }
 
     public string RegisterPassword
@@ -121,6 +187,12 @@ public class OnboardingViewModel : BaseViewModel
         set => SetProperty(ref _selectedOrganization, value);
     }
 
+    public bool KeepMeLoggedIn
+    {
+        get => _keepMeLoggedIn;
+        set => SetProperty(ref _keepMeLoggedIn, value);
+    }
+
     public ICommand LoginCommand { get; }
     public ICommand RegisterCommand { get; }
     public ICommand RefreshOrganizationsCommand { get; }
@@ -129,19 +201,24 @@ public class OnboardingViewModel : BaseViewModel
     public ICommand JoinByCodeCommand { get; }
     public ICommand JoinByInviteCommand { get; }
     public ICommand LogoutCommand { get; }
+    public ICommand ShowRegisterSceneCommand { get; }
+    public ICommand ShowLoginSceneCommand { get; }
+    public ICommand ForgotPasswordCommand { get; }
 
     public OnboardingViewModel(
         IAuthApiService authApiService,
         IAuthSessionService authSessionService,
         IOrganizationApiService organizationApiService,
         IApiClient apiClient,
-        INavigationService navigationService)
+        INavigationService navigationService,
+        IConfigurationService configurationService)
     {
         _authApiService = authApiService;
         _authSessionService = authSessionService;
         _organizationApiService = organizationApiService;
         _apiClient = apiClient;
         _navigationService = navigationService;
+        _configurationService = configurationService;
 
         LoginCommand = new RelayCommand(async _ => await LoginAsync());
         RegisterCommand = new RelayCommand(async _ => await RegisterAsync());
@@ -151,12 +228,18 @@ public class OnboardingViewModel : BaseViewModel
         JoinByCodeCommand = new RelayCommand(async _ => await JoinByCodeAsync());
         JoinByInviteCommand = new RelayCommand(async _ => await JoinByInviteAsync());
         LogoutCommand = new RelayCommand(async _ => await LogoutAsync());
+        ShowRegisterSceneCommand = new RelayCommand(_ => SwitchToRegisterScene());
+        ShowLoginSceneCommand = new RelayCommand(_ => SwitchToLoginScene());
+        ForgotPasswordCommand = new RelayCommand(async _ => await ForgotPasswordAsync());
 
         _ = InitializeAsync();
     }
 
     private async Task InitializeAsync()
     {
+        var keepLoggedInRaw = _configurationService.GetValue("KeepMeLoggedIn");
+        KeepMeLoggedIn = string.Equals(keepLoggedInRaw, "true", StringComparison.OrdinalIgnoreCase);
+
         IsAuthenticated = _authSessionService.IsAuthenticated;
         if (IsAuthenticated)
         {
@@ -175,6 +258,8 @@ public class OnboardingViewModel : BaseViewModel
             }
 
             await _authApiService.LoginAsync(LoginEmail.Trim(), LoginPassword);
+            _configurationService.SetLocalValue("KeepMeLoggedIn", KeepMeLoggedIn ? "true" : "false");
+            _configurationService.ReloadLocalConfig();
             IsAuthenticated = true;
             LoginPassword = string.Empty;
             await LoadOrganizationsAsync();
@@ -185,9 +270,13 @@ public class OnboardingViewModel : BaseViewModel
     {
         await ExecuteBusyAsync(async () =>
         {
-            if (string.IsNullOrWhiteSpace(RegisterEmail) || string.IsNullOrWhiteSpace(RegisterPassword))
+            if (string.IsNullOrWhiteSpace(RegisterFirstName) ||
+                string.IsNullOrWhiteSpace(RegisterLastName) ||
+                string.IsNullOrWhiteSpace(RegisterEmail) ||
+                string.IsNullOrWhiteSpace(RegisterPassword) ||
+                string.IsNullOrWhiteSpace(RegisterConfirmPassword))
             {
-                ErrorMessage = "Email and password are required.";
+                ErrorMessage = "All boxes should be filled.";
                 return;
             }
 
@@ -197,11 +286,42 @@ public class OnboardingViewModel : BaseViewModel
                 return;
             }
 
-            await _authApiService.RegisterAsync(RegisterEmail.Trim(), RegisterPassword);
-            IsAuthenticated = true;
+            var registerResult = await _authApiService.RegisterAsync(
+                RegisterEmail.Trim(),
+                RegisterPassword,
+                RegisterFirstName.Trim(),
+                RegisterLastName.Trim());
+
+            VerifyEmailAddress = RegisterEmail.Trim();
+            IsAuthenticated = false;
+            IsVerifyEmailScene = true;
+            ErrorMessage = registerResult.Message;
+            RegisterFirstName = string.Empty;
+            RegisterLastName = string.Empty;
+            RegisterEmail = string.Empty;
             RegisterPassword = string.Empty;
             RegisterConfirmPassword = string.Empty;
-            await LoadOrganizationsAsync();
+        });
+    }
+
+    private void SwitchToRegisterScene()
+    {
+        IsVerifyEmailScene = false;
+        IsLoginScene = false;
+    }
+
+    private void SwitchToLoginScene()
+    {
+        IsVerifyEmailScene = false;
+        IsLoginScene = true;
+    }
+
+    private async Task ForgotPasswordAsync()
+    {
+        await ExecuteBusyAsync(async () =>
+        {
+            await Task.CompletedTask;
+            ErrorMessage = "Forgot password is not available yet. Please contact support.";
         });
     }
 

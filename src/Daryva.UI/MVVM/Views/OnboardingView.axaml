@@ -8,46 +8,159 @@
              x:CompileBindings="False">
     <UserControl.Resources>
         <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+        <converters:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
     </UserControl.Resources>
     <Border Padding="24" Background="{DynamicResource PrimaryBackgroundBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="18" MaxWidth="760" HorizontalAlignment="Center">
+            <Image Source="/Assets/Logo/Daryva_icon.ico"
+                   Width="96"
+                   Height="96"
+                   HorizontalAlignment="Center"
+                   Stretch="Uniform"/>
+
             <TextBlock Text="Welcome to Daryva"
                        FontSize="28"
                        FontWeight="SemiBold"
-                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+                       Foreground="{DynamicResource PrimaryTextBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"/>
 
             <TextBlock Text="Login, then select, create, or join an organization to continue."
-                       Foreground="{DynamicResource SecondaryTextBrush}"/>
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"/>
 
-            <Border Background="{DynamicResource SecondaryBackgroundBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="10"
-                    IsVisible="{Binding HasError}">
-                <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource PrimaryTextBrush}"/>
-            </Border>
+            <StackPanel IsVisible="{Binding ShowAuthSection}" HorizontalAlignment="Center" Width="420">
+                <Grid>
+                    <Border Padding="16"
+                            CornerRadius="8"
+                            Background="{DynamicResource SecondaryBackgroundBrush}"
+                            Opacity="{Binding ShowLoginScene, Converter={StaticResource BoolToOpacityConverter}}"
+                            IsHitTestVisible="{Binding ShowLoginScene}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                            </Transitions>
+                        </Border.Transitions>
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Login"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"/>
+                            <TextBox Watermark="Email" Text="{Binding LoginEmail}" Width="300" HorizontalAlignment="Center"/>
+                            <TextBox Watermark="Password" Text="{Binding LoginPassword}" Width="300" HorizontalAlignment="Center"/>
+                        <CheckBox Content="Keep me logged in"
+                                  IsChecked="{Binding KeepMeLoggedIn}"
+                                  HorizontalAlignment="Center"/>
+                            <Button Content="Login"
+                                    Command="{Binding LoginCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                                <Button Content="Forgot password?"
+                                    Command="{Binding ForgotPasswordCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                            <Button Content="Sign up"
+                                    Command="{Binding ShowRegisterSceneCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
 
-            <Grid ColumnDefinitions="*,*" IsVisible="{Binding ShowAuthSection}">
-                <Border Grid.Column="0" Margin="0,0,8,0" Padding="16" CornerRadius="8" Background="{DynamicResource SecondaryBackgroundBrush}">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="Login" FontSize="20" FontWeight="SemiBold"/>
-                        <TextBox Watermark="Email" Text="{Binding LoginEmail}"/>
-                        <TextBox Watermark="Password" Text="{Binding LoginPassword}"/>
-                        <Button Content="Login" Command="{Binding LoginCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
-                    </StackPanel>
+                    <Border Padding="16"
+                            CornerRadius="8"
+                            Background="{DynamicResource SecondaryBackgroundBrush}"
+                            Opacity="{Binding ShowRegisterScene, Converter={StaticResource BoolToOpacityConverter}}"
+                            IsHitTestVisible="{Binding ShowRegisterScene}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                            </Transitions>
+                        </Border.Transitions>
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Sign up"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"/>
+                            <TextBox Watermark="First Name" Text="{Binding RegisterFirstName}" Width="300" HorizontalAlignment="Center"/>
+                            <TextBox Watermark="Last Name" Text="{Binding RegisterLastName}" Width="300" HorizontalAlignment="Center"/>
+                            <TextBox Watermark="Email" Text="{Binding RegisterEmail}" Width="300" HorizontalAlignment="Center"/>
+                            <TextBox Watermark="Password" Text="{Binding RegisterPassword}" Width="300" HorizontalAlignment="Center"/>
+                            <TextBox Watermark="Confirm Password" Text="{Binding RegisterConfirmPassword}" Width="300" HorizontalAlignment="Center"/>
+                            <Button Content="Create Account"
+                                    Command="{Binding RegisterCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                            <Button Content="Back to login"
+                                    Command="{Binding ShowLoginSceneCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Padding="16"
+                            CornerRadius="8"
+                            Background="{DynamicResource SecondaryBackgroundBrush}"
+                            Opacity="{Binding ShowVerifyEmailScene, Converter={StaticResource BoolToOpacityConverter}}"
+                            IsHitTestVisible="{Binding ShowVerifyEmailScene}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                            </Transitions>
+                        </Border.Transitions>
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Verify your email"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"/>
+                            <TextBlock Text="Your account was created successfully."
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="300"/>
+                            <TextBlock Text="We sent a verification link to:"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"/>
+                            <TextBlock Text="{Binding VerifyEmailAddress}"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="300"/>
+                            <Button Content="Back to login"
+                                    Command="{Binding ShowLoginSceneCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="10"
+                        Margin="0,22,0,0"
+                        IsVisible="{Binding HasError}">
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               MaxWidth="360"/>
                 </Border>
-
-                <Border Grid.Column="1" Margin="8,0,0,0" Padding="16" CornerRadius="8" Background="{DynamicResource SecondaryBackgroundBrush}">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="Register" FontSize="20" FontWeight="SemiBold"/>
-                        <TextBox Watermark="Email" Text="{Binding RegisterEmail}"/>
-                        <TextBox Watermark="Password" Text="{Binding RegisterPassword}"/>
-                        <TextBox Watermark="Confirm Password" Text="{Binding RegisterConfirmPassword}"/>
-                        <Button Content="Create Account" Command="{Binding RegisterCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
+            </StackPanel>
 
             <StackPanel Spacing="12" IsVisible="{Binding ShowOrgSection}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -97,5 +210,6 @@
                 </Grid>
             </StackPanel>
         </StackPanel>
+        </ScrollViewer>
     </Border>
 </UserControl>

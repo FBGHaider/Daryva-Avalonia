@@ -33,6 +33,7 @@
     <Content Include="Assets\Logo\logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <AvaloniaResource Include="Assets\Logo\logo.png" />
     <AvaloniaResource Include="Assets\Logo\Daryva_icon.ico" Condition="Exists('Assets\Logo\Daryva_icon.ico')" />
     <Content Include="Assets\Logo\Daryva_icon.ico" Condition="Exists('Assets\Logo\Daryva_icon.ico')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

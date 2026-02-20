@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Daryva.MVVM.Views.StartupLoadingWindow"
+        Title="Daryva"
+        Width="360"
+        Height="300"
+        MinWidth="360"
+        MaxWidth="360"
+        MinHeight="300"
+        MaxHeight="300"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource ThemeBackgroundBrush}">
+    <Grid RowDefinitions="*,Auto" Margin="20">
+        <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="180" Height="180">
+            <Ellipse Width="170"
+                     Height="170"
+                     Stroke="{DynamicResource ThemeForegroundBrush}"
+                     Opacity="0.15"
+                     StrokeThickness="6" />
+
+            <Path x:Name="SpinnerArc"
+                  Width="170"
+                  Height="170"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Stroke="{DynamicResource ThemeForegroundBrush}"
+                  StrokeThickness="6"
+                StrokeLineCap="Round"
+                  Data="M 85,8 A 77,77 0 1 1 84.99,8"
+                  RenderTransformOrigin="0.5,0.5">
+                <Path.RenderTransform>
+                    <RotateTransform Angle="0" />
+                </Path.RenderTransform>
+            </Path>
+
+                     <Image Source="/Assets/Logo/Daryva_icon.ico"
+                   Width="110"
+                   Height="110"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Stretch="Uniform" />
+        </Grid>
+
+        <TextBlock Grid.Row="1"
+                   Text="Starting daryva"
+                   HorizontalAlignment="Center"
+                   Margin="0,14,0,0"
+                   FontSize="16"
+                   Foreground="{DynamicResource ThemeForegroundBrush}" />
+    </Grid>
+</Window>
