@@ -206,8 +206,8 @@ public class PaymentsController : ControllerBase
 
         var orgId = _tenantContext.CurrentOrgId.Value;
 
-        var periodStart = new DateTime(year, month, 1);
-        var periodEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+        var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
+        var periodEnd = DateTime.SpecifyKind(new DateTime(year, month, DateTime.DaysInMonth(year, month)), DateTimeKind.Utc);
 
         var tenanciesQuery = _dbContext.Tenancies
             .AsNoTracking()
@@ -326,7 +326,7 @@ public class PaymentsController : ControllerBase
 
         var orgId = _tenantContext.CurrentOrgId.Value;
 
-        var periodEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+        var periodEnd = DateTime.SpecifyKind(new DateTime(year, month, DateTime.DaysInMonth(year, month)), DateTimeKind.Utc);
         var tenanciesQuery = _dbContext.Tenancies
             .AsNoTracking()
             .Include(t => t.Tenant)
