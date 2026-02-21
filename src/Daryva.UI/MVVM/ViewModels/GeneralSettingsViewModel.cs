@@ -37,7 +37,7 @@ namespace Daryva.MVVM.ViewModels
             ResetCommand = new RelayCommand(async _ => await LoadAsync());
             CheckForUpdatesCommand = new RelayCommand(async _ => await CheckForUpdatesAsync(), _ => !IsCheckingForUpdates && !IsInstallingUpdate);
             InstallAndRestartCommand = new RelayCommand(async _ => await InstallAndRestartAsync(), _ => !string.IsNullOrEmpty(AvailableUpdateVersion) && !IsInstallingUpdate);
-            CleanupDuplicateChargesCommand = new RelayCommand(async _ => await CleanupDuplicateChargesAsync(), _ => !IsCleaningUpDuplicateCharges);
+            CleanupDuplicateChargesCommand = new RelayCommand(async _ => await CleanupDuplicateChargesAsync(), _ => ConfirmDangerZoneChecked && !IsCleaningUpDuplicateCharges);
 
             _ = LoadAsync();
             InitializeUpdateStatus();
@@ -120,6 +120,14 @@ namespace Daryva.MVVM.ViewModels
         {
             get => _isCleaningUpDuplicateCharges;
             set => SetProperty(ref _isCleaningUpDuplicateCharges, value, () => ((Commands.RelayCommand)CleanupDuplicateChargesCommand).RaiseCanExecuteChanged());
+        }
+
+        private bool _confirmDangerZoneChecked;
+        /// <summary>User must check this to enable the "Clean up duplicate rent charges" button.</summary>
+        public bool ConfirmDangerZoneChecked
+        {
+            get => _confirmDangerZoneChecked;
+            set => SetProperty(ref _confirmDangerZoneChecked, value, () => ((Commands.RelayCommand)CleanupDuplicateChargesCommand).RaiseCanExecuteChanged());
         }
 
         private void RaiseUpdateCommandsCanExecute()

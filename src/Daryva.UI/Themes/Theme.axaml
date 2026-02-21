@@ -4,6 +4,7 @@
     <Color x:Key="BrandSecondary">#0289CD</Color>
     <Color x:Key="StatusDanger">#F35B05</Color>
     <Color x:Key="StatusSuccess">#6BAB26</Color>
+    <Color x:Key="StatusWarning">#F6A609</Color>
     <Color x:Key="DeepBlue">#034D91</Color>
     <Color x:Key="Teal">#1E745A</Color>
 
@@ -18,6 +19,7 @@
     <SolidColorBrush x:Key="BrandSecondaryBrush" Color="{StaticResource BrandSecondary}"/>
     <SolidColorBrush x:Key="StatusDangerBrush" Color="{StaticResource StatusDanger}"/>
     <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccess}"/>
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}"/>
     <SolidColorBrush x:Key="DeepBlueBrush" Color="{StaticResource DeepBlue}"/>
     <SolidColorBrush x:Key="TealBrush" Color="{StaticResource Teal}"/>
 

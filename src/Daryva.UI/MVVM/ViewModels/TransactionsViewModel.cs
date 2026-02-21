@@ -59,6 +59,14 @@ namespace Daryva.MVVM.ViewModels
             LoadTransactionsCommand = new RelayCommand(async _ => await LoadTransactionsAsync());
             LoadHousesCommand = new RelayCommand(async _ => await LoadHousesAsync());
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
+            ClearFiltersCommand = new RelayCommand(_ =>
+            {
+                DateRangeFilter = "This Month";
+                SelectedHouseId = 0;
+                SelectedTenantId = 0;
+                PaymentTypeFilter = "All";
+                MethodFilter = "All";
+            });
             ViewTransactionCommand = new RelayCommand(_ => ViewTransactionDetails(), _ => SelectedTransaction != null);
             UnrecordPaymentCommand = new RelayCommand(async parameter =>
             {
@@ -82,6 +90,7 @@ namespace Daryva.MVVM.ViewModels
         }
 
         public ICommand LoadTransactionsCommand { get; }
+        public ICommand ClearFiltersCommand { get; }
         public ICommand LoadHousesCommand { get; }
         public ICommand LoadTenantsCommand { get; }
         public ICommand ViewTransactionCommand { get; }
@@ -306,6 +315,7 @@ namespace Daryva.MVVM.ViewModels
                         else if (transaction.PaymentType == "Deposit")
                             DepositTransactions.Add(transaction);
                     }
+                    NotifyTransactionTotalsChanged();
                 });
             }
             catch (Exception ex)
@@ -315,6 +325,25 @@ namespace Daryva.MVVM.ViewModels
                     _dialogService.ShowMessage($"Error loading transactions: {ex.Message}", "Error");
                 });
             }
+        }
+
+        public int TransactionCount => Transactions.Count;
+        public decimal TotalCollectedSum => Transactions.Sum(t => t.Amount);
+        public bool HasRentTransactions => RentTransactions.Count > 0;
+        public bool HasDepositTransactions => DepositTransactions.Count > 0;
+        public int BankTransferCount => Transactions.Count(t => string.Equals(t.Method, "Bank Transfer", StringComparison.OrdinalIgnoreCase));
+        public int CashCount => Transactions.Count(t => string.Equals(t.Method, "Cash", StringComparison.OrdinalIgnoreCase));
+        public int OtherMethodCount => Transactions.Count(t => !string.Equals(t.Method, "Bank Transfer", StringComparison.OrdinalIgnoreCase) && !string.Equals(t.Method, "Cash", StringComparison.OrdinalIgnoreCase));
+
+        private void NotifyTransactionTotalsChanged()
+        {
+            OnPropertyChanged(nameof(TransactionCount));
+            OnPropertyChanged(nameof(TotalCollectedSum));
+            OnPropertyChanged(nameof(HasRentTransactions));
+            OnPropertyChanged(nameof(HasDepositTransactions));
+            OnPropertyChanged(nameof(BankTransferCount));
+            OnPropertyChanged(nameof(CashCount));
+            OnPropertyChanged(nameof(OtherMethodCount));
         }
 
         private void ViewTransactionDetails()

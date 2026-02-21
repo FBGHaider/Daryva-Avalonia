@@ -69,6 +69,7 @@ namespace Daryva.MVVM.ViewModels
             ChannelOptions = new ObservableCollection<string> { "Email", "SMS", "WhatsApp" };
             QueueStatusOptions = new ObservableCollection<string> { "Pending", "Failed", "Cancelled", "All" };
             HistoryStatusOptions = new ObservableCollection<string> { "Sent", "Failed", "All" };
+            VariableTokens = new ObservableCollection<string> { "{TenantName}", "{HouseAddress}", "{AmountDue}", "{DueDate}", "{Month}", "{PayInstructions}", "{Currency}" };
 
             LoadRecipientsCommand = new RelayCommand(async _ => await LoadRecipientsAsync());
             LoadTemplatesCommand = new RelayCommand(async _ => await LoadTemplatesAsync());
@@ -83,6 +84,7 @@ namespace Daryva.MVVM.ViewModels
             SendQueueItemCommand = new RelayCommand(async p => await SendQueueItemAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
             CancelQueueItemCommand = new RelayCommand(async p => await CancelQueueItemAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
             ViewDetailsCommand = new RelayCommand(async p => await ViewDetailsAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
+            InsertVariableCommand = new RelayCommand(InsertVariable);
 
             _queueProcessedNotifier.QueueProcessed += OnQueueProcessed;
 
@@ -135,6 +137,7 @@ namespace Daryva.MVVM.ViewModels
         public ICommand SendQueueItemCommand { get; }
         public ICommand CancelQueueItemCommand { get; }
         public ICommand ViewDetailsCommand { get; }
+        public ICommand InsertVariableCommand { get; }
 
         public ObservableCollection<RecipientViewModel> Recipients { get; }
         public ObservableCollection<NotificationTemplate> Templates { get; }
@@ -148,6 +151,7 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<string> ChannelOptions { get; }
         public ObservableCollection<string> QueueStatusOptions { get; }
         public ObservableCollection<string> HistoryStatusOptions { get; }
+        public ObservableCollection<string> VariableTokens { get; }
 
         public string QueueStatusFilter
         {
@@ -195,6 +199,11 @@ namespace Daryva.MVVM.ViewModels
 
         /// <summary>True when TargetType is House. Use to show House filter.</summary>
         public bool IsHouseFilterVisible => string.Equals(TargetType, "House", StringComparison.OrdinalIgnoreCase);
+
+        public int RecipientCount => Recipients.Count;
+        public string RecipientsHeaderText => $"Recipients ({RecipientCount})";
+        public bool HasQueueNotifications => QueueNotifications.Count > 0;
+        public bool HasHistoryNotifications => HistoryNotifications.Count > 0;
 
         public int? SelectedTenantId
         {
@@ -386,6 +395,8 @@ namespace Daryva.MVVM.ViewModels
                 }
 
                 RaiseSendCommandsCanExecuteChanged();
+                OnPropertyChanged(nameof(RecipientCount));
+                OnPropertyChanged(nameof(RecipientsHeaderText));
             }
             catch (Exception ex)
             {
@@ -394,7 +405,16 @@ namespace Daryva.MVVM.ViewModels
             finally
             {
                 _isLoadingRecipients = false;
+                OnPropertyChanged(nameof(RecipientCount));
+                OnPropertyChanged(nameof(RecipientsHeaderText));
             }
+        }
+
+        private void InsertVariable(object? parameter)
+        {
+            var token = parameter as string;
+            if (string.IsNullOrEmpty(token)) return;
+            Body = Body + token;
         }
 
         private async Task LoadTemplatesAsync()
@@ -478,8 +498,8 @@ namespace Daryva.MVVM.ViewModels
                     Status = string.Equals(QueueStatusFilter, "All", StringComparison.OrdinalIgnoreCase) ? null : QueueStatusFilter
                 };
                 var notifications = await _notificationService.GetNotificationsAsync(filter);
-                
                 QueueNotifications.Clear();
+                OnPropertyChanged(nameof(HasQueueNotifications));
                 foreach (var notification in notifications)
                 {
                     var row = new NotificationRowViewModel
@@ -500,6 +520,7 @@ namespace Daryva.MVVM.ViewModels
                     row.ScheduledDisplay = Daryva.Services.DateTimeFormatProvider.FormatDateTime(notification.ScheduledFor);
                     QueueNotifications.Add(row);
                 }
+                OnPropertyChanged(nameof(HasQueueNotifications));
             }
             catch (Exception ex)
             {
@@ -519,8 +540,8 @@ namespace Daryva.MVVM.ViewModels
                     Status = string.Equals(HistoryStatusFilter, "All", StringComparison.OrdinalIgnoreCase) ? null : HistoryStatusFilter
                 };
                 var notifications = await _notificationService.GetNotificationsAsync(filter);
-                
                 HistoryNotifications.Clear();
+                OnPropertyChanged(nameof(HasHistoryNotifications));
                 foreach (var notification in notifications.OrderByDescending(n => n.SentAt ?? n.ScheduledFor).Take(100))
                 {
                     var row = new NotificationRowViewModel
@@ -546,6 +567,7 @@ namespace Daryva.MVVM.ViewModels
                         : "-";
                     HistoryNotifications.Add(row);
                 }
+                OnPropertyChanged(nameof(HasHistoryNotifications));
             }
             catch (Exception ex)
             {

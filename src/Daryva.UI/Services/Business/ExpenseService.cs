@@ -109,6 +109,10 @@ namespace Daryva.Services.Business
                 })
                 .OrderByDescending(x => x.Total)
                 .ToList();
+            foreach (var item in byCategory)
+            {
+                item.PercentageOfTotal = (item.Total / totalForPercentage) * 100;
+            }
             summary.ByCategory = byCategory;
 
             // By Month

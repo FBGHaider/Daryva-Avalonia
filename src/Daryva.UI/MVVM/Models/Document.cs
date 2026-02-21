@@ -54,7 +54,29 @@ namespace Daryva.MVVM.Models
         }
         
         // Calculated
-        public bool IsExpiringSoon => ValidTo.HasValue && ValidTo.Value <= DateTime.Now.AddDays(30);
+        public bool IsExpiringSoon => ValidTo.HasValue && ValidTo.Value > DateTime.Now && ValidTo.Value <= DateTime.Now.AddDays(30);
         public bool IsExpired => ValidTo.HasValue && ValidTo.Value < DateTime.Now;
+
+        /// <summary>For UI status chip: NoExpiry, Valid, ExpiringSoon, Expired.</summary>
+        public string DocumentStatus
+        {
+            get
+            {
+                if (!ValidTo.HasValue) return "NoExpiry";
+                var now = DateTime.Now;
+                if (ValidTo.Value < now) return "Expired";
+                if (ValidTo.Value <= now.AddDays(30)) return "ExpiringSoon";
+                return "Valid";
+            }
+        }
+
+        /// <summary>Display text for status chip.</summary>
+        public string DocumentStatusDisplay => DocumentStatus switch
+        {
+            "NoExpiry" => "No expiry",
+            "Expired" => "Expired",
+            "ExpiringSoon" => "Expiring Soon",
+            _ => "Valid"
+        };
     }
 }

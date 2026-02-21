@@ -47,6 +47,7 @@ namespace Daryva.MVVM.ViewModels
             ViewDocumentCommand = new RelayCommand(p => ViewDocument(p as Document), p => p is Document);
             DownloadDocumentCommand = new RelayCommand(p => DownloadDocument(p as Document), p => p is Document);
             DeleteDocumentCommand = new RelayCommand(async p => await DeleteDocumentAsync(p as Document), p => p is Document);
+            ClearFiltersCommand = new RelayCommand(_ => SearchTerm = string.Empty);
 
             LoadDocumentsCommand.Execute(null);
         }
@@ -56,8 +57,15 @@ namespace Daryva.MVVM.ViewModels
         public ICommand ViewDocumentCommand { get; }
         public ICommand DownloadDocumentCommand { get; }
         public ICommand DeleteDocumentCommand { get; }
+        public ICommand ClearFiltersCommand { get; }
 
         public ObservableCollection<Document> Documents { get; }
+
+        public int DocumentCount => Documents.Count;
+        public int ExpiringSoonCount => Documents.Count(d => d.DocumentStatus == "ExpiringSoon");
+        public int ExpiredCount => Documents.Count(d => d.DocumentStatus == "Expired");
+        public bool HasDocuments => Documents.Count > 0;
+        public string SubtitleText => $"{DocumentCount} documents • {ExpiringSoonCount} expiring soon • {ExpiredCount} expired";
 
         public string SearchTerm
         {
@@ -92,7 +100,17 @@ namespace Daryva.MVVM.ViewModels
                 Documents.Clear();
                 foreach (var doc in filtered.OrderByDescending(d => d.UploadedAt))
                     Documents.Add(doc);
+                NotifyCountsChanged();
             });
+        }
+
+        private void NotifyCountsChanged()
+        {
+            OnPropertyChanged(nameof(DocumentCount));
+            OnPropertyChanged(nameof(ExpiringSoonCount));
+            OnPropertyChanged(nameof(ExpiredCount));
+            OnPropertyChanged(nameof(HasDocuments));
+            OnPropertyChanged(nameof(SubtitleText));
         }
 
         private async Task LoadDocumentsAsync()

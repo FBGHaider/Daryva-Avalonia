@@ -39,6 +39,7 @@ namespace Daryva.Services.Business
     {
         public string Category { get; set; } = string.Empty;
         public decimal Total { get; set; }
+        public decimal PercentageOfTotal { get; set; }
         public int Count { get; set; }
         public decimal Average { get; set; }
     }

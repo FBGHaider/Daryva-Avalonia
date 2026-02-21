@@ -27,15 +27,23 @@ namespace Daryva.MVVM.Converters
                         "Overdue" => new SolidColorBrush(Color.FromRgb(0xEF, 0x53, 0x50)), // Light red (#EF5350)
                         // Document statuses
                         "Active" => new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0x6A)), // Light green
+                        "Valid" => new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0x6A)), // Light green
+                        "NoExpiry" => new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB0)), // Light gray
                         "Missing" => new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB0)), // Light gray
                         "Expired" => new SolidColorBrush(Color.FromRgb(0xEF, 0x53, 0x50)), // Light red
                         "ExpiringSoon" => new SolidColorBrush(Color.FromRgb(0xFF, 0xB7, 0x4D)), // Light orange
+                        // Notification statuses
+                        "Sent" => new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0x6A)),
+                        "Pending" => new SolidColorBrush(Color.FromRgb(0xFF, 0xB7, 0x4D)),
+                        "Scheduled" => new SolidColorBrush(Color.FromRgb(0x02, 0x89, 0xCD)),
+                        "Failed" => new SolidColorBrush(Color.FromRgb(0xEF, 0x53, 0x50)),
+                        "Cancelled" => new SolidColorBrush(Color.FromRgb(0xEF, 0x53, 0x50)),
                         _ => new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB0)) // Light gray
                     };
                 }
                 else
                 {
-                    // Standard colors for dark theme
+                    // Standard colors for dark theme (theme tokens: Success #6BAB26, Warning #F6A609, Danger #F35B05, BrandSecondary #0289CD)
                     return status switch
                     {
                         "Paid" => new SolidColorBrush(Colors.Green),
@@ -44,9 +52,17 @@ namespace Daryva.MVVM.Converters
                         "Overdue" => new SolidColorBrush(Colors.Red),
                         // Document statuses
                         "Active" => new SolidColorBrush(Colors.Green),
+                        "Valid" => new SolidColorBrush(Colors.Green),
+                        "NoExpiry" => new SolidColorBrush(Colors.Gray),
                         "Missing" => new SolidColorBrush(Colors.Gray),
                         "Expired" => new SolidColorBrush(Colors.Red),
                         "ExpiringSoon" => new SolidColorBrush(Colors.Orange),
+                        // Notification statuses
+                        "Sent" => new SolidColorBrush(Color.FromRgb(0x6B, 0xAB, 0x26)),   // StatusSuccess
+                        "Pending" => new SolidColorBrush(Color.FromRgb(0xF6, 0xA6, 0x09)), // StatusWarning
+                        "Scheduled" => new SolidColorBrush(Color.FromRgb(0x02, 0x89, 0xCD)), // BrandSecondary
+                        "Failed" => new SolidColorBrush(Color.FromRgb(0xF3, 0x5B, 0x05)),  // StatusDanger
+                        "Cancelled" => new SolidColorBrush(Color.FromRgb(0xF3, 0x5B, 0x05)),
                         _ => new SolidColorBrush(Colors.Gray)
                     };
                 }

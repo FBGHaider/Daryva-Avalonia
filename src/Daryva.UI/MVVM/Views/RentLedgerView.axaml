@@ -9,116 +9,139 @@
              x:Class="Daryva.MVVM.Views.RentLedgerView"
              x:CompileBindings="False">
     <UserControl.Resources>
-        <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
         <converters:SubtractOneConverter x:Key="SubtractOneConverter"/>
         <converters:ExpandArrowConverter x:Key="ExpandArrowConverter"/>
+        <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
     </UserControl.Resources>
     <UserControl.DataTemplates>
-        <!-- House header row: expand/collapse arrow + address -->
+        <!-- House group header: address, tenant count, totals, expand chevron -->
         <DataTemplate DataType="vm:HouseLedgerGroupViewModel">
-            <Border BorderBrush="{DynamicResource BorderBrush}" 
+            <Border BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="0,0,0,1"
-                    Padding="8,8"
-                    Background="{DynamicResource ControlBackgroundBrush}"
+                    Padding="12,10"
+                    Background="{DynamicResource Surface2Brush}"
                     Cursor="Hand">
                 <Button Command="{Binding DataContext.ToggleHouseExpandedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}"
                         Background="Transparent"
                         BorderThickness="0"
                         Padding="0"
-                        HorizontalContentAlignment="Left"
+                        HorizontalContentAlignment="Stretch"
                         HorizontalAlignment="Stretch">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="{Binding IsExpanded, Converter={StaticResource ExpandArrowConverter}}" 
-                                   FontSize="14" 
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding HouseAddress}" 
-                                   FontWeight="SemiBold" 
-                                   FontSize="14" 
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding IsExpanded, Converter={StaticResource ExpandArrowConverter}}"
+                                   FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Grid.Column="1" Text="{Binding HouseAddress}"
+                                   FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="{Binding TenantCount, StringFormat='{}{0} tenants'}"
+                                   FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <TextBlock Grid.Column="3" Text="{Binding TotalDue, StringFormat='£{0:N2} due'}"
+                                   FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="4" Text="{Binding TotalPaid, StringFormat='£{0:N2} paid'}"
+                                   FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="5" Text="{Binding TotalBalance, StringFormat='£{0:N2} bal'}"
+                                   FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="6" Text="{Binding OverdueCount, StringFormat='{}{0} overdue'}"
+                                   FontSize="12" Foreground="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center"/>
+                    </Grid>
                 </Button>
             </Border>
         </DataTemplate>
-        <!-- Rent ledger row (tenant row under a house) -->
+        <!-- Rent ledger row: no House column (group header shows it), status chip, icon action -->
         <DataTemplate DataType="models:RentLedgerRowViewModel">
-            <Border BorderBrush="{DynamicResource BorderBrush}" 
-                    BorderThickness="0,0,0,1"
-                    Padding="8,8"
-                    Background="Transparent"
-                    Cursor="Hand">
-                <Grid ColumnDefinitions="240,240,120,120,120,120,100,120">
-                    <TextBlock Grid.Column="0" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="2" Text="{Binding DueDateDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <TextBlock Grid.Column="3" Text="{Binding AmountDue, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <TextBlock Grid.Column="4" Text="{Binding AmountPaid, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <TextBlock Grid.Column="5" Text="{Binding Balance, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <Border Grid.Column="6" 
-                            Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}"
-                            CornerRadius="4"
-                            Padding="6,2"
-                            HorizontalAlignment="Left">
-                        <TextBlock Text="{Binding Status}" 
-                                   Foreground="White" 
-                                   FontWeight="SemiBold"
-                                   FontSize="12"
-                                   VerticalAlignment="Center"/>
+            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                    Padding="12,10,16,10" Background="Transparent" Cursor="Hand" MinWidth="780" ClipToBounds="False">
+                <Grid ColumnDefinitions="200,100,90,90,90,100,*">
+                    <TextBlock Grid.Column="0" Text="{Binding TenantName}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="1" Text="{Binding DueDateDisplay}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
+                    <TextBlock Grid.Column="2" Text="{Binding AmountDue, StringFormat='£{0:N2}'}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                    <TextBlock Grid.Column="3" Text="{Binding AmountPaid, StringFormat='£{0:N2}'}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
+                    <TextBlock Grid.Column="4" Text="{Binding Balance, StringFormat='£{0:N2}'}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                    <Border Grid.Column="5" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left"
+                            Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}">
+                        <TextBlock Text="{Binding Status}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" FontWeight="SemiBold"/>
                     </Border>
-                    <Button Grid.Column="7" 
-                            Content="Record Payment" 
-                            Command="{Binding DataContext.RecordPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                            CommandParameter="{Binding}"
-                            HorizontalAlignment="Left"
-                            Padding="8,4"
-                            FontSize="12"/>
+                    <Border Grid.Column="6" Width="48" HorizontalAlignment="Left" VerticalAlignment="Center" ClipToBounds="False">
+                        <Button Content="£" ToolTip.Tip="Record Payment" Classes="ledger-icon-btn"
+                                Command="{Binding DataContext.RecordPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"/>
+                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
-        <!-- Deposit ledger row (tenant row under a house) -->
+        <!-- Deposit ledger row: status chip, icon action -->
         <DataTemplate DataType="models:DepositLedgerRowViewModel">
-            <Border BorderBrush="{DynamicResource BorderBrush}" 
-                    BorderThickness="0,0,0,1"
-                    Padding="8,8"
-                    Background="Transparent"
-                    Cursor="Hand">
-                <Grid ColumnDefinitions="240,240,150,120,120,100,120">
-                    <TextBlock Grid.Column="0" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="2" Text="{Binding DepositRequired, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <TextBlock Grid.Column="3" Text="{Binding AmountPaid, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <TextBlock Grid.Column="4" Text="{Binding Balance, StringFormat='£{0:N2}'}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <Border Grid.Column="5" 
-                            Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}"
-                            CornerRadius="4"
-                            Padding="6,2"
-                            HorizontalAlignment="Left">
-                        <TextBlock Text="{Binding Status}" 
-                                   Foreground="White" 
-                                   FontWeight="SemiBold"
-                                   FontSize="12"
-                                   VerticalAlignment="Center"/>
+            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,10,16,10"
+                    Background="Transparent" Cursor="Hand" MinWidth="700" ClipToBounds="False">
+                <Grid ColumnDefinitions="200,120,90,90,100,*">
+                    <TextBlock Grid.Column="0" Text="{Binding TenantName}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="1" Text="{Binding DepositRequired, StringFormat='£{0:N2}'}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
+                    <TextBlock Grid.Column="2" Text="{Binding AmountPaid, StringFormat='£{0:N2}'}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
+                    <TextBlock Grid.Column="3" Text="{Binding Balance, StringFormat='£{0:N2}'}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                    <Border Grid.Column="4" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left"
+                            Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}">
+                        <TextBlock Text="{Binding Status}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" FontWeight="SemiBold"/>
                     </Border>
-                    <Button Grid.Column="6"
-                            Content="Record Payment"
-                            Command="{Binding DataContext.RecordDepositPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                            CommandParameter="{Binding}"
-                            HorizontalAlignment="Left"
-                            Padding="8,4"
-                            FontSize="12"/>
+                    <Border Grid.Column="5" Width="48" HorizontalAlignment="Left" VerticalAlignment="Center" ClipToBounds="False">
+                        <Button Content="£" ToolTip.Tip="Record Payment" Classes="ledger-icon-btn"
+                                Command="{Binding DataContext.RecordDepositPaymentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"/>
+                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
     </UserControl.DataTemplates>
+
+    <UserControl.Styles>
+        <Style Selector="Border.kpi-pill">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="Padding" Value="12,8"/>
+        </Style>
+        <Style Selector="Button.ledger-icon-btn">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="32"/>
+            <Setter Property="MaxWidth" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.ledger-icon-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrandPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Border.empty-state-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="40"/>
+        </Style>
+    </UserControl.Styles>
+
     <Border Padding="12">
-        <Grid RowDefinitions="Auto,Auto,*,Auto,*">
-            <!-- Filters -->
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,12">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="Month:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                    <ComboBox Width="140" SelectedIndex="{Binding SelectedMonth, Converter={StaticResource SubtractOneConverter}}">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+            <!-- Compact filters -->
+            <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ComboBox Width="120" SelectedIndex="{Binding SelectedMonth, Converter={StaticResource SubtractOneConverter}}"
+                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}">
                         <ComboBoxItem Content="January"/>
                         <ComboBoxItem Content="February"/>
                         <ComboBoxItem Content="March"/>
@@ -132,131 +155,165 @@
                         <ComboBoxItem Content="November"/>
                         <ComboBoxItem Content="December"/>
                     </ComboBox>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="Year:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                    <ComboBox Width="100"
-                              ItemsSource="{Binding YearOptions}"
-                              SelectedItem="{Binding SelectedYear}"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="Search:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                    <TextBox Width="200" Watermark="Search tenant/house" Text="{Binding SearchTerm}"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                    <ComboBox Width="220"
-                              ItemsSource="{Binding Houses}"
-                              SelectedValue="{Binding SelectedHouseId}"
-                              SelectedValueBinding="{Binding HouseId}">
+                    <ComboBox Width="80" ItemsSource="{Binding YearOptions}" SelectedItem="{Binding SelectedYear}"
+                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                    <ComboBox Width="180" ItemsSource="{Binding Houses}" SelectedValue="{Binding SelectedHouseId}"
+                              SelectedValueBinding="{Binding HouseId}" PlaceholderText="All Houses"
+                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding AddressLine1}"/>
+                                <TextBlock Text="{Binding AddressLine1}" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+                    <ComboBox Width="100" ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding StatusFilter}"
+                              Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                    <TextBox Width="180" Watermark="Search tenant/house" Text="{Binding SearchTerm}"
+                             Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                    <Button Content="Clear filters" Command="{Binding ClearFiltersCommand}"
+                            Background="Transparent" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="8,4" FontSize="12"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="Status:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                    <ComboBox Width="140"
-                              ItemsSource="{Binding StatusFilterOptions}"
-                              SelectedItem="{Binding StatusFilter}"/>
-                </StackPanel>
-            </StackPanel>
-
-            <!-- Rent Ledger Table -->
-            <TextBlock Grid.Row="1" Text="Rent Ledger" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
-            
-            <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}" Margin="0,0,0,16">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1200">
-                        <!-- Header Row -->
-                        <Border Grid.Row="0" 
-                                Background="{DynamicResource TableHeaderBackgroundBrush}" 
-                                BorderBrush="{DynamicResource BorderBrush}" 
-                                BorderThickness="0,0,0,1"
-                                Padding="8,10">
-                            <Grid ColumnDefinitions="240,240,120,120,120,120,100,120">
-                                <TextBlock Grid.Column="0" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="2" Text="Due Date" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="3" Text="Amount Due" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="4" Text="Paid" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="5" Text="Balance" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="6" Text="Status" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            </Grid>
-                        </Border>
-                        
-                        <!-- Data Rows (house headers + rent rows when expanded) -->
-                        <ListBox Grid.Row="1"
-                                 ItemsSource="{Binding FlatRentLedgerRows}"
-                                 SelectedItem="{Binding SelectedRentLedgerItem}"
-                                 SelectionMode="Single"
-                                 Background="{DynamicResource SecondaryBackgroundBrush}"
-                                 BorderThickness="0">
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
-                                    <Setter Property="Padding" Value="0"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:selected">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:pointerover">
-                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                </Style>
-                            </ListBox.Styles>
-                        </ListBox>
-                    </Grid>
-                </ScrollViewer>
             </Border>
 
-            <!-- Deposit Ledger Table -->
-            <TextBlock Grid.Row="3" Text="Deposit Ledger" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
-            
-            <Border Grid.Row="4" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1120">
-                        <!-- Header Row -->
-                        <Border Grid.Row="0" 
-                                Background="{DynamicResource TableHeaderBackgroundBrush}" 
-                                BorderBrush="{DynamicResource BorderBrush}" 
-                                BorderThickness="0,0,0,1"
-                                Padding="8,10">
-                            <Grid ColumnDefinitions="240,240,150,120,120,100,120">
-                                <TextBlock Grid.Column="0" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="2" Text="Deposit Required" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="3" Text="Paid" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="4" Text="Balance" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="5" Text="Status" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                <TextBlock Grid.Column="6" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <!-- KPI strip -->
+            <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+                <Border Classes="kpi-pill" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Due this month" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding TotalDue, StringFormat='£{0:N2}'}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Classes="kpi-pill" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Collected" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding TotalCollected, StringFormat='£{0:N2}'}" FontWeight="SemiBold" Foreground="{DynamicResource StatusSuccessBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Classes="kpi-pill" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Overdue" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding TotalOverdue, StringFormat='£{0:N2}'}" FontWeight="SemiBold" Foreground="{DynamicResource StatusDangerBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Classes="kpi-pill" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Outstanding" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding OutstandingBalance, StringFormat='£{0:N2}'}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Classes="kpi-pill">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Deposits outstanding" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding DepositsOutstanding, StringFormat='£{0:N2}'}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
+
+            <!-- Loading -->
+            <Border Grid.Row="2" IsVisible="{Binding IsLoading}" Margin="0,0,0,8"
+                    Background="{DynamicResource Surface2Brush}" CornerRadius="8" Padding="12">
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <ProgressBar Width="200" IsIndeterminate="True"/>
+                    <TextBlock Text="Loading ledger..." Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Rent Ledger card -->
+            <Grid Grid.Row="3" Margin="0,0,0,16">
+                <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="0"
+                        IsVisible="{Binding HasRentLedgerRows}">
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0" Text="Rent Ledger" FontSize="16" FontWeight="SemiBold" Margin="16,16,16,12"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Border Grid.Row="1" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,0,0,1" Padding="12,10,16,10">
+                            <Grid ColumnDefinitions="200,100,90,90,90,100,*">
+                                <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="1" Text="Due Date" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="2" Text="Due" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="3" Text="Paid" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="4" Text="Balance" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="5" Text="Status" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="6" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                             </Grid>
                         </Border>
-                        
-                        <!-- Data Rows (house headers + deposit rows when expanded) -->
-                        <ListBox Grid.Row="1"
-                                 ItemsSource="{Binding FlatDepositLedgerRows}"
-                                 SelectionMode="Single"
-                                 Background="{DynamicResource SecondaryBackgroundBrush}"
-                                 BorderThickness="0">
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
-                                    <Setter Property="Padding" Value="0"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:selected">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:pointerover">
-                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                </Style>
-                            </ListBox.Styles>
-                        </ListBox>
+                        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="400">
+                            <ListBox ItemsSource="{Binding FlatRentLedgerRows}" SelectedItem="{Binding SelectedRentLedgerItem}"
+                                     SelectionMode="Single" Background="Transparent" BorderThickness="0" MinWidth="780">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="ClipToBounds" Value="False"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover">
+                                        <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:selected">
+                                        <Setter Property="Background" Value="#1A2A46"/>
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+                        </ScrollViewer>
                     </Grid>
-                </ScrollViewer>
-            </Border>
+                </Border>
+                <Border Classes="empty-state-card" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="320"
+                        IsVisible="{Binding HasRentLedgerRows, Converter={x:Static BoolConverters.Not}}">
+                    <StackPanel Spacing="12" HorizontalAlignment="Center">
+                        <TextBlock Text="No records for this period" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Try changing month/year or clear filters." Foreground="{DynamicResource TextMutedBrush}" TextAlignment="Center" TextWrapping="Wrap"/>
+                        <Button Content="Clear filters" Command="{Binding ClearFiltersCommand}" HorizontalAlignment="Center"
+                                Background="Transparent" Foreground="{DynamicResource BrandPrimaryBrush}" BorderBrush="{DynamicResource BrandPrimaryBrush}" BorderThickness="1" Padding="12,6"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Deposit Ledger card (distinct section) -->
+            <Grid Grid.Row="4">
+                <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="0"
+                        IsVisible="{Binding HasDepositLedgerRows}">
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="16,16,16,12">
+                            <TextBlock Text="📋" FontSize="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="Deposit Ledger" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Border Grid.Row="1" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,0,0,1" Padding="12,10,16,10">
+                            <Grid ColumnDefinitions="200,120,90,90,100,*">
+                                <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="1" Text="Required" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="2" Text="Paid" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="3" Text="Balance" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="4" Text="Status" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="5" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                            </Grid>
+                        </Border>
+                        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="300">
+                            <ListBox ItemsSource="{Binding FlatDepositLedgerRows}" SelectionMode="Single"
+                                     Background="Transparent" BorderThickness="0" MinWidth="700">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="ClipToBounds" Value="False"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover">
+                                        <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+                <Border Classes="empty-state-card" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="280"
+                        IsVisible="{Binding HasDepositLedgerRows, Converter={x:Static BoolConverters.Not}}">
+                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock Text="No deposit records for this period" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Grid>
     </Border>
 </UserControl>

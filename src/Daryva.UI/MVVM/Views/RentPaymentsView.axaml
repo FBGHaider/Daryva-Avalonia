@@ -7,24 +7,55 @@
              x:Class="Daryva.MVVM.Views.RentPaymentsView"
              x:CompileBindings="False"
              x:Name="Root">
+    <UserControl.Styles>
+        <Style Selector="Border.command-bar">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+    </UserControl.Styles>
     <Grid RowDefinitions="Auto,*">
-        <!-- Fixed header: buttons follow right edge; hide when too narrow -->
-        <Border Grid.Row="0" Padding="16,0,16,0" Margin="0,0,0,8" x:Name="HeaderBorder">
-            <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
-                <TextBlock Grid.Column="0" Text="Rent &amp; Payments" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" Margin="0,16,0,16"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,12,0,12"
-                            IsVisible="{Binding IsHeaderButtonsVisible, RelativeSource={RelativeSource AncestorType=UserControl}}">
-                    <Button Content="Record Payment" Command="{Binding RecordPaymentCommand}"/>
-                    <Button Content="Export" Command="{Binding ExportLedgerCommand}"/>
-                </StackPanel>
-            </Grid>
+        <!-- Finance Command Bar -->
+        <Border Grid.Row="0" x:Name="HeaderBorder" Padding="24" Margin="0,0,0,12">
+            <Border Classes="command-bar">
+                <Grid RowDefinitions="Auto">
+                    <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
+                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="Rent &amp; Payments" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding LedgerViewModel.SubtitleText}" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                                    IsVisible="{Binding IsHeaderButtonsVisible, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <Button Content="Record Payment" Command="{Binding RecordPaymentCommand}"
+                                    Background="{DynamicResource BrandPrimaryBrush}"
+                                    Foreground="{DynamicResource TextPrimaryBrush}"
+                                    BorderThickness="0" Padding="12,8" CornerRadius="8"/>
+                            <Button Content="Export" Command="{Binding ExportLedgerCommand}"
+                                    Background="Transparent"
+                                    Foreground="{DynamicResource BrandPrimaryBrush}"
+                                    BorderBrush="{DynamicResource BrandPrimaryBrush}"
+                                    BorderThickness="1" Padding="12,8" CornerRadius="8"/>
+                            <Button Content="⋯" ToolTip.Tip="More actions"
+                                    Background="Transparent"
+                                    Foreground="{DynamicResource TextMutedBrush}"
+                                    BorderThickness="0" Padding="8">
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Refresh" Command="{Binding RefreshCommand}"/>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
         </Border>
 
-        <!-- Scrollable content -->
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-            <Border Padding="16,0,16,16">
-                <Grid RowDefinitions="*">
-                <TabControl Grid.Row="0" SelectedIndex="{Binding SelectedTabIndex}" Margin="0,8,0,0">
+            <Border Padding="24,0,24,24">
+                <TabControl SelectedIndex="{Binding SelectedTabIndex}" Margin="0,0,0,0">
                     <TabItem Header="Rent Ledger">
                         <views:RentLedgerView DataContext="{Binding LedgerViewModel}"/>
                     </TabItem>
@@ -32,7 +63,6 @@
                         <views:TransactionsView DataContext="{Binding TransactionsViewModel}"/>
                     </TabItem>
                 </TabControl>
-                </Grid>
             </Border>
         </ScrollViewer>
     </Grid>

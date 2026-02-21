@@ -2,282 +2,366 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
              mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="750"
              x:Class="Daryva.MVVM.Views.NotificationsView"
-             x:CompileBindings="False">
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-        <Border Padding="16">
-            <Grid RowDefinitions="Auto,*">
-                <TextBlock Grid.Row="0" Text="Notifications" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+             x:CompileBindings="False"
+             x:Name="Root">
+    <UserControl.Resources>
+        <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="Border.notif-command-bar">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+        <Style Selector="Border.notif-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="Button.notif-icon-btn">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.notif-icon-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TabControl.notif-tabs">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TabControl.notif-tabs TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="TabControl.notif-tabs TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TabControl.notif-tabs /template/ TabStrip">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+        </Style>
+    </UserControl.Styles>
 
-                <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" Margin="0,16,0,0">
-                    <!-- Compose -->
-                    <TabItem Header="Compose">
-                        <Grid RowDefinitions="*,Auto">
-                            <!-- Two-column: Recipients (left) | Message (right) -->
-                            <Grid Grid.Row="0" ColumnDefinitions="*,*" Margin="0,24,0,16">
-                                <!-- LEFT: Recipients -->
-                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
-                                    <StackPanel Spacing="10">
-                                        <TextBlock Text="Recipients" FontWeight="Bold" FontSize="16" Margin="0,0,0,6"/>
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Target Type:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <ComboBox Width="180" ItemsSource="{Binding TargetTypeOptions}" SelectedItem="{Binding TargetType}"/>
-                                        </StackPanel>
-                                        <StackPanel Spacing="6" IsVisible="{Binding IsTenantAndStatusVisible}">
-                                            <TextBlock Text="Status:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <ComboBox Width="180" ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding StatusFilter}"/>
-                                        </StackPanel>
-                                        <StackPanel Spacing="6" IsVisible="{Binding IsTenantAndStatusVisible}">
-                                            <TextBlock Text="Tenant:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <ComboBox Width="280"
-                                                      ItemsSource="{Binding Tenants}"
-                                                      SelectedValue="{Binding SelectedTenantId}"
-                                                      SelectedValueBinding="{Binding TenantId}">
-                                                <ComboBox.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <TextBlock Text="{Binding FullName}"/>
-                                                    </DataTemplate>
-                                                </ComboBox.ItemTemplate>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Spacing="6" IsVisible="{Binding IsHouseFilterVisible}">
-                                            <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <ComboBox Width="280"
-                                                      ItemsSource="{Binding Houses}"
-                                                      SelectedValue="{Binding SelectedHouseId}"
-                                                      SelectedValueBinding="{Binding HouseId}">
-                                                <ComboBox.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <TextBlock>
-                                                            <Run Text="{Binding AddressLine1}"/>
-                                                            <Run Text=", "/>
-                                                            <Run Text="{Binding City}"/>
-                                                        </TextBlock>
-                                                    </DataTemplate>
-                                                </ComboBox.ItemTemplate>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <Button Content="Load Recipients" Command="{Binding LoadRecipientsCommand}" Padding="12,8" HorizontalAlignment="Left"/>
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Recipients:" FontWeight="Bold"/>
-                                            <Border BorderThickness="1" BorderBrush="#808080" CornerRadius="4" MinHeight="200" MaxHeight="280" Padding="8">
-                                                <ListBox ItemsSource="{Binding Recipients}"
-                                                         SelectedItem="{Binding SelectedRecipient}"
-                                                         SelectionMode="Single"
-                                                         Background="Transparent"
-                                                         BorderThickness="0">
+    <Border Padding="24" ClipToBounds="True" HorizontalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch">
+            <TextBlock Grid.Row="0" Text="Notifications" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16"/>
+
+            <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" Classes="notif-tabs" Margin="0">
+                <!-- ========== COMPOSE ========== -->
+                <TabItem Header="Compose">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Grid ColumnDefinitions="1*,1*,1*" RowDefinitions="Auto" Margin="0,0,0,24">
+                            <!-- COLUMN 1: Audience -->
+                            <Border Grid.Column="0" Classes="notif-card" Margin="0,0,8,0">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Audience" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Target Type" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <ComboBox Width="180" ItemsSource="{Binding TargetTypeOptions}" SelectedItem="{Binding TargetType}"
+                                                  Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6" IsVisible="{Binding IsTenantAndStatusVisible}">
+                                        <TextBlock Text="Status" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <ComboBox Width="180" ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding StatusFilter}"
+                                                  Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6" IsVisible="{Binding IsTenantAndStatusVisible}">
+                                        <TextBlock Text="Tenant" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <ComboBox Width="220" ItemsSource="{Binding Tenants}" SelectedValue="{Binding SelectedTenantId}" SelectedValueBinding="{Binding TenantId}"
+                                                  Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate><TextBlock Text="{Binding FullName}" Foreground="{DynamicResource TextPrimaryBrush}"/></DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6" IsVisible="{Binding IsHouseFilterVisible}">
+                                        <TextBlock Text="House" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <ComboBox Width="220" ItemsSource="{Binding Houses}" SelectedValue="{Binding SelectedHouseId}" SelectedValueBinding="{Binding HouseId}"
+                                                  Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Foreground="{DynamicResource TextPrimaryBrush}">
+                                                        <Run Text="{Binding AddressLine1}"/><Run Text=", "/><Run Text="{Binding City}"/>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <Button Content="Load Recipients" Command="{Binding LoadRecipientsCommand}" Padding="12,8"
+                                            Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" CornerRadius="8"/>
+                                    <Border BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}" CornerRadius="6" Padding="10" Background="{DynamicResource Surface2Brush}">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="{Binding RecipientsHeaderText}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13"/>
+                                            <Border BorderThickness="0" MinHeight="180" MaxHeight="260">
+                                                <ListBox ItemsSource="{Binding Recipients}" SelectedItem="{Binding SelectedRecipient}" SelectionMode="Single"
+                                                         Background="Transparent" BorderThickness="0">
                                                     <ListBox.ItemTemplate>
                                                         <DataTemplate>
-                                                            <TextBlock Text="{Binding RecipientLine}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextWrapping="Wrap" Margin="0,2"/>
+                                                            <StackPanel Spacing="2" Margin="0,4">
+                                                                <TextBlock Text="{Binding TenantName}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis">
+                                                                    <Run Text="{Binding Email}"/><Run Text=" · "/><Run Text="{Binding HouseAddress}"/>
+                                                                </TextBlock>
+                                                            </StackPanel>
                                                         </DataTemplate>
                                                     </ListBox.ItemTemplate>
                                                     <ListBox.Styles>
-                                                        <Style Selector="ListBoxItem">
-                                                            <Setter Property="Padding" Value="4,2"/>
-                                                        </Style>
-                                                        <Style Selector="ListBoxItem:selected">
-                                                            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                                        </Style>
-                                                        <Style Selector="ListBoxItem:pointerover">
-                                                            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                                        </Style>
+                                                        <Style Selector="ListBoxItem"><Setter Property="Padding" Value="6,4"/></Style>
+                                                        <Style Selector="ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource BrandPrimaryBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/></Style>
+                                                        <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource Surface2Brush}"/></Style>
                                                     </ListBox.Styles>
                                                 </ListBox>
                                             </Border>
                                         </StackPanel>
-                                    </StackPanel>
-                                </ScrollViewer>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
 
-                                <!-- RIGHT: Message composition -->
-                                <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                                    <StackPanel Spacing="10">
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Channel:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <ComboBox Width="180" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"/>
-                                        </StackPanel>
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Template:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <ComboBox Width="280"
-                                                      ItemsSource="{Binding Templates}"
-                                                      SelectedValue="{Binding SelectedTemplateId}"
-                                                      SelectedValueBinding="{Binding TemplateId}">
-                                                <ComboBox.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <TextBlock Text="{Binding Name}"/>
-                                                    </DataTemplate>
-                                                </ComboBox.ItemTemplate>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Subject:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBox Text="{Binding Subject}" Watermark="Subject"/>
-                                        </StackPanel>
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Body:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBox Text="{Binding Body}"
-                                                     TextWrapping="Wrap"
-                                                     AcceptsReturn="True"
-                                                     MinHeight="140"
-                                                     Watermark="Body"/>
-                                        </StackPanel>
-                                        <TextBlock Text="Variables: {Currency}, {TenantName}, {HouseAddress}, {AmountDue}, {DueDate}, {Month}. Use {Currency}{AmountDue} for money. Currency from Settings → General."
-                                                   FontSize="12"
-                                                   Foreground="#808080"
-                                                   Margin="0,0,0,4"/>
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Preview:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBox Text="{Binding PreviewText}"
-                                                     IsReadOnly="True"
-                                                     TextWrapping="Wrap"
-                                                     AcceptsReturn="True"
-                                                     MinHeight="120"
-                                                     Watermark="Preview output"/>
-                                            <Button Content="Preview" Command="{Binding PreviewMessageCommand}" Padding="12,8" HorizontalAlignment="Left"/>
+                            <!-- COLUMN 2: Message -->
+                            <Border Grid.Column="1" Classes="notif-card" Margin="4,0">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Message" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Channel" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <ComboBox Width="180" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
+                                                  Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Template" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <ComboBox Width="220" ItemsSource="{Binding Templates}" SelectedValue="{Binding SelectedTemplateId}" SelectedValueBinding="{Binding TemplateId}"
+                                                  Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate><TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"/></DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Subject" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBox Text="{Binding Subject}" Watermark="Subject" Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Body" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBox Text="{Binding Body}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120" Watermark="Body"
+                                                 Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Variables" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <ItemsControl ItemsSource="{Binding VariableTokens}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="{Binding}" Command="{Binding DataContext.InsertVariableCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="8,4" Margin="0,0,6,6" FontSize="11"
+                                                            Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- COLUMN 3: Preview & Send -->
+                            <Border Grid.Column="2" Classes="notif-card" Margin="8,0,0,0">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Preview" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <Border BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}" CornerRadius="6" Padding="10" MinHeight="140" Background="{DynamicResource Surface2Brush}">
+                                        <TextBox Text="{Binding PreviewText}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                                                 Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" Watermark="Preview output"/>
+                                    </Border>
+                                    <Button Content="Preview" Command="{Binding PreviewMessageCommand}" Padding="10,6"
+                                            Background="Transparent" Foreground="{DynamicResource TextMutedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                                    <StackPanel Spacing="8" Margin="0,8,0,0">
+                                        <Button Content="Send Test" Command="{Binding SendTestCommand}" Padding="12,8"
+                                                Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8"/>
+                                        <Button Content="Queue" Command="{Binding QueueCommand}" Padding="12,8"
+                                                Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8"/>
+                                        <Button Content="Send Now" Command="{Binding SendNowCommand}" Padding="12,8"
+                                                Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" CornerRadius="8"/>
+                                    </StackPanel>
+                                    <StackPanel Spacing="6" Margin="0,8,0,0">
+                                        <TextBlock Text="Schedule (for Queue)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <DatePicker SelectedDate="{Binding ScheduledFor, Mode=TwoWay}" MinWidth="140" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                            <TimePicker SelectedTime="{Binding ScheduledTime, Mode=TwoWay}" MinWidth="100" ClockIdentifier="24HourClock" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}"/>
                                         </StackPanel>
                                     </StackPanel>
-                                </ScrollViewer>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ========== QUEUE ========== -->
+                <TabItem Header="Queue">
+                    <Grid RowDefinitions="Auto,*" Margin="0" VerticalAlignment="Stretch">
+                        <Border Grid.Row="0" Classes="notif-command-bar" Margin="0,0,0,12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Queue" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <TextBlock Text="Status" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
+                                    <ComboBox Width="140" ItemsSource="{Binding QueueStatusOptions}" SelectedItem="{Binding QueueStatusFilter}"
+                                              Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    <Button Content="Refresh" Command="{Binding LoadQueueCommand}" Padding="12,6"
+                                            Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6"/>
+                                </StackPanel>
                             </Grid>
-
-                            <!-- Bottom action bar -->
-                            <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrush}" Padding="12,14,12,12">
-                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                    <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-                                        <Button Content="Send Now" Command="{Binding SendNowCommand}" Padding="12,8"/>
-                                        <DatePicker SelectedDate="{Binding ScheduledFor, Mode=TwoWay}" MinWidth="180" Width="180"/>
-                                        <TimePicker SelectedTime="{Binding ScheduledTime, Mode=TwoWay}" MinWidth="140" Width="140" ClockIdentifier="24HourClock"/>
-                                        <Button Content="Queue" Command="{Binding QueueCommand}" Padding="12,8"/>
-                                        <Button Content="Send Test" Command="{Binding SendTestCommand}" Padding="12,8"/>
+                        </Border>
+                        <Border Grid.Row="1" VerticalAlignment="Stretch" Padding="0" ClipToBounds="True">
+                            <Grid RowDefinitions="*">
+                                <Border Grid.Row="0" IsVisible="{Binding HasQueueNotifications}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="0" VerticalAlignment="Stretch">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,10">
+                                            <Grid ColumnDefinitions="150,120,180,70,80,90,100">
+                                                <TextBlock Grid.Column="0" Text="Scheduled For" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="3" Text="Channel" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="4" Text="Type" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="5" Text="Status" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="6" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Grid>
+                                        </Border>
+                                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" VerticalAlignment="Stretch">
+                                            <ListBox ItemsSource="{Binding QueueNotifications}" SelectedItem="{Binding SelectedNotification}" SelectionMode="Single"
+                                                     Background="{DynamicResource SurfaceBrush}" BorderThickness="0" MinWidth="780">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,10" Background="Transparent" Cursor="Hand">
+                                                            <Grid ColumnDefinitions="150,120,180,70,80,90,100">
+                                                                <TextBlock Grid.Column="0" Text="{Binding ScheduledDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                                                <TextBlock Grid.Column="3" Text="{Binding Channel}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                                                                <TextBlock Grid.Column="4" Text="{Binding Type}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                                                                <Border Grid.Column="5" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                        Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}">
+                                                                    <TextBlock Text="{Binding Status}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                                                </Border>
+                                                                <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                                    <Button Content="▶" ToolTip.Tip="Send now" Classes="notif-icon-btn"
+                                                                            Command="{Binding DataContext.SendQueueItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                                    <Button Content="✕" ToolTip.Tip="Cancel" Classes="notif-icon-btn"
+                                                                            Command="{Binding DataContext.CancelQueueItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                                <ListBox.Styles>
+                                                    <Style Selector="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/></Style>
+                                                    <Style Selector="ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource Surface2Brush}"/></Style>
+                                                    <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource Surface2Brush}"/></Style>
+                                                </ListBox.Styles>
+                                            </ListBox>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </Border>
+                                <Border Grid.Row="0" IsVisible="{Binding HasQueueNotifications, Converter={x:Static BoolConverters.Not}}"
+                                        Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="48" VerticalAlignment="Stretch">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                                        <TextBlock Text="📋" FontSize="36" HorizontalAlignment="Center" Opacity="0.5"/>
+                                        <TextBlock Text="No scheduled notifications" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Queue notifications from the Compose tab to see them here." Foreground="{DynamicResource TextMutedBrush}" FontSize="13" HorizontalAlignment="Center" TextAlignment="Center"/>
                                     </StackPanel>
-                                </ScrollViewer>
-                            </Border>
-                        </Grid>
-                    </TabItem>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
 
-                    <!-- Queue -->
-                    <TabItem Header="Queue">
-                        <Grid RowDefinitions="Auto,*">
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,24,0,12">
-                                <TextBlock Text="Status:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                                <ComboBox Width="140" ItemsSource="{Binding QueueStatusOptions}" SelectedItem="{Binding QueueStatusFilter}"/>
-                                <Button Content="Refresh" Command="{Binding LoadQueueCommand}" Padding="12,6"/>
-                            </StackPanel>
-                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}">
-                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
-                                    <Grid RowDefinitions="Auto,*" MinWidth="1100">
-                                        <Border Grid.Row="0" Background="{DynamicResource TableHeaderBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,10">
-                                            <Grid ColumnDefinitions="140,130,200,70,80,70,100">
-                                                <TextBlock Grid.Column="0" Text="Scheduled For" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="2" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="3" Text="Channel" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="4" Text="Type" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="5" Text="Status" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="6" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                <!-- ========== HISTORY ========== -->
+                <TabItem Header="History">
+                    <Grid RowDefinitions="Auto,*" Margin="0" VerticalAlignment="Stretch">
+                        <Border Grid.Row="0" Classes="notif-command-bar" Margin="0,0,0,12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="History" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <TextBlock Text="Status" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
+                                    <ComboBox Width="140" ItemsSource="{Binding HistoryStatusOptions}" SelectedItem="{Binding HistoryStatusFilter}"
+                                              Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    <Button Content="Refresh" Command="{Binding LoadHistoryCommand}" Padding="12,6"
+                                            Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="1" VerticalAlignment="Stretch" Padding="0" ClipToBounds="True">
+                            <Grid RowDefinitions="*">
+                                <Border Grid.Row="0" IsVisible="{Binding HasHistoryNotifications}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="0" VerticalAlignment="Stretch">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,10">
+                                            <Grid ColumnDefinitions="140,110,160,65,70,*,80,80">
+                                                <TextBlock Grid.Column="0" Text="Sent At" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="3" Text="Channel" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="4" Text="Type" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="5" Text="Subject" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="6" Text="Status" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             </Grid>
                                         </Border>
-                                        <ListBox Grid.Row="1" ItemsSource="{Binding QueueNotifications}"
-                                                 SelectedItem="{Binding SelectedNotification}"
-                                                 SelectionMode="Single" Background="{DynamicResource SecondaryBackgroundBrush}" BorderThickness="0">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,8" Background="Transparent" Cursor="Hand">
-                                                        <Grid ColumnDefinitions="140,130,200,70,80,70,100">
-                                                            <TextBlock Grid.Column="0" Text="{Binding ScheduledDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Grid.Column="3" Text="{Binding Channel}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="4" Text="{Binding Type}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="5" Text="{Binding Status}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6">
-                                                                <Button Content="Send" Command="{Binding DataContext.SendQueueItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="8,4" FontSize="12"/>
-                                                                <Button Content="Cancel" Command="{Binding DataContext.CancelQueueItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="8,4" FontSize="12"/>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                            <ListBox.Styles>
-                                                <Style Selector="ListBoxItem">
-                                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
-                                                    <Setter Property="Padding" Value="0"/>
-                                                </Style>
-                                                <Style Selector="ListBoxItem:selected">
-                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                                </Style>
-                                                <Style Selector="ListBoxItem:pointerover">
-                                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                                </Style>
-                                            </ListBox.Styles>
-                                        </ListBox>
+                                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" VerticalAlignment="Stretch">
+                                            <ListBox ItemsSource="{Binding HistoryNotifications}" SelectedItem="{Binding SelectedNotification}" SelectionMode="Single"
+                                                     Background="{DynamicResource SurfaceBrush}" BorderThickness="0" MinWidth="900">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,10" Background="Transparent" Cursor="Hand">
+                                                            <Grid ColumnDefinitions="140,110,160,65,70,*,80,80">
+                                                                <TextBlock Grid.Column="0" Text="{Binding SentDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                                                <TextBlock Grid.Column="3" Text="{Binding Channel}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                                                                <TextBlock Grid.Column="4" Text="{Binding Type}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                                                                <TextBlock Grid.Column="5" Text="{Binding Subject}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                                                <Border Grid.Column="6" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                        Background="{Binding Status, Converter={StaticResource StatusToColorConverter}}">
+                                                                    <TextBlock Text="{Binding Status}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                                                </Border>
+                                                                <Button Grid.Column="7" Content="👁" ToolTip.Tip="View details" Classes="notif-icon-btn" HorizontalAlignment="Left"
+                                                                        Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                                <ListBox.Styles>
+                                                    <Style Selector="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/></Style>
+                                                    <Style Selector="ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource Surface2Brush}"/></Style>
+                                                    <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource Surface2Brush}"/></Style>
+                                                </ListBox.Styles>
+                                            </ListBox>
+                                        </ScrollViewer>
                                     </Grid>
-                                </ScrollViewer>
-                            </Border>
-                        </Grid>
-                    </TabItem>
-
-                    <!-- History -->
-                    <TabItem Header="History">
-                        <Grid RowDefinitions="Auto,*">
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,24,0,12">
-                                <TextBlock Text="Status:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                                <ComboBox Width="140" ItemsSource="{Binding HistoryStatusOptions}" SelectedItem="{Binding HistoryStatusFilter}"/>
-                                <Button Content="Refresh" Command="{Binding LoadHistoryCommand}" Padding="12,6"/>
-                            </StackPanel>
-                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}">
-                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="500">
-                                    <Grid RowDefinitions="Auto,*" MinWidth="1100">
-                                        <Border Grid.Row="0" Background="{DynamicResource TableHeaderBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,10">
-                                            <Grid ColumnDefinitions="140,130,200,70,80,*,70,80">
-                                                <TextBlock Grid.Column="0" Text="Sent At" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="1" Text="Tenant" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="2" Text="House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="3" Text="Channel" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="4" Text="Type" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="5" Text="Subject" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="6" Text="Status" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            </Grid>
-                                        </Border>
-                                        <ListBox Grid.Row="1" ItemsSource="{Binding HistoryNotifications}"
-                                                 SelectedItem="{Binding SelectedNotification}"
-                                                 SelectionMode="Single" Background="{DynamicResource SecondaryBackgroundBrush}" BorderThickness="0">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,8" Background="Transparent" Cursor="Hand">
-                                                        <Grid ColumnDefinitions="140,130,200,70,80,*,70,80">
-                                                            <TextBlock Grid.Column="0" Text="{Binding SentDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding TenantName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Grid.Column="2" Text="{Binding HouseAddress}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Grid.Column="3" Text="{Binding Channel}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="4" Text="{Binding Type}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <TextBlock Grid.Column="5" Text="{Binding Subject}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Grid.Column="6" Text="{Binding Status}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                                            <Button Grid.Column="7" Content="View" Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                            <ListBox.Styles>
-                                                <Style Selector="ListBoxItem">
-                                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
-                                                    <Setter Property="Padding" Value="0"/>
-                                                </Style>
-                                                <Style Selector="ListBoxItem:selected">
-                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                                </Style>
-                                                <Style Selector="ListBoxItem:pointerover">
-                                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                                </Style>
-                                            </ListBox.Styles>
-                                        </ListBox>
-                                    </Grid>
-                                </ScrollViewer>
-                            </Border>
-                        </Grid>
-                    </TabItem>
-                </TabControl>
-            </Grid>
-        </Border>
-    </ScrollViewer>
+                                </Border>
+                                <Border Grid.Row="0" IsVisible="{Binding HasHistoryNotifications, Converter={x:Static BoolConverters.Not}}"
+                                        Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="48" VerticalAlignment="Stretch">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                                        <TextBlock Text="📬" FontSize="36" HorizontalAlignment="Center" Opacity="0.5"/>
+                                        <TextBlock Text="No notifications sent yet" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Sent and failed notifications will appear here." Foreground="{DynamicResource TextMutedBrush}" FontSize="13" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </Border>
 </UserControl>

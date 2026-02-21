@@ -28,6 +28,12 @@ namespace Daryva.MVVM.ViewModels
 
             RecordPaymentCommand = new RelayCommand(_ => ShowRecordPaymentDialog());
             ExportLedgerCommand = new RelayCommand(_ => LedgerViewModel.ExportLedgerCommand.Execute(null));
+            RefreshCommand = new RelayCommand(_ =>
+            {
+                LedgerViewModel.LoadLedgerCommand.Execute(null);
+                LedgerViewModel.LoadDepositLedgerCommand.Execute(null);
+                TransactionsViewModel.LoadTransactionsCommand.Execute(null);
+            });
 
             // Refresh Rent Ledger and Transactions when a payment is recorded (from any screen)
             DashboardViewModel.PaymentDataChanged += OnPaymentDataChanged;
@@ -55,6 +61,7 @@ namespace Daryva.MVVM.ViewModels
 
         public ICommand RecordPaymentCommand { get; }
         public ICommand ExportLedgerCommand { get; }
+        public ICommand RefreshCommand { get; }
 
         public RentLedgerViewModel LedgerViewModel { get; }
         public TransactionsViewModel TransactionsViewModel { get; }

@@ -10,202 +10,139 @@
         <converters:IsNotNullConverter x:Key="IsNotNullConverter"/>
         <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
     </UserControl.Resources>
-    <ScrollViewer>
-        <StackPanel Margin="0,0,0,24" Spacing="24">
-            <!-- Header -->
-            <TextBlock Text="General Settings"
-                       FontSize="24"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+    <UserControl.Styles>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+        </Style>
+        <Style Selector="Border.settings-footer">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1,1,0,0"/>
+            <Setter Property="Padding" Value="20,14"/>
+        </Style>
+    </UserControl.Styles>
 
-            <!-- Updates - always visible; when not Velopack-installed, shows "Updates not available" -->
-            <Border BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Background="{DynamicResource ControlBackgroundBrush}"
-                    Padding="20,16">
-                <StackPanel Spacing="16">
-                    <TextBlock Text="Updates"
-                               FontSize="13"
-                               FontWeight="Medium"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               Margin="0,0,0,4"/>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Section header -->
+        <TextBlock Grid.Row="0" Text="General Settings" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,20"/>
 
-                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto">
-                        <TextBlock Text="Current version:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,0,12,0"/>
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding CurrentVersion}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
-
-                        <TextBlock Grid.Row="1"
-                                   Text="Status:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,12,12,0"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1"
-                                   Text="{Binding UpdateStatus}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,12,0,0"/>
-
-                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2"
-                                    Orientation="Horizontal"
-                                    Spacing="12"
-                                    Margin="0,16,0,0">
-                            <Button Content="Check for updates"
-                                    Command="{Binding CheckForUpdatesCommand}"
+        <!-- Scrollable content -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="20" Margin="0,0,0,0">
+                <!-- Updates card -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Check for app updates and install new versions when available."
+                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,8,0,0">
+                            <TextBlock Text="Current version:" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="13" Margin="0,0,12,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding CurrentVersion}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                            <TextBlock Grid.Row="1" Text="Status:" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="13" Margin="0,8,12,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UpdateStatus}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" Margin="0,8,0,0"/>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+                            <Button Content="Check for updates" Command="{Binding CheckForUpdatesCommand}"
                                     IsEnabled="{Binding IsCheckingForUpdates, Converter={StaticResource InvertBoolConverter}}"
-                                    Background="Transparent"
-                                    BorderBrush="{DynamicResource BorderBrush}"
-                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                    BorderThickness="1"/>
-                            <Button Content="Install &amp; Restart"
-                                    Command="{Binding InstallAndRestartCommand}"
+                                    Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12,8" CornerRadius="8"/>
+                            <Button Content="Install &amp; Restart" Command="{Binding InstallAndRestartCommand}"
                                     IsVisible="{Binding AvailableUpdateVersion, Converter={StaticResource IsNotNullConverter}}"
-                                    Background="{DynamicResource AccentBrush}"
-                                    Foreground="White"
-                                    BorderThickness="0"/>
+                                    Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" Padding="12,8" CornerRadius="8"/>
                         </StackPanel>
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!-- Appearance & Behavior -->
-            <Border BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Background="{DynamicResource ControlBackgroundBrush}"
-                    Padding="20,16">
-                <StackPanel Spacing="20">
-                    <TextBlock Text="Appearance &amp; Behavior"
-                               FontSize="13"
-                               FontWeight="Medium"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               Margin="0,0,0,4"/>
-
-                    <!-- Currency -->
-                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
-                        <TextBlock Text="Currency:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,0,12,0"/>
-                        <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="2">
-                            <TextBox Text="{Binding Currency, Mode=TwoWay}"
-                                     MinWidth="120"
-                                     Padding="8,6"
-                                     Watermark="e.g. GBP, £, USD"/>
-                            <TextBlock Text="Used in notifications (e.g. {Currency}{AmountDue}). Codes: GBP, USD, EUR, INR, PKR; or symbol £, $, €, Rs."
-                                       FontSize="11"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Date Format -->
-                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
-                        <TextBlock Text="Date Format:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,0,12,0"/>
-                        <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding DateFormatOptions}"
-                                  SelectedItem="{Binding DateFormat, Mode=TwoWay}"
-                                  MinWidth="200"
-                                  PlaceholderText="Select format"/>
-                    </Grid>
-
-                    <!-- Time Zone -->
-                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
-                        <TextBlock Text="Time Zone:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,0,12,0"/>
-                        <TextBox Grid.Column="1"
-                                 Text="{Binding TimeZone, Mode=TwoWay}"
-                                 IsReadOnly="True"
-                                 Background="{DynamicResource ControlBackgroundHoverBrush}"
-                                 Foreground="{DynamicResource PrimaryTextBrush}"
-                                 MinWidth="220"
-                                 Padding="8,6"/>
-                    </Grid>
-
-                    <!-- App Start Page -->
-                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto">
-                        <TextBlock Text="App Start Page:"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   Margin="0,0,12,0"/>
-                        <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding AppStartPageOptions}"
-                                  SelectedItem="{Binding AppStartPage, Mode=TwoWay}"
-                                  MinWidth="200"
-                                  PlaceholderText="Select page"/>
-                    </Grid>
-
-                    <!-- Checkboxes -->
-                    <StackPanel Spacing="12" Margin="0,8,0,0">
-                        <CheckBox IsChecked="{Binding ConfirmDestructiveActions, Mode=TwoWay}"
-                                  Content="Confirm destructive actions (Delete, End tenancy)"
-                                  Foreground="{DynamicResource PrimaryTextBrush}"/>
-                        <CheckBox IsChecked="{Binding AutoRefreshDashboard, Mode=TwoWay}"
-                                  Content="Auto-refresh dashboard"
-                                  Foreground="{DynamicResource PrimaryTextBrush}"/>
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </Border>
 
-            <!-- Data maintenance -->
-            <Border BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Background="{DynamicResource ControlBackgroundBrush}"
-                    Padding="20,16">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Data maintenance"
-                               FontSize="13"
-                               FontWeight="Medium"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               Margin="0,0,0,4"/>
-                    <TextBlock Text="If the rent ledger shows duplicate rows for the same tenant and period (e.g. one Paid, one Overdue), run this to merge duplicates and keep a single row per tenant per period. Payment history is preserved."
-                               FontSize="12"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               TextWrapping="Wrap"
-                               Margin="0,0,0,8"/>
-                    <Button Content="Clean up duplicate rent charges"
-                            Command="{Binding CleanupDuplicateChargesCommand}"
-                            IsEnabled="{Binding IsCleaningUpDuplicateCharges, Converter={StaticResource InvertBoolConverter}}"
-                            Background="Transparent"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            Foreground="{DynamicResource PrimaryTextBrush}"
-                            BorderThickness="1"
-                            HorizontalAlignment="Left"/>
-                    <TextBlock Text="Cleaning up..."
-                               IsVisible="{Binding IsCleaningUpDuplicateCharges}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontSize="12"/>
-                </StackPanel>
-            </Border>
+                <!-- Appearance & Behavior card - 2-column form -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Appearance &amp; Behavior" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Currency, date format, time zone and app startup."
+                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnGap="24" RowGap="16">
+                            <!-- Column A -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
+                                <TextBlock Text="Currency" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox Text="{Binding Currency, Mode=TwoWay}" MinWidth="0" Padding="10,8"
+                                         Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" Watermark="e.g. GBP, £, USD"/>
+                                <TextBlock Text="Used in notifications (e.g. {Currency}{AmountDue}). Codes: GBP, USD, EUR; or symbol £, $, €."
+                                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6">
+                                <TextBlock Text="Date Format" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <ComboBox ItemsSource="{Binding DateFormatOptions}" SelectedItem="{Binding DateFormat, Mode=TwoWay}"
+                                          MinWidth="0" Padding="8,6" PlaceholderText="Select format"
+                                          Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="6">
+                                <TextBlock Text="Time Zone" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox Text="{Binding TimeZone, Mode=TwoWay}" IsReadOnly="True" MinWidth="0" Padding="10,8"
+                                         Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+                                <TextBlock Text="App Start Page" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <ComboBox ItemsSource="{Binding AppStartPageOptions}" SelectedItem="{Binding AppStartPage, Mode=TwoWay}"
+                                          MinWidth="0" Padding="8,6" PlaceholderText="Select page"
+                                          Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,8,0,0" Padding="0,16,0,0">
+                            <StackPanel Spacing="12">
+                                <CheckBox IsChecked="{Binding ConfirmDestructiveActions, Mode=TwoWay}"
+                                          Content="Confirm destructive actions (Delete, End tenancy)"
+                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <CheckBox IsChecked="{Binding AutoRefreshDashboard, Mode=TwoWay}"
+                                          Content="Auto-refresh dashboard"
+                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
 
-            <!-- Action buttons -->
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Spacing="12">
-                <Button Content="Reset"
-                        Command="{Binding ResetCommand}"
-                        Background="Transparent"
-                        BorderBrush="{DynamicResource BorderBrush}"
-                        Foreground="{DynamicResource PrimaryTextBrush}"
-                        BorderThickness="1"/>
-                <Button Content="Save"
-                        Command="{Binding SaveCommand}"
-                        Background="{DynamicResource AccentBrush}"
-                        Foreground="White"
-                        BorderThickness="0"/>
+                <!-- Data Maintenance - Danger Zone -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Data Maintenance" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Tools to fix duplicate or inconsistent data. Use with care."
+                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <Border Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StatusWarningBrush}" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,8,0,0">
+                            <StackPanel Spacing="12">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="⚠" FontSize="18" Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Danger Zone" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Text="If the rent ledger shows duplicate rows for the same tenant and period (e.g. one Paid, one Overdue), run cleanup to merge duplicates and keep a single row per tenant per period. Payment history is preserved."
+                                           FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                <CheckBox IsChecked="{Binding ConfirmDangerZoneChecked, Mode=TwoWay}"
+                                          Content="I understand this may modify data"
+                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="Clean up duplicate rent charges" Command="{Binding CleanupDuplicateChargesCommand}"
+                                            Background="Transparent" Foreground="{DynamicResource StatusWarningBrush}" BorderBrush="{DynamicResource StatusWarningBrush}" BorderThickness="1" Padding="12,8" CornerRadius="8"/>
+                                    <TextBlock Text="Cleaning up..." IsVisible="{Binding IsCleaningUpDuplicateCharges}"
+                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="13" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+
+        <!-- Sticky footer -->
+        <Border Grid.Row="2" Classes="settings-footer">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="Save to apply changes." VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Button Content="Reset" Command="{Binding ResetCommand}"
+                            Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14,10" CornerRadius="8"/>
+                    <Button Content="Save" Command="{Binding SaveCommand}"
+                            Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" Padding="14,10" CornerRadius="8"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
 </UserControl>

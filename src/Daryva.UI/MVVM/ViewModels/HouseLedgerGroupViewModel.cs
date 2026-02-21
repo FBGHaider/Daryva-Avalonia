@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Daryva.MVVM.Models;
 
@@ -16,6 +18,12 @@ namespace Daryva.MVVM.ViewModels
         public string HouseAddress { get; set; } = string.Empty;
         public List<RentLedgerRowViewModel> RentRows { get; } = new List<RentLedgerRowViewModel>();
         public List<DepositLedgerRowViewModel> DepositRows { get; } = new List<DepositLedgerRowViewModel>();
+
+        public int TenantCount => RentRows.Count;
+        public decimal TotalDue => RentRows.Sum(r => r.AmountDue);
+        public decimal TotalPaid => RentRows.Sum(r => r.AmountPaid);
+        public decimal TotalBalance => RentRows.Sum(r => r.Balance);
+        public int OverdueCount => RentRows.Count(r => string.Equals(r.Status, "Overdue", StringComparison.OrdinalIgnoreCase));
 
         public bool IsExpanded
         {

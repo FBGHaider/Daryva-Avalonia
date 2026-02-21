@@ -6,56 +6,91 @@
              x:Class="Daryva.MVVM.Views.SettingsView"
              x:CompileBindings="False">
     <UserControl.Styles>
+        <Style Selector="ListBox#SectionsList">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="ListBox#SectionsList ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
         <Style Selector="ListBox#SectionsList ListBoxItem:selected">
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="ListBox#SectionsList ListBoxItem:selected Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+        </Style>
+        <Style Selector="ListBox#SectionsList ListBoxItem:selected TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="ListBox#SectionsList ListBoxItem:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
         </Style>
     </UserControl.Styles>
-    <Border Padding="16" Background="{DynamicResource PrimaryBackgroundBrush}">
-        <Grid ColumnDefinitions="200,*">
-            <!-- Settings sub-navigation -->
+    <Border Padding="20" Background="{DynamicResource BgBrush}">
+        <Grid ColumnDefinitions="220,*" ColumnGap="20">
+            <!-- Left: Settings navigation -->
             <Border Grid.Column="0"
-                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                    Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="12,16"
-                    MinWidth="180">
+                    CornerRadius="8"
+                    Padding="14,20"
+                    MinWidth="200">
                 <StackPanel Spacing="4">
                     <TextBlock Text="Settings"
                                FontSize="18"
                                FontWeight="SemiBold"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               Margin="0,0,0,12"/>
-                    <ListBox x:Name="SectionsList"
-                             ItemsSource="{Binding Sections}"
-                             SelectedItem="{Binding SelectedSection}"
-                             SelectionMode="Single"
-                             Background="Transparent"
-                             BorderThickness="0">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           Padding="10,8"
-                                           VerticalAlignment="Center"
-                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Margin="0,0,0,16"/>
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <ListBox x:Name="SectionsList"
+                                 ItemsSource="{Binding Sections}"
+                                 SelectedItem="{Binding SelectedSection}"
+                                 SelectionMode="Single">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="12,10" CornerRadius="6" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+                                        <TextBlock Text="{Binding}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   FontSize="14"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
                 </StackPanel>
             </Border>
 
-            <!-- Content -->
+            <!-- Right: Header + content -->
             <Border Grid.Column="1"
-                    Margin="16,0,0,0"
-                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                    Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="24">
-                <ContentControl Content="{Binding CurrentSectionViewModel}"/>
+                    CornerRadius="8"
+                    Padding="24"
+                    ClipToBounds="True">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- Page header -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,20" Spacing="4">
+                        <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Manage preferences, notifications, integrations and data."
+                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0">
+                            <Run Text="Settings"/>
+                            <Run Text=" / "/>
+                            <Run Text="{Binding SelectedSection}"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Section content (General, Theme, etc.) -->
+                    <ContentControl Grid.Row="1" Content="{Binding CurrentSectionViewModel}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+                </Grid>
             </Border>
         </Grid>
     </Border>

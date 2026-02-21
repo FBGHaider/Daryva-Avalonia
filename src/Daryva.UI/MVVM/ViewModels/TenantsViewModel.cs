@@ -32,6 +32,7 @@ namespace Daryva.MVVM.ViewModels
         private Tenant? _selectedTenant;
         private bool _showArchivedOnly = false;
         private HouseFilterItem? _selectedHouseFilter;
+        private bool _isLoading;
 
         public TenantsViewModel(ITenantService tenantService, IHouseService houseService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService, INavigationService navigationService, ITenancyRepository tenancyRepository, IPaymentService paymentService)
         {
@@ -49,6 +50,7 @@ namespace Daryva.MVVM.ViewModels
 
             LoadTenantsCommand = new RelayCommand(async _ => await LoadTenantsAsync());
             SearchCommand = new RelayCommand(async _ => await SearchTenantsAsync());
+            ClearSearchCommand = new RelayCommand(_ => SearchTerm = string.Empty, _ => !string.IsNullOrWhiteSpace(SearchTerm));
             AddTenantCommand = new RelayCommand(_ => ShowAddTenantDialog());
             EditTenantCommand = new RelayCommand(_ => ShowEditTenantDialog(), _ => SelectedTenant != null && !ShowArchivedOnly);
             RemoveTenantCommand = new RelayCommand(_ => RemoveTenantAsync(), _ => SelectedTenant != null && !ShowArchivedOnly);
@@ -64,6 +66,7 @@ namespace Daryva.MVVM.ViewModels
 
         public ICommand LoadTenantsCommand { get; }
         public ICommand SearchCommand { get; }
+        public ICommand ClearSearchCommand { get; }
         public ICommand AddTenantCommand { get; }
         public ICommand EditTenantCommand { get; }
         public ICommand RemoveTenantCommand { get; }
@@ -96,6 +99,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _searchTerm, value))
                 {
+                    ((RelayCommand)ClearSearchCommand).RaiseCanExecuteChanged();
                     SearchCommand.Execute(null);
                 }
             }
@@ -129,8 +133,35 @@ namespace Daryva.MVVM.ViewModels
                     ((RelayCommand)RecoverTenantCommand).RaiseCanExecuteChanged();
                     LoadTenantsCommand.Execute(null);
                     if (value) LoadDepositReturnsCommand.Execute(null);
+                    NotifyCountsChanged();
                 }
             }
+        }
+
+        /// <summary>Active tenants count (when not showing archived). For command bar subtitle.</summary>
+        public int ActiveCount => ShowArchivedOnly ? 0 : Tenants.Count;
+        /// <summary>Placeholder for future: tenants leaving soon.</summary>
+        public int LeavingSoonCount => 0;
+        /// <summary>Placeholder for future: tenants with overdue rent.</summary>
+        public int OverdueCount => 0;
+        /// <summary>Formatted subtitle for command bar: e.g. "5 active • 0 leaving soon • 0 overdue".</summary>
+        public string SubtitleText => $"{ActiveCount} active • {LeavingSoonCount} leaving soon • {OverdueCount} overdue";
+        /// <summary>True when Tenants has items (for empty state visibility).</summary>
+        public bool HasTenants => Tenants.Count > 0;
+
+        public bool IsLoading
+        {
+            get => _isLoading;
+            private set => SetProperty(ref _isLoading, value);
+        }
+
+        private void NotifyCountsChanged()
+        {
+            OnPropertyChanged(nameof(ActiveCount));
+            OnPropertyChanged(nameof(LeavingSoonCount));
+            OnPropertyChanged(nameof(OverdueCount));
+            OnPropertyChanged(nameof(SubtitleText));
+            OnPropertyChanged(nameof(HasTenants));
         }
 
         private async Task LoadHouseFilterAsync()
@@ -217,6 +248,7 @@ namespace Daryva.MVVM.ViewModels
                 {
                     Tenants.Add(tenant);
                 }
+                NotifyCountsChanged();
             }
             catch (Exception ex)
             {
@@ -229,15 +261,21 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
+                IsLoading = true;
                 var tenants = await GetFilteredTenantsAsync();
                 Tenants.Clear();
                 foreach (var tenant in tenants)
                     Tenants.Add(tenant);
+                NotifyCountsChanged();
             }
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error searching tenants: {ex.Message}", "Database Error");
                 System.Diagnostics.Debug.WriteLine($"Error searching tenants: {ex}");
+            }
+            finally
+            {
+                IsLoading = false;
             }
         }
 

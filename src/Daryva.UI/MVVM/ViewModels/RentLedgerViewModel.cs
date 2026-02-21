@@ -35,6 +35,7 @@ namespace Daryva.MVVM.ViewModels
         private string _searchTerm = "";
         private RentLedgerRowViewModel? _selectedRow;
         private List<HouseLedgerGroupViewModel> _houseGroups = new List<HouseLedgerGroupViewModel>();
+        private bool _isLoading;
 
         public RentLedgerViewModel(
             IPaymentService paymentService,
@@ -90,6 +91,14 @@ namespace Daryva.MVVM.ViewModels
                 }
             });
             ExportLedgerCommand = new RelayCommand(async _ => await ExportLedgerAsync());
+            ClearFiltersCommand = new RelayCommand(_ =>
+            {
+                SelectedMonth = DateTime.Now.Month;
+                SelectedYear = DateTime.Now.Year;
+                SelectedHouseId = 0;
+                StatusFilter = "All";
+                SearchTerm = "";
+            });
 
             LoadHousesCommand.Execute(null);
             LoadLedgerCommand.Execute(null);
@@ -104,6 +113,7 @@ namespace Daryva.MVVM.ViewModels
         public ICommand ExpandRowCommand { get; }
         public ICommand ToggleHouseExpandedCommand { get; }
         public ICommand ExportLedgerCommand { get; }
+        public ICommand ClearFiltersCommand { get; }
 
         public ObservableCollection<RentLedgerRowViewModel> LedgerRows { get; }
         public ObservableCollection<DepositLedgerRowViewModel> DepositLedgerRows { get; }
@@ -199,6 +209,27 @@ namespace Daryva.MVVM.ViewModels
         }
 
         public string SelectedMonthDisplay => new DateTime(SelectedYear, SelectedMonth, 1).ToString("MMMM yyyy");
+
+        public decimal TotalDue => LedgerRows.Sum(r => r.AmountDue);
+        public decimal TotalCollected => LedgerRows.Sum(r => r.AmountPaid);
+        public decimal TotalOverdue => LedgerRows.Where(r => string.Equals(r.Status, "Overdue", StringComparison.OrdinalIgnoreCase)).Sum(r => r.Balance);
+        public decimal OutstandingBalance => LedgerRows.Sum(r => r.Balance);
+        public int OverdueCount => LedgerRows.Count(r => string.Equals(r.Status, "Overdue", StringComparison.OrdinalIgnoreCase));
+        public int HouseCountForDisplay => LedgerRows.Select(r => r.HouseId).Distinct().Count();
+        public decimal DepositsOutstanding => DepositLedgerRows.Sum(d => d.Balance);
+
+        public bool IsLoading
+        {
+            get => _isLoading;
+            private set => SetProperty(ref _isLoading, value);
+        }
+
+        public bool HasRentLedgerRows => LedgerRows.Count > 0;
+        public bool HasDepositLedgerRows => DepositLedgerRows.Count > 0;
+
+        /// <summary>Finance summary for command bar subtitle.</summary>
+        public string SubtitleText =>
+            $"{SelectedMonthDisplay} • {HouseCountForDisplay} houses • £{TotalDue:N2} due • £{TotalCollected:N2} collected • £{TotalOverdue:N2} overdue";
 
         private void InitializeYearOptions()
         {
@@ -371,6 +402,7 @@ namespace Daryva.MVVM.ViewModels
                 // Update UI on UI thread
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    IsLoading = true;
                     SelectedRow = null;
                     LedgerRows.Clear();
                     foreach (var row in rows ?? Enumerable.Empty<RentLedgerRowViewModel>())
@@ -389,15 +421,32 @@ namespace Daryva.MVVM.ViewModels
                 {
                     BuildHouseGroups();
                     RebuildFlatLists();
+                    NotifyLedgerTotalsChanged();
+                    IsLoading = false;
                 });
             }
             catch (Exception ex)
             {
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    IsLoading = false;
                     _dialogService.ShowMessage($"Error loading ledger: {ex.Message}", "Error");
                 });
             }
+        }
+
+        private void NotifyLedgerTotalsChanged()
+        {
+            OnPropertyChanged(nameof(TotalDue));
+            OnPropertyChanged(nameof(TotalCollected));
+            OnPropertyChanged(nameof(TotalOverdue));
+            OnPropertyChanged(nameof(OutstandingBalance));
+            OnPropertyChanged(nameof(OverdueCount));
+            OnPropertyChanged(nameof(HouseCountForDisplay));
+            OnPropertyChanged(nameof(DepositsOutstanding));
+            OnPropertyChanged(nameof(HasRentLedgerRows));
+            OnPropertyChanged(nameof(HasDepositLedgerRows));
+            OnPropertyChanged(nameof(SubtitleText));
         }
 
         private void BuildHouseGroups()
@@ -476,6 +525,7 @@ namespace Daryva.MVVM.ViewModels
                         if (row == null) continue;
                         DepositLedgerRows.Add(row);
                     }
+                    NotifyLedgerTotalsChanged();
                 });
             }
             catch (Exception ex)

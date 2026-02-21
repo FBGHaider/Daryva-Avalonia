@@ -9,92 +9,154 @@
              x:Name="Root">
     <UserControl.Resources>
         <converters:DateTimeToDisplayConverter x:Key="DateTimeToDisplayConverter"/>
+        <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
+        <converters:DocumentStatusToLeftBorderBrushConverter x:Key="DocumentStatusToLeftBorderBrushConverter"/>
+        <converters:SourceToChipBrushConverter x:Key="SourceToChipBrushConverter"/>
     </UserControl.Resources>
-    <Border Padding="16">
-        <Grid RowDefinitions="Auto,Auto,*">
-            <!-- Header -->
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
-                <TextBlock Grid.Column="0" Text="Documents" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"
-                           Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,12"/>
-                <Button Grid.Column="1" Content="Upload" Command="{Binding UploadDocumentCommand}"
-                        VerticalAlignment="Center" Margin="0,0,0,12"/>
-            </Grid>
+    <UserControl.Styles>
+        <Style Selector="Border.command-bar">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="Button.doc-icon-btn">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="32"/>
+            <Setter Property="MaxWidth" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.doc-icon-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.doc-icon-btn-danger">
+            <Setter Property="Foreground" Value="{DynamicResource StatusDangerBrush}"/>
+        </Style>
+        <Style Selector="Button.doc-icon-btn-danger:pointerover">
+            <Setter Property="Background" Value="{DynamicResource StatusDangerBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+    </UserControl.Styles>
+    <Border Padding="24" ClipToBounds="True" HorizontalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch">
+            <!-- Command Bar -->
+            <Border Grid.Row="0" Margin="0,0,0,16">
+                <Border Classes="command-bar">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Spacing="4" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <TextBlock Text="Documents" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding SubtitleText}" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBox Width="280" Watermark="Search by type, tenant, file name…" Text="{Binding SearchTerm}"
+                                 Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                        <Button Content="Clear filters" Command="{Binding ClearFiltersCommand}"
+                                Background="Transparent" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="8,4" FontSize="12"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                        <Button Content="Upload" Command="{Binding UploadDocumentCommand}"
+                                Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                BorderThickness="0" Padding="12,8" CornerRadius="8"/>
+                        <Button Content="⋯" ToolTip.Tip="More actions"
+                                Background="Transparent" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="8" FontSize="16"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            </Border>
 
-            <!-- Filter: Search -->
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,0,0,10">
-                <TextBlock Text="Search:" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,4,0"/>
-                <TextBox Width="280" Watermark="Search by type, tenant, file name..." Text="{Binding SearchTerm}"/>
-            </StackPanel>
-
-            <!-- Documents table -->
-            <Border Grid.Row="2" BorderThickness="1" CornerRadius="6" Padding="8" Background="{DynamicResource SecondaryBackgroundBrush}">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" MinWidth="1000">
-                                <Border Grid.Row="0"
-                                        Background="{DynamicResource TableHeaderBackgroundBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="0,0,0,1"
-                                        Padding="8,10">
-                                    <Grid ColumnDefinitions="120,160,220,100,100,60,80,180">
-                                        <TextBlock Grid.Column="0" Text="Type" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                        <TextBlock Grid.Column="1" Text="Tenant / House" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                        <TextBlock Grid.Column="2" Text="File Name" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                        <TextBlock Grid.Column="3" Text="Uploaded" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                        <TextBlock Grid.Column="4" Text="Valid To" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                        <TextBlock Grid.Column="5" Text="Version" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                        <TextBlock Grid.Column="6" Text="Source" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                        <TextBlock Grid.Column="7" Text="Actions" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                    </Grid>
-                                </Border>
-
-                        <ListBox Grid.Row="1"
-                                 ItemsSource="{Binding Documents}"
-                                 SelectedItem="{Binding SelectedDocument}"
-                                 SelectionMode="Single"
-                                 Background="{DynamicResource SecondaryBackgroundBrush}"
-                                 BorderThickness="0">
+            <!-- Table + Empty State (inset so table stays inside panel) -->
+            <Border Grid.Row="1" Margin="12,16,12,12" Padding="0" ClipToBounds="True" HorizontalAlignment="Stretch">
+                <Grid RowDefinitions="*">
+                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="0"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            ClipToBounds="True"
+                            IsVisible="{Binding HasDocuments}">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,12">
+                            <Grid ColumnDefinitions="100,140,200,90,90,90,70,70,100">
+                                <TextBlock Grid.Column="0" Text="Type" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="1" Text="Tenant / House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="2" Text="File Name" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="3" Text="Uploaded" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="4" Text="Valid To" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="5" Text="Status" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="6" Text="Version" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="7" Text="Source" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Grid.Column="8" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </Grid>
+                        </Border>
+                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <ListBox ItemsSource="{Binding Documents}" SelectedItem="{Binding SelectedDocument}" SelectionMode="Single"
+                                 Background="{DynamicResource SurfaceBrush}" BorderThickness="0" MinWidth="940">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="0,0,0,1"
-                                            Padding="8,8"
-                                            Background="Transparent"
-                                            Cursor="Hand">
-                                        <Grid ColumnDefinitions="120,160,220,100,100,60,80,180">
-                                            <TextBlock Grid.Column="0" Text="{Binding DisplayName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding TenantOrHouseDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding FileName}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding UploadedAt, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding ValidTo, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="5" Text="{Binding Version}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <TextBlock Grid.Column="6" Text="{Binding Source}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                                            <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4">
-                                                <Button Content="View" Command="{Binding DataContext.ViewDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" Padding="6,2" FontSize="11"/>
-                                                <Button Content="Download" Command="{Binding DataContext.DownloadDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" Padding="6,2" FontSize="11"/>
-                                                <Button Content="Delete" Command="{Binding DataContext.DeleteDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" Padding="6,2" FontSize="11"/>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,12" Background="Transparent" Cursor="Hand">
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="View" Command="{Binding DataContext.ViewDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                <MenuItem Header="Download" Command="{Binding DataContext.DownloadDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                <MenuItem Header="Delete" Command="{Binding DataContext.DeleteDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                        <Grid ColumnDefinitions="100,140,200,90,90,90,70,70,100">
+                                            <TextBlock Grid.Column="0" Text="{Binding DisplayName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TenantOrHouseDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding FileName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" FontSize="13"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding UploadedAt, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding ValidTo, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
+                                            <Border Grid.Column="5" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{Binding DocumentStatus, Converter={StaticResource StatusToColorConverter}}">
+                                                <TextBlock Text="{Binding DocumentStatusDisplay}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <Border Grid.Column="6" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{DynamicResource Surface2Brush}">
+                                                <TextBlock Text="{Binding Version, StringFormat='v{0}'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
+                                            </Border>
+                                            <Border Grid.Column="7" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{Binding Source, Converter={StaticResource SourceToChipBrushConverter}}">
+                                                <TextBlock Text="{Binding Source}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Button Content="👁" ToolTip.Tip="View" Classes="doc-icon-btn"
+                                                        Command="{Binding DataContext.ViewDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                <Button Content="↓" ToolTip.Tip="Download" Classes="doc-icon-btn"
+                                                        Command="{Binding DataContext.DownloadDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                <Button Content="🗑" ToolTip.Tip="Delete" Classes="doc-icon-btn doc-icon-btn-danger"
+                                                        Command="{Binding DataContext.DeleteDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                                             </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                             <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Background" Value="{DynamicResource TableRowEvenBackgroundBrush}"/>
-                                    <Setter Property="Padding" Value="0"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:selected">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:pointerover">
-                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                </Style>
+                                <Style Selector="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/></Style>
+                                <Style Selector="ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource Surface2Brush}"/></Style>
+                                <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource Surface2Brush}"/></Style>
                             </ListBox.Styles>
                         </ListBox>
+                    </ScrollViewer>
                     </Grid>
-                </ScrollViewer>
+                </Border>
+                <!-- Empty state -->
+                <Border IsVisible="{Binding HasDocuments, Converter={x:Static BoolConverters.Not}}"
+                    Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="48"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                    <TextBlock Text="📄" FontSize="40" HorizontalAlignment="Center" Opacity="0.5"/>
+                    <TextBlock Text="No documents uploaded yet" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Upload documents for tenants, tenancies, or houses." Foreground="{DynamicResource TextMutedBrush}" FontSize="13" HorizontalAlignment="Center" TextAlignment="Center"/>
+                    <Button Content="Upload" Command="{Binding UploadDocumentCommand}" HorizontalAlignment="Center"
+                            Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" Padding="14,10" CornerRadius="8"/>
+                </StackPanel>
+                </Border>
+            </Grid>
             </Border>
         </Grid>
     </Border>

@@ -64,7 +64,7 @@ namespace Daryva.MVVM.ViewModels
                     SelectedExpense = expense;
                 }
                 ShowEditExpenseDialog();
-            }, _ => SelectedExpense != null);
+            }, _ => true);
             DeleteExpenseCommand = new RelayCommand(async parameter => 
             {
                 if (parameter is ExpenseRowViewModel expense)
@@ -72,7 +72,7 @@ namespace Daryva.MVVM.ViewModels
                     SelectedExpense = expense;
                 }
                 await DeleteExpenseAsync();
-            }, _ => SelectedExpense != null);
+            }, _ => true);
             AttachReceiptCommand = new RelayCommand(async parameter => 
             {
                 if (parameter is ExpenseRowViewModel expense)
@@ -80,9 +80,32 @@ namespace Daryva.MVVM.ViewModels
                     SelectedExpense = expense;
                 }
                 await AttachReceiptAsync();
-            }, _ => SelectedExpense != null);
-            ViewReceiptCommand = new RelayCommand(async _ => await ViewReceiptAsync(), _ => SelectedExpense != null && SelectedExpense.HasReceipt);
+            }, _ => true);
+            ViewReceiptCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is ExpenseRowViewModel expense)
+                    SelectedExpense = expense;
+                await ViewReceiptAsync();
+            }, parameter => (parameter is ExpenseRowViewModel r && r.HasReceipt) || (SelectedExpense != null && SelectedExpense.HasReceipt));
+            ViewOrAddReceiptCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is ExpenseRowViewModel expense)
+                {
+                    SelectedExpense = expense;
+                    if (expense.HasReceipt)
+                        await ViewReceiptAsync();
+                    else
+                        await AttachReceiptAsync();
+                }
+            }, _ => true);
             ExportCsvCommand = new RelayCommand(async _ => await ExportCsvAsync());
+            ClearFiltersCommand = new RelayCommand(_ =>
+            {
+                DateRangeFilter = "All";
+                SelectedHouseId = 0;
+                CategoryFilter = "All";
+                SearchTerm = "";
+            });
 
             // Load initial data asynchronously on UI thread
             _ = LoadInitialDataAsync();
@@ -96,7 +119,9 @@ namespace Daryva.MVVM.ViewModels
         public ICommand DeleteExpenseCommand { get; }
         public ICommand AttachReceiptCommand { get; }
         public ICommand ViewReceiptCommand { get; }
+        public ICommand ViewOrAddReceiptCommand { get; }
         public ICommand ExportCsvCommand { get; }
+        public ICommand ClearFiltersCommand { get; }
 
         public ObservableCollection<ExpenseRowViewModel> Expenses { get; }
         public ObservableCollection<House> Houses { get; }
@@ -142,6 +167,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _dateRangeFilter, value))
                 {
+                    OnPropertyChanged(nameof(SubtitleText));
                     LoadExpensesCommand.Execute(null);
                     if (SelectedTab == "Summary")
                     {
@@ -174,6 +200,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (SetProperty(ref _categoryFilter, value))
                 {
+                    OnPropertyChanged(nameof(SubtitleText));
                     LoadExpensesCommand.Execute(null);
                     if (SelectedTab == "Summary")
                         LoadSummaryCommand.Execute(null);
@@ -216,6 +243,10 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _summary, value);
         }
 
+        /// <summary>For command bar subtitle: e.g. "This Month • All Houses • All"</summary>
+        public string SubtitleText =>
+            $"{DateRangeFilter} • {(SelectedHouseId == null || SelectedHouseId == 0 ? "All Houses" : Houses.FirstOrDefault(h => h.HouseId == SelectedHouseId)?.AddressLine1 ?? "House")} • {CategoryFilter}";
+
         private async Task LoadInitialDataAsync()
         {
             await LoadHousesAsync();
@@ -237,6 +268,7 @@ namespace Daryva.MVVM.ViewModels
                     {
                         Houses.Add(house);
                     }
+                    OnPropertyChanged(nameof(SubtitleText));
                 });
             }
             catch (Exception ex)
