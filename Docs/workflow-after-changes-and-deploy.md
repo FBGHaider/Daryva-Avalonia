@@ -187,6 +187,13 @@ When you change the **UI** and want a new Windows installer/update:
 
 See `Tools\Velopack-installer\build-win.ps1` for options (e.g. `-SkipInnoSetup`).
 
+### 5.1 Publish release to Daryva-Updates (so users can update)
+
+To push a new version to the **Daryva-Updates** repo (so installed clients see it in Settings → Check for updates):
+
+- **One-time:** In this repo, add Actions secret **`DARYVA_UPDATES_GITHUB_TOKEN`** — a PAT with `repo` scope that can create releases on **FBGHaider/Daryva-Updates**.
+- **Then:** Run the workflow **Actions → "Release desktop to Daryva-Updates"** with version (e.g. `1.0.1`), or push a tag `v1.0.1`. The workflow builds, packs, and publishes the release (and assets) to Daryva-Updates. See README § Build & Release.
+
 ---
 
 ## 6. Summary checklist after making changes

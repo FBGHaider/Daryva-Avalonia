@@ -120,12 +120,22 @@ Build scripts are in `Tools/Velopack-installer/`:
 - `build-mac.sh <version>`
 - `build-mac-intel.sh <version>`
 
-Example:
+Example (local build only):
 
 ```powershell
-.
 Tools\Velopack-installer\build-win.ps1 1.0.0
 ```
+
+### Publishing a release so users can update
+
+To publish a new desktop version to the **Daryva-Updates** repo (so installed clients get "Check for updates"):
+
+1. **One-time setup:** In this repo (Daryva-Avalonia), add a secret **`DARYVA_UPDATES_GITHUB_TOKEN`** (Settings → Secrets and variables → Actions): a GitHub Personal Access Token with `repo` scope that can create releases and upload assets on the **FBGHaider/Daryva-Updates** repository.
+2. **Create the release:**
+   - **Option A (recommended):** In GitHub, open **Actions → "Release desktop to Daryva-Updates"** → **Run workflow**, enter the version (e.g. `1.0.1`) and run. The workflow builds the app, packs with Velopack, and publishes the release (and assets) to Daryva-Updates.
+   - **Option B:** Push a tag: `git tag v1.0.1 && git push origin v1.0.1`. The same workflow runs and uses the tag as the version.
+
+The release tag on Daryva-Updates will be **vX.Y.Z** (e.g. `v1.0.1`). The app’s update feed points at that repo, so users will see the new version when they use **Settings → Check for updates**.
 
 ## File Locations
 

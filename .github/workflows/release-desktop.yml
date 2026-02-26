@@ -1,0 +1,68 @@
+# Build the Daryva desktop app with Velopack and publish to the Daryva-Updates repo
+# so installed clients can receive updates (Settings > Check for updates).
+#
+# Trigger: Run manually with a version (e.g. 1.0.1), or push a tag v* (e.g. v1.0.1).
+# Requires: Secret DARYVA_UPDATES_GITHUB_TOKEN (PAT with repo scope on FBGHaider/Daryva-Updates).
+
+name: Release desktop to Daryva-Updates
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.1)"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag or input
+        id: version
+        run: |
+          if ("${{ github.event.inputs.version }}" -ne "") {
+            $ver = "${{ github.event.inputs.version }}"
+          } else {
+            $ver = "${{ github.ref_name }}" -replace '^v',''
+          }
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+          echo "Using version: $ver"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk
+
+      - name: Build and pack (Velopack)
+        run: |
+          .\Tools\Velopack-installer\build-win.ps1 -Version ${{ steps.version.outputs.version }}
+        env:
+          ErrorActionPreference: Stop
+
+      - name: Create release on Daryva-Updates
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: FBGHaider/Daryva-Updates
+          token: ${{ secrets.DARYVA_UPDATES_GITHUB_TOKEN }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Daryva ${{ steps.version.outputs.version }}"
+          body: "Desktop release ${{ steps.version.outputs.version }}. Install or update via the Setup executable."
+          draft: false
+          files: |
+            releases/releases.win.json
+            releases/*.nupkg
+            releases/*.exe
+          fail_on_unmatched_files: false
