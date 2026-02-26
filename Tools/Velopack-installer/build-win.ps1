@@ -8,6 +8,9 @@ param(
     [switch]$SkipInnoSetup
 )
 
+# Allow "v1.0.12" or "1.0.12" (NuGet/dotnet require version without "v" prefix)
+if ($Version -match '^v(.+)$') { $Version = $Matches[1] }
+
 $ErrorActionPreference = "Stop"
 $ScriptDir = $PSScriptRoot
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)

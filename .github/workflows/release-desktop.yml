@@ -2,7 +2,9 @@
 # so installed clients can receive updates (Settings > Check for updates).
 #
 # Trigger: Run manually with a version (e.g. 1.0.1), or push a tag v* (e.g. v1.0.1).
-# Requires: Secret DARYVA_UPDATES_GITHUB_TOKEN (PAT with repo scope on FBGHaider/Daryva-Updates).
+# Requires: Secret DARYVA_UPDATES_GITHUB_TOKEN (PAT with repo scope on the updates repo).
+# Daryva-Updates repo must have at least one commit (so it has a default branch). If its
+# default branch is "master" not "main", change target_commitish below to master.
 
 name: Release desktop to Daryva-Updates
 
@@ -58,9 +60,11 @@ jobs:
           repository: FBGHaider/Daryva-Updates
           token: ${{ secrets.DARYVA_UPDATES_GITHUB_TOKEN }}
           tag_name: v${{ steps.version.outputs.version }}
+          target_commitish: main
           name: "Daryva ${{ steps.version.outputs.version }}"
           body: "Desktop release ${{ steps.version.outputs.version }}. Install or update via the Setup executable."
           draft: false
+          make_latest: true
           files: |
             releases/releases.win.json
             releases/*.nupkg
