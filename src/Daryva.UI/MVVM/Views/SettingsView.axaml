@@ -32,7 +32,7 @@
         </Style>
     </UserControl.Styles>
     <Border Padding="20" Background="{DynamicResource BgBrush}">
-        <Grid ColumnDefinitions="220,*" ColumnGap="20">
+        <Grid ColumnDefinitions="220,*">
             <!-- Left: Settings navigation -->
             <Border Grid.Column="0"
                     Background="{DynamicResource SurfaceBrush}"

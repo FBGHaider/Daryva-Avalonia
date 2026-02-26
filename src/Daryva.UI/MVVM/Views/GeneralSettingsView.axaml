@@ -62,27 +62,27 @@
                         <TextBlock Text="Appearance &amp; Behavior" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="Currency, date format, time zone and app startup."
                                    FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
-                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnGap="24" RowGap="16">
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
                             <!-- Column A -->
-                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6" Margin="0,0,8,0">
                                 <TextBlock Text="Currency" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBox Text="{Binding Currency, Mode=TwoWay}" MinWidth="0" Padding="10,8"
                                          Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" Watermark="e.g. GBP, £, USD"/>
                                 <TextBlock Text="Used in notifications (e.g. {Currency}{AmountDue}). Codes: GBP, USD, EUR; or symbol £, $, €."
                                            FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6">
+                            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" Margin="8,0,0,0">
                                 <TextBlock Text="Date Format" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <ComboBox ItemsSource="{Binding DateFormatOptions}" SelectedItem="{Binding DateFormat, Mode=TwoWay}"
                                           MinWidth="0" Padding="8,6" PlaceholderText="Select format"
                                           Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="6">
+                            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="6" Margin="0,8,8,0">
                                 <TextBlock Text="Time Zone" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBox Text="{Binding TimeZone, Mode=TwoWay}" IsReadOnly="True" MinWidth="0" Padding="10,8"
                                          Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
                             </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+                            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6" Margin="8,8,0,0">
                                 <TextBlock Text="App Start Page" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <ComboBox ItemsSource="{Binding AppStartPageOptions}" SelectedItem="{Binding AppStartPage, Mode=TwoWay}"
                                           MinWidth="0" Padding="8,6" PlaceholderText="Select page"
@@ -99,6 +99,7 @@
                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </StackPanel>
                         </Border>
+
                     </StackPanel>
                 </Border>
 
