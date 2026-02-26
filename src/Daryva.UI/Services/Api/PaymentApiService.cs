@@ -47,7 +47,11 @@ public class PaymentApiService : IPaymentApiService
         EnsureMapsLoaded();
 
         var response = await _apiClient.HttpClient.PostAsJsonAsync("api/payments/record", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"{response.StatusCode}: {errorBody}");
+        }
 
         var body = await response.Content.ReadFromJsonAsync<RecordPaymentApiResponse>(cancellationToken: cancellationToken);
         if (body == null)

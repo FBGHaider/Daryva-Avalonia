@@ -42,49 +42,60 @@ public class PaymentsController : ControllerBase
         if (tenancy == null)
             return NotFound(new { error = "Tenancy not found." });
 
-        var response = new RecordPaymentResponse();
-
-        if (!request.UseDepositForRent && request.DepositAmount > 0)
+        try
         {
-            var depositPayment = new DepositPayment
+            var paymentDate = request.PaymentDate.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(request.PaymentDate, DateTimeKind.Utc)
+                : request.PaymentDate.ToUniversalTime();
+
+            var response = new RecordPaymentResponse();
+
+            if (!request.UseDepositForRent && request.DepositAmount > 0)
             {
-                Id = Guid.NewGuid(),
-                OrganizationId = orgId,
-                TenancyId = tenancy.Id,
-                DatePaid = request.PaymentDate,
-                AmountPaid = request.DepositAmount,
-                PaymentMethod = request.PaymentMethod,
-                ProtectionReference = request.Reference,
-                Notes = request.Notes
-            };
+                var depositPayment = new DepositPayment
+                {
+                    Id = Guid.NewGuid(),
+                    OrganizationId = orgId,
+                    TenancyId = tenancy.Id,
+                    DatePaid = paymentDate,
+                    AmountPaid = request.DepositAmount,
+                    PaymentMethod = request.PaymentMethod ?? string.Empty,
+                    ProtectionReference = request.Reference,
+                    Notes = request.Notes
+                };
 
-            _dbContext.DepositPayments.Add(depositPayment);
-            response.DepositPaymentId = depositPayment.Id;
+                _dbContext.DepositPayments.Add(depositPayment);
+                response.DepositPaymentId = depositPayment.Id;
+            }
+
+            if (request.RentAmount > 0)
+            {
+                var rentPayment = new RentPayment
+                {
+                    Id = Guid.NewGuid(),
+                    OrganizationId = orgId,
+                    TenancyId = tenancy.Id,
+                    DatePaid = paymentDate,
+                    AmountPaid = request.RentAmount,
+                    PaymentMethod = request.PaymentMethod ?? string.Empty,
+                    ReferenceNumber = request.Reference,
+                    Notes = request.Notes,
+                    CollectedBy = request.CollectedBy
+                };
+
+                _dbContext.RentPayments.Add(rentPayment);
+                response.RentPaymentId = rentPayment.Id;
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            response.Success = true;
+            return Ok(response);
         }
-
-        if (request.RentAmount > 0)
+        catch (Exception ex)
         {
-            var rentPayment = new RentPayment
-            {
-                Id = Guid.NewGuid(),
-                OrganizationId = orgId,
-                TenancyId = tenancy.Id,
-                DatePaid = request.PaymentDate,
-                AmountPaid = request.RentAmount,
-                PaymentMethod = request.PaymentMethod,
-                ReferenceNumber = request.Reference,
-                Notes = request.Notes,
-                CollectedBy = request.CollectedBy
-            };
-
-            _dbContext.RentPayments.Add(rentPayment);
-            response.RentPaymentId = rentPayment.Id;
+            return StatusCode(500, new { error = "Failed to record payment.", detail = ex.Message });
         }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        response.Success = true;
-        return Ok(response);
     }
 
     [HttpGet("totals/deposit/{tenancyId:guid}")]
