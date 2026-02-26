@@ -100,9 +100,7 @@ public class PaymentsController : ControllerBase
         {
             var total = await _dbContext.DepositPayments
                 .Where(p => p.OrganizationId == orgId && p.TenancyId == tenancyId)
-                .Select(p => p.AmountPaid)
-                .DefaultIfEmpty(0m)
-                .SumAsync(cancellationToken);
+                .SumAsync(p => p.AmountPaid, cancellationToken);
 
             return Ok(total);
         }
@@ -132,9 +130,7 @@ public class PaymentsController : ControllerBase
                             p.TenancyId == tenancyId &&
                             p.DatePaid >= periodStart &&
                             p.DatePaid < periodEndExclusive)
-                .Select(p => p.AmountPaid)
-                .DefaultIfEmpty(0m)
-                .SumAsync(cancellationToken);
+                .SumAsync(p => p.AmountPaid, cancellationToken);
 
             return Ok(total);
         }
@@ -163,9 +159,7 @@ public class PaymentsController : ControllerBase
         var target = requiredAmount ?? tenancy.DepositAmount;
         var total = await _dbContext.DepositPayments
             .Where(p => p.OrganizationId == orgId && p.TenancyId == tenancyId)
-            .Select(p => p.AmountPaid)
-            .DefaultIfEmpty(0m)
-            .SumAsync(cancellationToken);
+            .SumAsync(p => p.AmountPaid, cancellationToken);
 
         var status = total >= target
             ? "Paid"
@@ -200,9 +194,7 @@ public class PaymentsController : ControllerBase
                         p.TenancyId == tenancyId &&
                         p.DatePaid >= periodStart &&
                         p.DatePaid < periodEndExclusive)
-            .Select(p => p.AmountPaid)
-            .DefaultIfEmpty(0m)
-            .SumAsync(cancellationToken);
+            .SumAsync(p => p.AmountPaid, cancellationToken);
 
         var due = tenancy.RentAmountMonthly;
         var status = paid >= due
