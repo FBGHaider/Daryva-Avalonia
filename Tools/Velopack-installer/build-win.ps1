@@ -11,6 +11,13 @@ param(
 # Allow "v1.0.12" or "1.0.12" (NuGet/dotnet require version without "v" prefix)
 if ($Version -match '^v(.+)$') { $Version = $Matches[1] }
 
+# Velopack requires a 3-part SemVer2 version (e.g. 1.0.13). Normalize 1.0.13.1 -> 1.0.13
+$parts = $Version -split '\.'
+if ($parts.Count -gt 3) {
+    $Version = $parts[0..2] -join '.'
+    Write-Host "Version normalized to 3-part SemVer for Velopack: $Version" -ForegroundColor Yellow
+}
+
 $ErrorActionPreference = "Stop"
 $ScriptDir = $PSScriptRoot
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)

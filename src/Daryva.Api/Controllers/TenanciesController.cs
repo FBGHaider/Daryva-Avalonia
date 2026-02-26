@@ -32,16 +32,23 @@ public class TenanciesController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var orgId = _tenantContext.CurrentOrgId.Value;
-        var query = _dbContext.Tenancies.AsNoTracking().Include(t => t.House).Include(t => t.Tenant).Where(t => t.OrganizationId == orgId);
-        if (tenantId.HasValue)
-            query = query.Where(t => t.TenantId == tenantId.Value);
-        if (houseId.HasValue)
-            query = query.Where(t => t.HouseId == houseId.Value);
-        if (activeOnly == true)
-            query = query.Where(t => t.Status == "Active");
+        try
+        {
+            var query = _dbContext.Tenancies.AsNoTracking().Include(t => t.House).Include(t => t.Tenant).Where(t => t.OrganizationId == orgId);
+            if (tenantId.HasValue)
+                query = query.Where(t => t.TenantId == tenantId.Value);
+            if (houseId.HasValue)
+                query = query.Where(t => t.HouseId == houseId.Value);
+            if (activeOnly == true)
+                query = query.Where(t => t.Status == "Active");
 
-        var tenancies = await query.OrderByDescending(t => t.MoveInDate).ToListAsync(cancellationToken);
-        return Ok(tenancies.Select(MapToDetailResponse));
+            var tenancies = await query.OrderByDescending(t => t.MoveInDate).ToListAsync(cancellationToken);
+            return Ok(tenancies.Select(MapToDetailResponse));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load tenancies.", detail = ex.Message });
+        }
     }
 
     [HttpGet("active-in-period")]
@@ -77,15 +84,22 @@ public class TenanciesController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancy = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Include(t => t.House)
-            .Include(t => t.Tenant)
-            .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
-        if (tenancy == null)
-            return NotFound();
+        try
+        {
+            var tenancy = await _dbContext.Tenancies
+                .AsNoTracking()
+                .Include(t => t.House)
+                .Include(t => t.Tenant)
+                .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
+            if (tenancy == null)
+                return NotFound();
 
-        return Ok(MapToDetailResponse(tenancy));
+            return Ok(MapToDetailResponse(tenancy));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load tenancy.", detail = ex.Message });
+        }
     }
 
     [HttpGet("ended-with-deposit")]

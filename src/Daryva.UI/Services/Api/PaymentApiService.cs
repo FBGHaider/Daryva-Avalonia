@@ -69,8 +69,11 @@ public class PaymentApiService : IPaymentApiService
     public async Task<decimal> GetTotalDepositPaidAsync(Guid tenancyId, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.HttpClient.GetAsync($"api/payments/totals/deposit/{tenancyId}", cancellationToken);
-        response.EnsureSuccessStatusCode();
-
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"{response.StatusCode}: {body}");
+        }
         var value = await response.Content.ReadFromJsonAsync<decimal>(cancellationToken: cancellationToken);
         return value;
     }
@@ -78,8 +81,11 @@ public class PaymentApiService : IPaymentApiService
     public async Task<decimal> GetTotalRentPaidForPeriodAsync(Guid tenancyId, int year, int month, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.HttpClient.GetAsync($"api/payments/totals/rent/{tenancyId}?year={year}&month={month}", cancellationToken);
-        response.EnsureSuccessStatusCode();
-
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"{response.StatusCode}: {body}");
+        }
         var value = await response.Content.ReadFromJsonAsync<decimal>(cancellationToken: cancellationToken);
         return value;
     }

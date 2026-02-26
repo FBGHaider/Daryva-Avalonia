@@ -2,7 +2,7 @@
 
 When you make changes and want users to see a new patch, you need to run the **Release desktop to Daryva-Updates** workflow. You can do it in two ways.
 
-**Tip:** To avoid “burning” version numbers on small fixes, use a **fourth number** for tiny updates: e.g. **1.0.12.1**, **1.0.12.2** for fixes, and reserve **1.0.13** for your next bigger release. The workflow and build support this.
+**Note:** To avoid “burning” version numbers on small fixes, Velopack only accepts **3-part** versions (e.g. **1.0.13**). If you pass 1.0.13.1, the build normalizes it to 1.0.13. Use 1.0.13, 1.0.14, 1.0.15 for each release.
 
 ---
 

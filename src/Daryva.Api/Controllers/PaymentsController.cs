@@ -96,13 +96,20 @@ public class PaymentsController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var orgId = _tenantContext.CurrentOrgId.Value;
-        var total = await _dbContext.DepositPayments
-            .Where(p => p.OrganizationId == orgId && p.TenancyId == tenancyId)
-            .Select(p => p.AmountPaid)
-            .DefaultIfEmpty(0m)
-            .SumAsync(cancellationToken);
+        try
+        {
+            var total = await _dbContext.DepositPayments
+                .Where(p => p.OrganizationId == orgId && p.TenancyId == tenancyId)
+                .Select(p => p.AmountPaid)
+                .DefaultIfEmpty(0m)
+                .SumAsync(cancellationToken);
 
-        return Ok(total);
+            return Ok(total);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to get deposit total.", detail = ex.Message });
+        }
     }
 
     [HttpGet("totals/rent/{tenancyId:guid}")]
@@ -116,18 +123,25 @@ public class PaymentsController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var orgId = _tenantContext.CurrentOrgId.Value;
-        var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
-        var periodEndExclusive = periodStart.AddMonths(1);
-        var total = await _dbContext.RentPayments
-            .Where(p => p.OrganizationId == orgId &&
-                        p.TenancyId == tenancyId &&
-                        p.DatePaid >= periodStart &&
-                        p.DatePaid < periodEndExclusive)
-            .Select(p => p.AmountPaid)
-            .DefaultIfEmpty(0m)
-            .SumAsync(cancellationToken);
+        try
+        {
+            var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
+            var periodEndExclusive = periodStart.AddMonths(1);
+            var total = await _dbContext.RentPayments
+                .Where(p => p.OrganizationId == orgId &&
+                            p.TenancyId == tenancyId &&
+                            p.DatePaid >= periodStart &&
+                            p.DatePaid < periodEndExclusive)
+                .Select(p => p.AmountPaid)
+                .DefaultIfEmpty(0m)
+                .SumAsync(cancellationToken);
 
-        return Ok(total);
+            return Ok(total);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to get rent total for period.", detail = ex.Message });
+        }
     }
 
     [HttpGet("status/deposit/{tenancyId:guid}")]
