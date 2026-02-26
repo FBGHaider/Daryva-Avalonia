@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: #0B1220;
+    --accent: #21C58E;
+    --accent-blue: #3B82F6;
+    --background: #F7F8FA;
+    --card: #FFFFFF;
+    --text-primary: #0F172A;
+    --text-muted: #64748B;
+    --border: #E5E7EB;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-text-primary font-body antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+  a:not([class]) {
+    @apply text-accent-blue underline underline-offset-2 hover:text-accent-blue/80;
+  }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}

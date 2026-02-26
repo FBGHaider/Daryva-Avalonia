@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 32" fill="none" aria-hidden="true">
+  <!-- Icon placeholder: replace with your icon or use logo-icon.png via <image href="logo-icon.png" width="32" height="32"/> -->
+  <rect width="32" height="32" rx="8" fill="#21C58E"/>
+  <text x="16" y="22" text-anchor="middle" fill="white" font-family="system-ui, sans-serif" font-weight="600" font-size="14">D</text>
+  <!-- Wordmark -->
+  <text x="44" y="22" fill="#0B1220" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="20" letter-spacing="-0.02em">Daryva</text>
+</svg>
