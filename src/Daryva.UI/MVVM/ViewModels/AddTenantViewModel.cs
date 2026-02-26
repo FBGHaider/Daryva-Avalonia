@@ -234,6 +234,11 @@ namespace Daryva.MVVM.ViewModels
                 // Create tenancy if house is selected
                 if (SelectedHouse != null)
                 {
+                    if (RentAmountMonthly <= 0)
+                    {
+                        _dialogService.ShowMessage("Please enter a rent amount greater than 0 when assigning to a house.", "Validation Error");
+                        return;
+                    }
                     var moveIn = MoveInDate.DateTime;
                     var isNextMonth = string.Equals(RentStartOption?.Trim(), "Next month after move-in", StringComparison.OrdinalIgnoreCase);
                     var (rentStartMonth, rentStartYear) = isNextMonth

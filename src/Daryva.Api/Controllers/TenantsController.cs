@@ -174,6 +174,7 @@ public class TenantsController : ControllerBase
             FullName = request.FullName,
             Email = request.Email ?? string.Empty,
             PhoneNumber = request.PhoneNumber ?? string.Empty,
+            UniversityName = string.IsNullOrWhiteSpace(request.UniversityName) ? null : request.UniversityName.Trim(),
             CreatedAt = DateTime.UtcNow,
             IsArchived = false
         };
@@ -186,6 +187,7 @@ public class TenantsController : ControllerBase
             FullName = createdTenant.FullName,
             Email = createdTenant.Email,
             PhoneNumber = createdTenant.PhoneNumber,
+            UniversityName = createdTenant.UniversityName,
             CreatedAt = createdTenant.CreatedAt,
             IsArchived = createdTenant.IsArchived
         };
@@ -328,6 +330,7 @@ public class CreateTenantRequest
     public string FullName { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? UniversityName { get; set; }
 }
 
 public class UpdateTenantRequest
@@ -335,6 +338,7 @@ public class UpdateTenantRequest
     public string? FullName { get; set; }
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? UniversityName { get; set; }
 }
 
 public class TenantResponse

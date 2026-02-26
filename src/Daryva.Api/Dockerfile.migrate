@@ -1,0 +1,12 @@
+# One-off migrations: run with same ConnectionStrings__DefaultConnection as the API.
+# From repo root: docker compose -f docker-compose.prod.yml run --rm migrate
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+WORKDIR /src
+
+COPY ["src/Daryva.Api/Daryva.Api.csproj", "src/Daryva.Api/"]
+RUN dotnet restore "src/Daryva.Api/Daryva.Api.csproj"
+COPY . .
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
+ENTRYPOINT ["dotnet", "ef", "database", "update", "--project", "src/Daryva.Api/Daryva.Api.csproj"]

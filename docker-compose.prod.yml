@@ -1,4 +1,15 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: src/Daryva.Api/Dockerfile.migrate
+    environment:
+      ConnectionStrings__DefaultConnection: ${API_CONNECTION_STRING:?set_in_server_env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     image: ${DARYVA_API_IMAGE:-ghcr.io/your-org/daryva-api:latest}
     container_name: daryva-api

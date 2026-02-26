@@ -48,7 +48,8 @@ public class TenantApiServiceAdapter : ITenantService
         {
             FullName = tenant.FullName,
             Email = tenant.Email,
-            PhoneNumber = tenant.PhoneNumber
+            PhoneNumber = tenant.PhoneNumber,
+            UniversityName = tenant.UniversityName
         };
 
         var createdDto = await _tenantApiService.CreateTenantAsync(createDto);
@@ -64,7 +65,8 @@ public class TenantApiServiceAdapter : ITenantService
         {
             FullName = tenant.FullName,
             Email = tenant.Email,
-            PhoneNumber = tenant.PhoneNumber
+            PhoneNumber = tenant.PhoneNumber,
+            UniversityName = tenant.UniversityName
         };
 
         var updatedDto = await _tenantApiService.UpdateTenantAsync(tenant.ApiId.Value, updateDto);
@@ -73,6 +75,7 @@ public class TenantApiServiceAdapter : ITenantService
         tenant.FullName = updatedDto.FullName;
         tenant.Email = updatedDto.Email ?? string.Empty;
         tenant.PhoneNumber = updatedDto.PhoneNumber ?? string.Empty;
+        tenant.UniversityName = updatedDto.UniversityName;
         tenant.CreatedAt = updatedDto.CreatedAt;
         tenant.IsArchived = updatedDto.IsArchived;
     }

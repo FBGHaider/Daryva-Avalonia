@@ -250,6 +250,12 @@ public class TenanciesController : ControllerBase
         if (request.PaymentDueDay < 1 || request.PaymentDueDay > 31)
             return BadRequest(new { error = "Payment due day must be between 1 and 31." });
 
+        var moveInDate = request.MoveInDate.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(request.MoveInDate.Date, DateTimeKind.Utc)
+            : request.MoveInDate.ToUniversalTime();
+        if (moveInDate.Year < 2000 || moveInDate.Year > 2100)
+            return BadRequest(new { error = "Move-in date must be between 2000 and 2100." });
+
         var orgId = _tenantContext.CurrentOrgId.Value;
 
         var house = await _dbContext.Houses
@@ -264,27 +270,34 @@ public class TenanciesController : ControllerBase
         if (tenant == null)
             return NotFound(new { error = "Tenant not found." });
 
-        var tenancy = new Tenancy
+        try
         {
-            Id = Guid.NewGuid(),
-            OrganizationId = orgId,
-            HouseId = request.HouseId,
-            TenantId = request.TenantId,
-            MoveInDate = request.MoveInDate,
-            MoveOutDate = request.MoveOutDate,
-            RentStartMonth = request.RentStartMonth,
-            RentStartYear = request.RentStartYear,
-            RentAmountMonthly = request.RentAmountMonthly,
-            DepositAmount = request.DepositAmount,
-            PaymentDueDay = request.PaymentDueDay,
-            Status = request.Status ?? "Active",
-            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
-        };
+            var tenancy = new Tenancy
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = orgId,
+                HouseId = request.HouseId,
+                TenantId = request.TenantId,
+                MoveInDate = moveInDate,
+                MoveOutDate = request.MoveOutDate,
+                RentStartMonth = request.RentStartMonth,
+                RentStartYear = request.RentStartYear,
+                RentAmountMonthly = request.RentAmountMonthly,
+                DepositAmount = request.DepositAmount,
+                PaymentDueDay = request.PaymentDueDay,
+                Status = request.Status ?? "Active",
+                Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
+            };
 
-        _dbContext.Tenancies.Add(tenancy);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.Tenancies.Add(tenancy);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return CreatedAtAction(nameof(GetTenancies), new CreateTenancyResponse { Id = tenancy.Id });
+            return CreatedAtAction(nameof(GetTenancies), new CreateTenancyResponse { Id = tenancy.Id });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to create tenancy.", detail = ex.Message });
+        }
     }
 }
 
