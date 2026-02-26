@@ -2,7 +2,7 @@
 # so installed clients can receive updates (Settings > Check for updates).
 #
 # Trigger: Run manually with a version (e.g. 1.0.1), or push a tag v* (e.g. v1.0.1).
-# Requires: Secret DARYVA_UPDATES_GITHUB_TOKEN (PAT with repo scope on the updates repo).
+# Requires: Secret DARYVA_UPDATES_GITHUB_TOKEN (PAT with repo scope on fbg-engineering/Daryva-Updates).
 # Daryva-Updates repo must have at least one commit (so it has a default branch). If its
 # default branch is "master" not "main", change target_commitish below to master.
 
@@ -57,7 +57,7 @@ jobs:
       - name: Create release on Daryva-Updates
         uses: softprops/action-gh-release@v2
         with:
-          repository: FBGHaider/Daryva-Updates
+          repository: fbg-engineering/Daryva-Updates
           token: ${{ secrets.DARYVA_UPDATES_GITHUB_TOKEN }}
           tag_name: v${{ steps.version.outputs.version }}
           target_commitish: main

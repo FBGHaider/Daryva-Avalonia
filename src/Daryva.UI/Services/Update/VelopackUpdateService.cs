@@ -22,7 +22,7 @@ public class VelopackUpdateService : IUpdateService
     /// <summary>
     /// Default update feed when not configured. GitHub Releases for Daryva-Updates repo.
     /// </summary>
-    private const string DefaultUpdateFeedUrl = "https://github.com/FBGHaider/Daryva-Updates";
+    private const string DefaultUpdateFeedUrl = "https://github.com/fbg-engineering/Daryva-Updates";
 
     public VelopackUpdateService(IConfigurationService configService)
     {
