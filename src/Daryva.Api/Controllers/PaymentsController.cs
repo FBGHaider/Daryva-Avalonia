@@ -431,6 +431,97 @@ public class PaymentsController : ControllerBase
         return Ok(transactions.OrderByDescending(t => t.PaidOn));
     }
 
+    [HttpGet("deposit-return-reminders")]
+    public async Task<ActionResult<IEnumerable<DepositReturnReminderResponse>>> GetDepositReturnReminders(CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return BadRequest(new { error = "Organization context not set." });
+
+        var orgId = _tenantContext.CurrentOrgId.Value;
+
+        var endedTenancyIdsWithReturn = await _dbContext.DepositReturns
+            .AsNoTracking()
+            .Where(r => r.OrganizationId == orgId)
+            .Select(r => r.TenancyId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var endedTenancies = await _dbContext.Tenancies
+            .AsNoTracking()
+            .Include(t => t.Tenant)
+            .Include(t => t.House)
+            .Where(t => t.OrganizationId == orgId && t.MoveOutDate.HasValue && t.DepositAmount > 0)
+            .Where(t => !endedTenancyIdsWithReturn.Contains(t.Id))
+            .ToListAsync(cancellationToken);
+
+        var tenancyIds = endedTenancies.Select(t => t.Id).ToList();
+        var depositTotals = await _dbContext.DepositPayments
+            .AsNoTracking()
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId))
+            .GroupBy(p => p.TenancyId)
+            .Select(g => new { TenancyId = g.Key, Total = g.Sum(x => x.AmountPaid) })
+            .ToDictionaryAsync(x => x.TenancyId, x => x.Total, cancellationToken);
+
+        var result = endedTenancies
+            .Where(t => t.Tenant != null && t.House != null && depositTotals.TryGetValue(t.Id, out var total) && total > 0)
+            .Select(t => new DepositReturnReminderResponse
+            {
+                TenancyId = t.Id,
+                TenantName = t.Tenant!.FullName,
+                HouseAddress = $"{t.House!.AddressLine1}, {t.House.City}",
+                LeaveDate = t.MoveOutDate!.Value,
+                AmountToReturn = depositTotals[t.Id]
+            })
+            .OrderBy(r => r.LeaveDate)
+            .ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("deposit-returned")]
+    public async Task<ActionResult> RecordDepositReturned([FromBody] RecordDepositReturnedRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return BadRequest(new { error = "Organization context not set." });
+
+        var orgId = _tenantContext.CurrentOrgId.Value;
+
+        var tenancy = await _dbContext.Tenancies
+            .FirstOrDefaultAsync(t => t.Id == request.TenancyId && t.OrganizationId == orgId, cancellationToken);
+
+        if (tenancy == null)
+            return NotFound(new { error = "Tenancy not found." });
+
+        var depositReturn = new DepositReturn
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = orgId,
+            TenancyId = request.TenancyId,
+            ReturnedDate = request.ReturnedDate,
+            AmountReturned = request.AmountReturned,
+            Notes = request.Notes
+        };
+
+        _dbContext.DepositReturns.Add(depositReturn);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpDelete("transactions")]
+    public async Task<IActionResult> DeleteAllTransactions(CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return BadRequest(new { error = "Organization context not set." });
+
+        var orgId = _tenantContext.CurrentOrgId.Value;
+
+        _ = await _dbContext.RentPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
+        _ = await _dbContext.DepositPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
+
+        return NoContent();
+    }
+
     [HttpDelete("transactions/{paymentType}/{paymentId:guid}")]
     public async Task<IActionResult> UnrecordPayment(
         string paymentType,
@@ -538,4 +629,21 @@ public class TransactionItemResponse
     public string? Notes { get; set; }
     public string? CollectedBy { get; set; }
     public Guid? TenancyId { get; set; }
+}
+
+public class DepositReturnReminderResponse
+{
+    public Guid TenancyId { get; set; }
+    public string TenantName { get; set; } = string.Empty;
+    public string HouseAddress { get; set; } = string.Empty;
+    public DateTime LeaveDate { get; set; }
+    public decimal AmountToReturn { get; set; }
+}
+
+public class RecordDepositReturnedRequest
+{
+    public Guid TenancyId { get; set; }
+    public DateTime ReturnedDate { get; set; }
+    public decimal AmountReturned { get; set; }
+    public string? Notes { get; set; }
 }

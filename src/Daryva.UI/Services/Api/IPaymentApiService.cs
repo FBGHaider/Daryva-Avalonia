@@ -105,4 +105,16 @@ public interface IPaymentApiService
     Task<IReadOnlyList<DepositLedgerItemApiDto>> GetDepositLedgerForMonthAsync(int year, int month, Guid? houseId = null, string? statusFilter = null, string? searchTerm = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TransactionItemApiDto>> GetTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null, string? paymentType = null, Guid? houseId = null, Guid? tenantId = null, string? method = null, CancellationToken cancellationToken = default);
     Task<bool> UnrecordPaymentAsync(Guid apiPaymentId, string paymentType, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DepositReturnReminderApiDto>> GetDepositReturnRemindersAsync(CancellationToken cancellationToken = default);
+    Task RecordDepositReturnedAsync(Guid tenancyId, DateTime returnedDate, decimal amountReturned, string? notes, CancellationToken cancellationToken = default);
+    Task DeleteAllTransactionsAsync(CancellationToken cancellationToken = default);
+}
+
+public class DepositReturnReminderApiDto
+{
+    public Guid TenancyId { get; set; }
+    public string TenantName { get; set; } = string.Empty;
+    public string HouseAddress { get; set; } = string.Empty;
+    public DateTime LeaveDate { get; set; }
+    public decimal AmountToReturn { get; set; }
 }

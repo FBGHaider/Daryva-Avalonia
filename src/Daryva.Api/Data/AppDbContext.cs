@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
     public required DbSet<Document> Documents { get; set; }
     public required DbSet<RentPayment> RentPayments { get; set; }
     public required DbSet<DepositPayment> DepositPayments { get; set; }
+    public required DbSet<DepositReturn> DepositReturns { get; set; }
     public required DbSet<Notification> Notifications { get; set; }
     public required DbSet<NotificationTemplate> NotificationTemplates { get; set; }
     public required DbSet<NotificationAttempt> NotificationAttempts { get; set; }
@@ -364,6 +365,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RentPayment>()
             .HasQueryFilter(r => r.OrganizationId == _tenantContext.CurrentOrgId);
         modelBuilder.Entity<DepositPayment>()
+            .HasQueryFilter(d => d.OrganizationId == _tenantContext.CurrentOrgId);
+        modelBuilder.Entity<DepositReturn>()
             .HasQueryFilter(d => d.OrganizationId == _tenantContext.CurrentOrgId);
         modelBuilder.Entity<Notification>()
             .HasQueryFilter(n => n.OrganizationId == _tenantContext.CurrentOrgId);

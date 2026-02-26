@@ -7,8 +7,8 @@ using System.Windows.Input;
 using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services.Api;
 using Daryva.Services.Business;
-using Daryva.Services.Data;
 using Daryva.Services.Dialog;
 
 namespace Daryva.MVVM.ViewModels
@@ -17,7 +17,7 @@ namespace Daryva.MVVM.ViewModels
     {
         private readonly ITenantService _tenantService;
         private readonly IHouseService _houseService;
-        private readonly ITenancyRepository _tenancyRepository;
+        private readonly ITenancyApiService? _tenancyApiService;
         private readonly IDialogService _dialogService;
         private readonly ISettingsService _settingsService;
 
@@ -35,13 +35,13 @@ namespace Daryva.MVVM.ViewModels
         public AddTenantViewModel(
             ITenantService tenantService, 
             IHouseService houseService,
-            ITenancyRepository tenancyRepository,
             IDialogService dialogService,
-            ISettingsService settingsService)
+            ISettingsService settingsService,
+            ITenancyApiService? tenancyApiService = null)
         {
             _tenantService = tenantService;
             _houseService = houseService;
-            _tenancyRepository = tenancyRepository;
+            _tenancyApiService = tenancyApiService;
             _dialogService = dialogService;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             
@@ -240,22 +240,29 @@ namespace Daryva.MVVM.ViewModels
                         ? (moveIn.AddMonths(1).Month, moveIn.AddMonths(1).Year)
                         : (moveIn.Month, moveIn.Year);
 
-                    var tenancy = new Tenancy
+                    // API-only: create tenancy via API only (no SQLite)
+                    if (_tenancyApiService != null && createdTenant.ApiId.HasValue && SelectedHouse.ApiId.HasValue)
                     {
-                        HouseId = SelectedHouse.HouseId,
-                        TenantId = createdTenant.TenantId,
-                        MoveInDate = moveIn.Date,
-                        MoveOutDate = null,
-                        RentStartMonth = rentStartMonth,
-                        RentStartYear = rentStartYear,
-                        RentAmountMonthly = RentAmountMonthly,
-                        DepositAmount = DepositAmount,
-                        PaymentDueDay = PaymentDueDay,
-                        Status = "Active"
-                    };
-
-                    await _tenancyRepository.CreateTenancyAsync(tenancy);
-                    _dialogService.ShowMessage($"Tenant added successfully and assigned to {SelectedHouse.AddressLine1}!", "Success");
+                        var dto = new CreateTenancyDto
+                        {
+                            HouseId = SelectedHouse.ApiId.Value,
+                            TenantId = createdTenant.ApiId.Value,
+                            MoveInDate = moveIn.Date,
+                            MoveOutDate = null,
+                            RentStartMonth = rentStartMonth,
+                            RentStartYear = rentStartYear,
+                            RentAmountMonthly = RentAmountMonthly,
+                            DepositAmount = DepositAmount,
+                            PaymentDueDay = PaymentDueDay,
+                            Status = "Active"
+                        };
+                        await _tenancyApiService.CreateTenancyAsync(dto);
+                        _dialogService.ShowMessage($"Tenant added successfully and assigned to {SelectedHouse.AddressLine1}!", "Success");
+                    }
+                    else
+                    {
+                        _dialogService.ShowMessage("Tenant added successfully. You can assign them to a property from the tenant list.", "Tenant added");
+                    }
                 }
                 else
                 {

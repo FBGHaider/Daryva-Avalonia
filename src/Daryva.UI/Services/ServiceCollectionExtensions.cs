@@ -37,6 +37,7 @@ namespace Daryva.Services
             services.AddScoped<IOrganizationApiService, OrganizationApiService>();
             services.AddScoped<IHouseApiService, HouseApiService>();
             services.AddScoped<ITenantApiService, TenantApiService>();
+            services.AddScoped<ITenancyApiService, TenancyApiService>();
             services.AddScoped<IExpenseApiService, ExpenseApiService>();
             services.AddScoped<IDocumentApiService, DocumentApiService>();
             services.AddScoped<INotificationApiService, NotificationApiService>();
@@ -54,7 +55,7 @@ namespace Daryva.Services
             // Repositories
             services.AddScoped<IHouseRepository, HouseRepository>();
             services.AddScoped<ITenantRepository, TenantRepository>();
-            services.AddScoped<ITenancyRepository, TenancyRepository>();
+            services.AddScoped<ITenancyRepository, TenancyApiRepositoryAdapter>();
             services.AddScoped<IDepositPaymentRepository, DepositPaymentRepository>();
             services.AddScoped<IRentChargeRepository, RentChargeRepository>();
             services.AddScoped<IRentPaymentRepository, RentPaymentRepository>();
@@ -64,7 +65,8 @@ namespace Daryva.Services
             services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<ISettingsRepository, SettingsRepository>();
 
-            // Business Services (API-only mode)
+            // Business Services — API-only: tenants, houses, expenses, documents, notifications use API adapters.
+            // Tenancy create (add tenant) uses ITenancyApiService only; no SQLite.
             services.AddSingleton<IApiEntityIdMapper, ApiEntityIdMapper>();
             services.AddScoped<HouseService>();
             services.AddScoped<HouseApiServiceAdapter>();

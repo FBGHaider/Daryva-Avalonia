@@ -133,3 +133,20 @@ public class DepositPayment : IOrgScopedEntity
     public Organization Organization { get; set; } = null!;
     public Tenancy Tenancy { get; set; } = null!;
 }
+
+/// <summary>
+/// Record that a deposit was returned to the tenant (so they drop off deposit-return reminders).
+/// </summary>
+public class DepositReturn : IOrgScopedEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OrganizationId { get; set; }
+    public Guid TenancyId { get; set; }
+    public DateTime ReturnedDate { get; set; }
+    public decimal AmountReturned { get; set; }
+    public string? Notes { get; set; }
+
+    // Navigation
+    public Organization Organization { get; set; } = null!;
+    public Tenancy Tenancy { get; set; } = null!;
+}

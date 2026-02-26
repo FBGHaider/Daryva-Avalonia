@@ -5,9 +5,8 @@ using System.Collections.ObjectModel;
 namespace Daryva.Services.Business;
 
 /// <summary>
-/// Incremental migration adapter for payments.
-/// Uses API for core payment operations when local tenancy ID can be resolved to API tenancy GUID,
-/// otherwise falls back to legacy local PaymentService.
+/// API-only payment service. Uses API for all payment operations; no SQLite fallback.
+/// Tenancy/house/tenant ID resolution uses IApiEntityIdMapper (populated when tenancies are loaded from API).
 /// </summary>
 public class PaymentApiMigrationService : IPaymentService
 {
@@ -24,10 +23,7 @@ public class PaymentApiMigrationService : IPaymentService
     {
         var apiTenancyId = await TryResolveApiTenancyIdAsync(tenancyId);
         if (!apiTenancyId.HasValue)
-        {
-            await _legacyPaymentService.RecordPaymentAsync(tenancyId, depositAmount, rentAmount, rentYear, rentMonth, paymentDate, method, reference, notes, collectedBy, useDepositForRent);
-            return;
-        }
+            throw new InvalidOperationException($"Tenancy {tenancyId} could not be resolved to API. Ensure tenancies are loaded from the API.");
 
         await _paymentApiService.RecordPaymentAsync(new RecordPaymentApiRequest
         {
@@ -248,53 +244,122 @@ public class PaymentApiMigrationService : IPaymentService
     }
 
     public Task<IEnumerable<PaymentDetailViewModel>> GetPaymentsForRentChargeAsync(int rentChargeId)
-        => _legacyPaymentService.GetPaymentsForRentChargeAsync(rentChargeId);
+        => Task.FromResult(Enumerable.Empty<PaymentDetailViewModel>());
 
-    public Task<decimal> GetTotalUnpaidBalanceForMonthAsync(int year, int month)
-        => _legacyPaymentService.GetTotalUnpaidBalanceForMonthAsync(year, month);
+    public async Task<decimal> GetTotalUnpaidBalanceForMonthAsync(int year, int month)
+    {
+        try
+        {
+            var rows = await _paymentApiService.GetRentLedgerForMonthAsync(year, month, null, null, null);
+            decimal total = 0m;
+            foreach (var row in rows ?? Enumerable.Empty<RentLedgerItemApiDto>())
+            {
+                var balance = row.AmountDue - row.AmountPaid;
+                if (balance > 0)
+                    total += balance;
+            }
+            return total;
+        }
+        catch
+        {
+            return 0m;
+        }
+    }
 
-    public Task<IEnumerable<DashboardOverdueRentItem>> GetOverdueRentAsync()
-        => _legacyPaymentService.GetOverdueRentAsync();
+    public async Task<IEnumerable<DashboardOverdueRentItem>> GetOverdueRentAsync()
+    {
+        var today = DateTime.UtcNow.Date;
+        var items = new List<DashboardOverdueRentItem>();
+        try
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var d = today.AddMonths(-i);
+                var rows = await _paymentApiService.GetRentLedgerForMonthAsync(d.Year, d.Month, null, null, null);
+                foreach (var row in rows ?? Enumerable.Empty<RentLedgerItemApiDto>())
+                {
+                    if (row.DueDate.Date >= today) continue;
+                    var balance = row.AmountDue - row.AmountPaid;
+                    if (balance <= 0) continue;
+                    var status = (row.Status ?? "").Replace("-", "");
+                    if (!status.Equals("Unpaid", StringComparison.OrdinalIgnoreCase) && !status.Equals("PartPaid", StringComparison.OrdinalIgnoreCase) && !status.Equals("Overdue", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    var localTenancyId = _paymentApiService.ResolveLocalTenancyId(row.TenancyId);
+                    if (!localTenancyId.HasValue) continue;
+                    var daysLate = (int)(today - row.DueDate.Date).TotalDays;
+                    items.Add(new DashboardOverdueRentItem
+                    {
+                        TenantName = row.TenantName,
+                        HouseAddress = row.HouseAddress,
+                        Amount = balance,
+                        DaysLate = daysLate,
+                        TenancyId = localTenancyId.Value
+                    });
+                }
+            }
+        }
+        catch
+        {
+            // return what we have
+        }
+        return items.OrderByDescending(x => x.DaysLate);
+    }
 
-    public Task<IEnumerable<DepositReturnReminderItem>> GetDepositReturnRemindersAsync()
-        => _legacyPaymentService.GetDepositReturnRemindersAsync();
+    public async Task<IEnumerable<DepositReturnReminderItem>> GetDepositReturnRemindersAsync()
+    {
+        try
+        {
+            var reminders = await _paymentApiService.GetDepositReturnRemindersAsync();
+            var result = new List<DepositReturnReminderItem>();
+            foreach (var r in reminders ?? Enumerable.Empty<DepositReturnReminderApiDto>())
+            {
+                var localTenancyId = _paymentApiService.ResolveLocalTenancyId(r.TenancyId);
+                if (!localTenancyId.HasValue) continue;
+                result.Add(new DepositReturnReminderItem
+                {
+                    TenancyId = localTenancyId.Value,
+                    TenantName = r.TenantName,
+                    HouseAddress = r.HouseAddress,
+                    LeaveDate = r.LeaveDate,
+                    LeaveDateDisplay = r.LeaveDate.ToString("d"),
+                    AmountToReturn = r.AmountToReturn
+                });
+            }
+            return result;
+        }
+        catch
+        {
+            return Enumerable.Empty<DepositReturnReminderItem>();
+        }
+    }
 
     public async Task<bool> UnrecordPaymentAsync(int paymentId, string paymentType)
     {
         var apiPaymentId = _paymentApiService.ResolveApiPaymentId(paymentId, paymentType);
         if (!apiPaymentId.HasValue)
-            return await _legacyPaymentService.UnrecordPaymentAsync(paymentId, paymentType);
-
-        try
-        {
-            return await _paymentApiService.UnrecordPaymentAsync(apiPaymentId.Value, paymentType);
-        }
-        catch
-        {
-            return await _legacyPaymentService.UnrecordPaymentAsync(paymentId, paymentType);
-        }
+            throw new InvalidOperationException($"Payment {paymentId} ({paymentType}) could not be resolved to API.");
+        return await _paymentApiService.UnrecordPaymentAsync(apiPaymentId.Value, paymentType);
     }
 
-    public Task<bool> DeleteAllTransactionsAsync()
-        => _legacyPaymentService.DeleteAllTransactionsAsync();
+    public async Task<bool> DeleteAllTransactionsAsync()
+    {
+        await _paymentApiService.DeleteAllTransactionsAsync();
+        return true;
+    }
 
     public Task<int> CleanupDuplicateRentChargesAsync()
-        => _legacyPaymentService.CleanupDuplicateRentChargesAsync();
+        => Task.FromResult(0);
 
     public Task<int> RepairRentPaymentChargeLinksAsync()
-    {
-        try
-        {
-            return _legacyPaymentService.RepairRentPaymentChargeLinksAsync();
-        }
-        catch
-        {
-            return Task.FromResult(0);
-        }
-    }
+        => Task.FromResult(0);
 
-    public Task RecordDepositReturnedAsync(int tenancyId, DateTime returnedDate, decimal amountReturned, string? notes = null)
-        => _legacyPaymentService.RecordDepositReturnedAsync(tenancyId, returnedDate, amountReturned, notes);
+    public async Task RecordDepositReturnedAsync(int tenancyId, DateTime returnedDate, decimal amountReturned, string? notes = null)
+    {
+        var apiTenancyId = await TryResolveApiTenancyIdAsync(tenancyId);
+        if (!apiTenancyId.HasValue)
+            throw new InvalidOperationException($"Tenancy {tenancyId} could not be resolved to API.");
+        await _paymentApiService.RecordDepositReturnedAsync(apiTenancyId.Value, returnedDate, amountReturned, notes);
+    }
 
     private async Task<Guid?> TryResolveApiTenancyIdAsync(int localTenancyId)
     {

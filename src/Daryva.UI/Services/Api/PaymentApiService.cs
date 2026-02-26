@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Daryva.Services;
+using Daryva.Services.Business;
 
 namespace Daryva.Services.Api;
 
@@ -17,6 +18,7 @@ public class PaymentApiService : IPaymentApiService
 
     private readonly IApiClient _apiClient;
     private readonly IConfigurationService _configurationService;
+    private readonly IApiEntityIdMapper? _idMapper;
     private readonly object _paymentMapLock = new();
 
     private readonly ConcurrentDictionary<int, Guid> _houseMap = new();
@@ -33,10 +35,11 @@ public class PaymentApiService : IPaymentApiService
 
     private bool _loadedPersistedMaps;
 
-    public PaymentApiService(IApiClient apiClient, IConfigurationService configurationService)
+    public PaymentApiService(IApiClient apiClient, IConfigurationService configurationService, IApiEntityIdMapper? idMapper = null)
     {
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
+        _idMapper = idMapper;
     }
 
     public async Task<RecordPaymentApiResponse> RecordPaymentAsync(RecordPaymentApiRequest request, CancellationToken cancellationToken = default)
@@ -102,41 +105,88 @@ public class PaymentApiService : IPaymentApiService
     public Task<Guid?> ResolveTenancyApiIdAsync(int localTenancyId, CancellationToken cancellationToken = default)
     {
         EnsureMapsLoaded();
-
         if (_tenancyMap.TryGetValue(localTenancyId, out var cached))
             return Task.FromResult<Guid?>(cached);
-
+        if (_idMapper?.TryGetTenancyApiId(localTenancyId) is { } guid)
+        {
+            _tenancyMap[localTenancyId] = guid;
+            _tenancyReverseMap[guid] = localTenancyId;
+            return Task.FromResult<Guid?>(guid);
+        }
         return Task.FromResult<Guid?>(null);
     }
 
     public Task<Guid?> ResolveHouseApiIdAsync(int localHouseId, CancellationToken cancellationToken = default)
     {
         EnsureMapsLoaded();
-        return Task.FromResult(_houseMap.TryGetValue(localHouseId, out var cached) ? (Guid?)cached : null);
+        if (_houseMap.TryGetValue(localHouseId, out var cached))
+            return Task.FromResult<Guid?>(cached);
+        if (_idMapper?.TryGetHouseApiId(localHouseId) is { } guid)
+        {
+            _houseMap[localHouseId] = guid;
+            _houseReverseMap[guid] = localHouseId;
+            return Task.FromResult<Guid?>(guid);
+        }
+        return Task.FromResult<Guid?>(null);
     }
 
     public Task<Guid?> ResolveTenantApiIdAsync(int localTenantId, CancellationToken cancellationToken = default)
     {
         EnsureMapsLoaded();
-        return Task.FromResult(_tenantMap.TryGetValue(localTenantId, out var cached) ? (Guid?)cached : null);
+        if (_tenantMap.TryGetValue(localTenantId, out var cached))
+            return Task.FromResult<Guid?>(cached);
+        if (_idMapper?.TryGetTenantApiId(localTenantId) is { } guid)
+        {
+            _tenantMap[localTenantId] = guid;
+            _tenantReverseMap[guid] = localTenantId;
+            return Task.FromResult<Guid?>(guid);
+        }
+        return Task.FromResult<Guid?>(null);
     }
 
     public int? ResolveLocalTenancyId(Guid apiTenancyId)
     {
         EnsureMapsLoaded();
-        return _tenancyReverseMap.TryGetValue(apiTenancyId, out var local) ? local : null;
+        if (_tenancyReverseMap.TryGetValue(apiTenancyId, out var local))
+            return local;
+        if (_idMapper != null)
+        {
+            local = _idMapper.MapTenancyId(apiTenancyId);
+            _tenancyMap[local] = apiTenancyId;
+            _tenancyReverseMap[apiTenancyId] = local;
+            return local;
+        }
+        return null;
     }
 
     public int? ResolveLocalHouseId(Guid apiHouseId)
     {
         EnsureMapsLoaded();
-        return _houseReverseMap.TryGetValue(apiHouseId, out var local) ? local : null;
+        if (_houseReverseMap.TryGetValue(apiHouseId, out var local))
+            return local;
+        if (_idMapper != null)
+        {
+            local = _idMapper.MapHouseId(apiHouseId);
+            _houseMap[local] = apiHouseId;
+            _houseReverseMap[apiHouseId] = local;
+            return local;
+        }
+        return null;
     }
 
     public int? ResolveLocalTenantId(Guid apiTenantId)
     {
         EnsureMapsLoaded();
-        return _tenantReverseMap.TryGetValue(apiTenantId, out var local) ? local : null;
+        if (_tenantReverseMap.TryGetValue(apiTenantId, out var local))
+            return local;
+        if (_idMapper != null)
+        {
+            local = _idMapper.MapTenantId(apiTenantId);
+            _tenantMap[local] = apiTenantId;
+            _tenantReverseMap[apiTenantId] = local;
+            return local;
+        }
+        return null;
     }
 
     public int GetOrCreateLocalPaymentId(Guid apiPaymentId, string paymentType)
@@ -246,6 +296,27 @@ public class PaymentApiService : IPaymentApiService
 
         response.EnsureSuccessStatusCode();
         return true;
+    }
+
+    public async Task<IReadOnlyList<DepositReturnReminderApiDto>> GetDepositReturnRemindersAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.GetAsync("api/payments/deposit-return-reminders", cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var list = await response.Content.ReadFromJsonAsync<List<DepositReturnReminderApiDto>>(cancellationToken: cancellationToken);
+        return list ?? new List<DepositReturnReminderApiDto>();
+    }
+
+    public async Task RecordDepositReturnedAsync(Guid tenancyId, DateTime returnedDate, decimal amountReturned, string? notes, CancellationToken cancellationToken = default)
+    {
+        var body = new { TenancyId = tenancyId, ReturnedDate = returnedDate, AmountReturned = amountReturned, Notes = notes };
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/payments/deposit-returned", body, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteAllTransactionsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.DeleteAsync("api/payments/transactions", cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
     private void EnsureMapsLoaded()

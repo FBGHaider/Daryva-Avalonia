@@ -2,6 +2,8 @@
 
 Next.js 14 (App Router) marketing website for [Daryva](https://daryva.com) — modern property OS for UK landlords and small agencies.
 
+**New to how this was built?** See **[docs/HOW_THIS_SITE_WAS_BUILT.md](docs/HOW_THIS_SITE_WAS_BUILT.md)** for a full step-by-step explanation (project setup, design system, pages, components, static export, and deployment).
+
 ## Run locally
 
 ```bash
