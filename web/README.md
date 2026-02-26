@@ -16,8 +16,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
 npm run build
-npm start
 ```
+
+The site is built as a **static export** (output in `out/`), so it can be deployed to Cloudflare Pages, Vercel, or any static host. To preview locally after building, use e.g. `npx serve out` or open the `out` folder with a static server.
 
 ## Where to change copy and theme
 
@@ -30,7 +31,38 @@ npm start
 
 ## Using your domain (daryva.com)
 
-### Option A: Deploy to Vercel and point daryva.com to it (recommended)
+### Option A: Deploy to Cloudflare Pages (free, works with GitHub organisations)
+
+You can host the site entirely on Cloudflare Pages. The free plan supports **GitHub organisation repos** (no paid plan required, unlike Vercel Pro for orgs).
+
+1. **Connect the repo**
+   - Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**.
+   - Choose **GitHub** and authorise. Select the **FBG-Engineering/Daryva-Avalonia** (or your org) repo.
+
+2. **Configure the build** (use one of the two options below).
+
+   **Option 2a – Root directory set (often fails with “output directory not found”):**
+   - **Root directory:** `web`
+   - **Build command:** `npm run build`
+   - **Build output directory:** `out`
+
+   **Option 2b – Build from repo root, output at repo root (use this if 2a fails):**
+   - **Root directory:** leave **empty**.
+   - **Build command:** `cd web && npm install && npm run build && cp -r out ../out`
+   - **Build output directory:** `out`
+   - This builds in `web/`, then copies `web/out` to repo root `out/` so Cloudflare finds the output. Cloudflare’s build runs on Linux, so `cp -r` works.
+
+3. **Deploy**
+   - Save and deploy. You’ll get a URL like `your-project.pages.dev`.
+
+4. **Custom domain (daryva.com)**
+   - In the Pages project → **Custom domains** → **Set up a custom domain** → enter `daryva.com` (and add `www.daryva.com` if you want).
+   - If the domain is already on Cloudflare (DNS managed by Cloudflare), the records are added automatically and SSL is free.
+   - If the domain is elsewhere, add the CNAME (or A/AAAA) record that Cloudflare shows.
+
+After deployment, open **https://daryva.com** to view the site.
+
+### Option B: Deploy to Vercel (Pro required for GitHub orgs)
 
 1. **Deploy the site**
    - Go to [vercel.com](https://vercel.com) and sign in (GitHub/GitLab/Bitbucket).
@@ -74,7 +106,7 @@ Yes, this works. If daryva.com uses Cloudflare for DNS:
 
 Result: daryva.com works with Cloudflare in front of Vercel.
 
-### Option B: Other hosts (Netlify, your own server, etc.)
+### Option C: Other hosts (Netlify, your own server, etc.)
 
 - **Netlify:** Connect the repo, set base directory to `web`, build command `npm run build`, publish directory `.next` and use Netlify’s Next.js runtime (or run `next build && next start` in a Docker/Node server). Then add daryva.com in Netlify **Domain settings** and follow their DNS instructions.
 - **VPS/own server:** Build with `npm run build`, run `npm start` (or use a process manager like PM2), put Nginx/Caddy in front, and point your domain’s A record to the server IP. Configure SSL (e.g. Let’s Encrypt).

@@ -383,3 +383,6 @@ DaryvaDB_backup.bak
 backup-from-container.ps1
 restore-database.ps1
 check-database.ps1
+
+# Cloudflare Pages build copy (Option 2b: cp -r web/out -> out)
+/out

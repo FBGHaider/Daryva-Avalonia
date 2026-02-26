@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { site } from "@/lib/site";
-import { ScreenshotPlaceholder } from "./screenshot-placeholder";
+import { DashboardScreenshot } from "./dashboard-screenshot";
 
 export function Hero() {
   return (
@@ -30,7 +30,7 @@ export function Hero() {
             <p className="mt-6 text-sm text-text-muted">No credit card required. Cancel anytime. Built for UK landlords.</p>
           </div>
           <div className="relative">
-            <ScreenshotPlaceholder label="Dashboard screenshot" className="max-w-xl mx-auto" />
+            <DashboardScreenshot className="max-w-xl mx-auto" />
           </div>
         </div>
       </div>

@@ -1,0 +1,5 @@
+# Cloudflare Pages – build output for Daryva marketing site (web/)
+# Build runs with: cd web && npm install && npm run build
+# Next.js static export writes to web/out/
+name = "daryva-marketing"
+pages_build_output_dir = "web/out"
