@@ -31,9 +31,16 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var documents = await _documentService.GetAllDocumentsAsync(cancellationToken);
-        var response = documents.Select(MapToResponse).ToList();
-        return Ok(response);
+        try
+        {
+            var documents = await _documentService.GetAllDocumentsAsync(cancellationToken);
+            var response = documents.Select(MapToResponse).ToList();
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load documents.", detail = ex.Message });
+        }
     }
 
     [HttpGet("tenant/{tenantId:guid}")]
@@ -44,9 +51,16 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var documents = await _documentService.GetDocumentsByTenantAsync(tenantId, cancellationToken);
-        var response = documents.Select(MapToResponse).ToList();
-        return Ok(response);
+        try
+        {
+            var documents = await _documentService.GetDocumentsByTenantAsync(tenantId, cancellationToken);
+            var response = documents.Select(MapToResponse).ToList();
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load documents by tenant.", detail = ex.Message });
+        }
     }
 
     [HttpGet("tenancy/{tenancyId:guid}")]
@@ -57,9 +71,16 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var documents = await _documentService.GetDocumentsByTenancyAsync(tenancyId, cancellationToken);
-        var response = documents.Select(MapToResponse).ToList();
-        return Ok(response);
+        try
+        {
+            var documents = await _documentService.GetDocumentsByTenancyAsync(tenancyId, cancellationToken);
+            var response = documents.Select(MapToResponse).ToList();
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load documents by tenancy.", detail = ex.Message });
+        }
     }
 
     [HttpGet("house/{houseId:guid}")]
@@ -83,11 +104,18 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
-        if (document == null)
-            return NotFound();
+        try
+        {
+            var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
+            if (document == null)
+                return NotFound();
 
-        return Ok(MapToResponse(document));
+            return Ok(MapToResponse(document));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load document.", detail = ex.Message });
+        }
     }
 
     [HttpPost]
@@ -98,29 +126,45 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var document = new Document
+        try
         {
-            Id = Guid.NewGuid(),
-            OrganizationId = _tenantContext.CurrentOrgId.Value,
-            TenantId = request.TenantId,
-            TenancyId = request.TenancyId,
-            HouseId = request.HouseId,
-            Type = request.Type,
-            DisplayName = request.DisplayName,
-            FileName = request.FileName,
-            FileMimeType = request.FileMimeType,
-            Source = request.Source ?? "Uploaded",
-            UploadedAt = request.UploadedAt,
-            ValidFrom = request.ValidFrom,
-            ValidTo = request.ValidTo,
-            Version = 1,
-            IsActive = true,
-            // TODO: Handle file storage (base64 decoded content stored to disk or blob storage)
-            // FileContent = request.FileContent is base64, need to decode and store
-        };
+            var rawUploaded = request.UploadedAt == default ? DateTime.UtcNow : request.UploadedAt;
+            var uploadedAt = rawUploaded.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(rawUploaded, DateTimeKind.Utc)
+                : rawUploaded.ToUniversalTime();
+            var validFrom = request.ValidFrom.HasValue
+                ? (DateTime?) (request.ValidFrom.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(request.ValidFrom.Value, DateTimeKind.Utc) : request.ValidFrom.Value.ToUniversalTime())
+                : null;
+            var validTo = request.ValidTo.HasValue
+                ? (DateTime?) (request.ValidTo.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(request.ValidTo.Value, DateTimeKind.Utc) : request.ValidTo.Value.ToUniversalTime())
+                : null;
 
-        var created = await _documentService.CreateDocumentAsync(document, cancellationToken);
-        return CreatedAtAction(nameof(GetDocument), new { documentId = created.Id }, MapToResponse(created));
+            var document = new Document
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = _tenantContext.CurrentOrgId.Value,
+                TenantId = request.TenantId,
+                TenancyId = request.TenancyId,
+                HouseId = request.HouseId,
+                Type = request.Type ?? string.Empty,
+                DisplayName = request.DisplayName ?? string.Empty,
+                FileName = request.FileName ?? string.Empty,
+                FileMimeType = request.FileMimeType,
+                Source = request.Source ?? "Uploaded",
+                UploadedAt = uploadedAt,
+                ValidFrom = validFrom,
+                ValidTo = validTo,
+                Version = 1,
+                IsActive = true
+            };
+
+            var created = await _documentService.CreateDocumentAsync(document, cancellationToken);
+            return CreatedAtAction(nameof(GetDocument), new { documentId = created.Id }, MapToResponse(created));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to create document.", detail = ex.Message });
+        }
     }
 
     [HttpPut("{documentId:guid}")]
@@ -132,17 +176,28 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
-        if (document == null)
-            return NotFound();
+        try
+        {
+            var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
+            if (document == null)
+                return NotFound();
 
-        document.DisplayName = request.DisplayName ?? document.DisplayName;
-        document.ValidFrom = request.ValidFrom ?? document.ValidFrom;
-        document.ValidTo = request.ValidTo ?? document.ValidTo;
-        document.IsActive = request.IsActive;
+            document.DisplayName = request.DisplayName ?? document.DisplayName;
+            document.ValidFrom = request.ValidFrom.HasValue
+                ? (DateTime?) (request.ValidFrom.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(request.ValidFrom.Value, DateTimeKind.Utc) : request.ValidFrom.Value.ToUniversalTime())
+                : document.ValidFrom;
+            document.ValidTo = request.ValidTo.HasValue
+                ? (DateTime?) (request.ValidTo.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(request.ValidTo.Value, DateTimeKind.Utc) : request.ValidTo.Value.ToUniversalTime())
+                : document.ValidTo;
+            document.IsActive = request.IsActive;
 
-        await _documentService.UpdateDocumentAsync(document, cancellationToken);
-        return Ok(MapToResponse(document));
+            await _documentService.UpdateDocumentAsync(document, cancellationToken);
+            return Ok(MapToResponse(document));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to update document.", detail = ex.Message });
+        }
     }
 
     [HttpGet("{documentId:guid}/download")]
@@ -172,12 +227,19 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
-        if (document == null)
-            return NotFound();
+        try
+        {
+            var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
+            if (document == null)
+                return NotFound();
 
-        await _documentService.DeleteDocumentAsync(documentId, cancellationToken);
-        return NoContent();
+            await _documentService.DeleteDocumentAsync(documentId, cancellationToken);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to delete document.", detail = ex.Message });
+        }
     }
 
     private static DocumentResponse MapToResponse(Document document)

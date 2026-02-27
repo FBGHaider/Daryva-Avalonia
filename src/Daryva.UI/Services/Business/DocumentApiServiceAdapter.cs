@@ -115,17 +115,29 @@ public class DocumentApiServiceAdapter : IDocumentService
 
     public async Task<Document> UploadDocumentAsync(Document document, byte[] fileBytes, string? storageRootPath = null)
     {
+        var apiTenantId = document.ApiTenantId;
+        if (!apiTenantId.HasValue && document.TenantId.HasValue)
+            apiTenantId = _idMapper.TryGetTenantApiId(document.TenantId.Value);
+
+        var apiTenancyId = document.ApiTenancyId;
+        if (!apiTenancyId.HasValue && document.TenancyId.HasValue)
+            apiTenancyId = _idMapper.TryGetTenancyApiId(document.TenancyId.Value);
+
+        var apiHouseId = document.ApiHouseId;
+        if (!apiHouseId.HasValue && document.HouseId.HasValue)
+            apiHouseId = _idMapper.TryGetHouseApiId(document.HouseId.Value);
+
         var createDto = new CreateDocumentDto
         {
-            TenantId = document.ApiTenantId,
-            TenancyId = document.ApiTenancyId,
-            HouseId = document.ApiHouseId,
-            Type = document.Type,
-            DisplayName = document.DisplayName,
-            FileName = document.FileName,
+            TenantId = apiTenantId,
+            TenancyId = apiTenancyId,
+            HouseId = apiHouseId,
+            Type = document.Type ?? string.Empty,
+            DisplayName = document.DisplayName ?? string.Empty,
+            FileName = document.FileName ?? string.Empty,
             FileMimeType = document.FileMimeType,
             Source = document.Source ?? "Uploaded",
-            UploadedAt = document.UploadedAt,
+            UploadedAt = document.UploadedAt == default ? DateTime.UtcNow : document.UploadedAt,
             ValidFrom = document.ValidFrom,
             ValidTo = document.ValidTo,
             FileContent = Convert.ToBase64String(fileBytes)
