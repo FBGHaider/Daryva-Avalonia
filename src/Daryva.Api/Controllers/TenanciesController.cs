@@ -128,16 +128,26 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancy = await _dbContext.Tenancies
-            .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
-        if (tenancy == null)
-            return NotFound();
+        try
+        {
+            var orgId = _tenantContext.CurrentOrgId.Value;
+            var tenancy = await _dbContext.Tenancies
+                .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
+            if (tenancy == null)
+                return NotFound();
 
-        tenancy.MoveOutDate = request.MoveOutDate;
-        tenancy.Status = "Ended";
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return NoContent();
+            var moveOutUtc = request.MoveOutDate.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(request.MoveOutDate, DateTimeKind.Utc)
+                : request.MoveOutDate.ToUniversalTime();
+            tenancy.MoveOutDate = moveOutUtc;
+            tenancy.Status = "Ended";
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to end tenancy.", detail = ex.Message });
+        }
     }
 
     [HttpPatch("{id:guid}/reactivate")]
