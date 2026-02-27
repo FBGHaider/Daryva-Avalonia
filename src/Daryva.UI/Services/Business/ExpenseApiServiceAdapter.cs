@@ -12,11 +12,13 @@ public class ExpenseApiServiceAdapter : IExpenseService
 {
     private readonly IExpenseApiService _expenseApiService;
     private readonly IHouseApiService _houseApiService;
+    private readonly IApiEntityIdMapper _idMapper;
 
-    public ExpenseApiServiceAdapter(IExpenseApiService expenseApiService, IHouseApiService houseApiService)
+    public ExpenseApiServiceAdapter(IExpenseApiService expenseApiService, IHouseApiService houseApiService, IApiEntityIdMapper idMapper)
     {
         _expenseApiService = expenseApiService ?? throw new ArgumentNullException(nameof(expenseApiService));
         _houseApiService = houseApiService ?? throw new ArgumentNullException(nameof(houseApiService));
+        _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
     }
 
     public async Task<IEnumerable<HouseExpense>> GetExpensesAsync(int? houseId = null, DateTime? startDate = null, DateTime? endDate = null, string? category = null, string? searchTerm = null)
@@ -57,9 +59,25 @@ public class ExpenseApiServiceAdapter : IExpenseService
 
     public async Task<HouseExpense> CreateExpenseAsync(HouseExpense expense)
     {
+        var apiHouseId = expense.ApiHouseId ?? _idMapper.TryGetHouseApiId(expense.HouseId);
+        if (!apiHouseId.HasValue)
+        {
+            var houses = await _houseApiService.GetHousesAsync();
+            foreach (var dto in houses)
+            {
+                if (_idMapper.MapHouseId(dto.Id) == expense.HouseId)
+                {
+                    apiHouseId = dto.Id;
+                    break;
+                }
+            }
+        }
+        if (!apiHouseId.HasValue)
+            throw new InvalidOperationException("House could not be resolved to API. Open the Houses tab first so houses are loaded, then try again.");
+
         var createDto = new CreateExpenseDto
         {
-            HouseId = expense.ApiHouseId ?? throw new InvalidOperationException("Expense must have API House ID"),
+            HouseId = apiHouseId.Value,
             DateIncurred = expense.DateIncurred,
             Category = expense.Category,
             Amount = expense.Amount,
@@ -154,7 +172,7 @@ public class ExpenseApiServiceAdapter : IExpenseService
         {
             HouseExpenseId = dto.Id.GetHashCode(),
             ApiId = dto.Id,
-            HouseId = dto.HouseId.GetHashCode(),
+            HouseId = _idMapper.MapHouseId(dto.HouseId),
             ApiHouseId = dto.HouseId,
             HouseAddress = dto.HouseAddress,
             DateIncurred = dto.DateIncurred,

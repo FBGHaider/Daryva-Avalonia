@@ -11,10 +11,12 @@ namespace Daryva.Services.Business;
 public class DocumentApiServiceAdapter : IDocumentService
 {
     private readonly IDocumentApiService _documentApiService;
+    private readonly IApiEntityIdMapper _idMapper;
 
-    public DocumentApiServiceAdapter(IDocumentApiService documentApiService)
+    public DocumentApiServiceAdapter(IDocumentApiService documentApiService, IApiEntityIdMapper idMapper)
     {
         _documentApiService = documentApiService ?? throw new ArgumentNullException(nameof(documentApiService));
+        _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
     }
 
     public async Task<IEnumerable<Document>> GetDocumentsAsync(int? tenantId = null, int? tenancyId = null, int? houseId = null, string? type = null)
@@ -189,11 +191,11 @@ public class DocumentApiServiceAdapter : IDocumentService
         {
             DocumentId = dto.Id.GetHashCode(),
             ApiId = dto.Id,
-            TenantId = dto.TenantId.HasValue ? (int?)dto.TenantId.Value.GetHashCode() : null,
+            TenantId = dto.TenantId.HasValue ? (int?)_idMapper.MapTenantId(dto.TenantId.Value) : null,
             ApiTenantId = dto.TenantId,
-            TenancyId = dto.TenancyId.HasValue ? (int?)dto.TenancyId.Value.GetHashCode() : null,
+            TenancyId = dto.TenancyId.HasValue ? (int?)_idMapper.MapTenancyId(dto.TenancyId.Value) : null,
             ApiTenancyId = dto.TenancyId,
-            HouseId = dto.HouseId.HasValue ? (int?)dto.HouseId.Value.GetHashCode() : null,
+            HouseId = dto.HouseId.HasValue ? (int?)_idMapper.MapHouseId(dto.HouseId.Value) : null,
             ApiHouseId = dto.HouseId,
             Type = dto.Type,
             DisplayName = dto.DisplayName,

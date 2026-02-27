@@ -31,9 +31,16 @@ public class ExpensesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var expenses = await _expenseService.GetAllExpensesAsync(cancellationToken);
-        var response = expenses.Select(MapToResponse).ToList();
-        return Ok(response);
+        try
+        {
+            var expenses = await _expenseService.GetAllExpensesAsync(cancellationToken);
+            var response = expenses.Select(MapToResponse).ToList();
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load expenses.", detail = ex.Message });
+        }
     }
 
     [HttpGet("house/{houseId:guid}")]
@@ -44,9 +51,16 @@ public class ExpensesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var expenses = await _expenseService.GetExpensesByHouseAsync(houseId, cancellationToken);
-        var response = expenses.Select(MapToResponse).ToList();
-        return Ok(response);
+        try
+        {
+            var expenses = await _expenseService.GetExpensesByHouseAsync(houseId, cancellationToken);
+            var response = expenses.Select(MapToResponse).ToList();
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load expenses by house.", detail = ex.Message });
+        }
     }
 
     [HttpGet("{expenseId:guid}")]
@@ -57,11 +71,18 @@ public class ExpensesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var expense = await _expenseService.GetExpenseByIdAsync(expenseId, cancellationToken);
-        if (expense == null)
-            return NotFound();
+        try
+        {
+            var expense = await _expenseService.GetExpenseByIdAsync(expenseId, cancellationToken);
+            if (expense == null)
+                return NotFound();
 
-        return Ok(MapToResponse(expense));
+            return Ok(MapToResponse(expense));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load expense.", detail = ex.Message });
+        }
     }
 
     [HttpPost]
@@ -72,21 +93,32 @@ public class ExpensesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var expense = new Expense
+        try
         {
-            Id = Guid.NewGuid(),
-            OrganizationId = _tenantContext.CurrentOrgId.Value,
-            HouseId = request.HouseId,
-            DateIncurred = request.DateIncurred,
-            Category = request.Category,
-            Amount = request.Amount,
-            Vendor = request.Vendor,
-            Notes = request.Notes,
-            ReceiptDocumentId = request.ReceiptDocumentId
-        };
+            var dateIncurred = request.DateIncurred.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(request.DateIncurred, DateTimeKind.Utc)
+                : request.DateIncurred.ToUniversalTime();
 
-        var created = await _expenseService.CreateExpenseAsync(expense, cancellationToken);
-        return CreatedAtAction(nameof(GetExpense), new { expenseId = created.Id }, MapToResponse(created));
+            var expense = new Expense
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = _tenantContext.CurrentOrgId.Value,
+                HouseId = request.HouseId,
+                DateIncurred = dateIncurred,
+                Category = request.Category ?? string.Empty,
+                Amount = request.Amount,
+                Vendor = request.Vendor,
+                Notes = request.Notes,
+                ReceiptDocumentId = request.ReceiptDocumentId
+            };
+
+            var created = await _expenseService.CreateExpenseAsync(expense, cancellationToken);
+            return CreatedAtAction(nameof(GetExpense), new { expenseId = created.Id }, MapToResponse(created));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to create expense.", detail = ex.Message });
+        }
     }
 
     [HttpPut("{expenseId:guid}")]
@@ -121,12 +153,19 @@ public class ExpensesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var expense = await _expenseService.GetExpenseByIdAsync(expenseId, cancellationToken);
-        if (expense == null)
-            return NotFound();
+        try
+        {
+            var expense = await _expenseService.GetExpenseByIdAsync(expenseId, cancellationToken);
+            if (expense == null)
+                return NotFound();
 
-        await _expenseService.DeleteExpenseAsync(expenseId, cancellationToken);
-        return NoContent();
+            await _expenseService.DeleteExpenseAsync(expenseId, cancellationToken);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to delete expense.", detail = ex.Message });
+        }
     }
 
     private static ExpenseResponse MapToResponse(Expense expense)
