@@ -151,6 +151,11 @@
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
                                     </StackPanel>
+                                    <StackPanel Spacing="6" IsVisible="{Binding IsGeneralTemplate}">
+                                        <TextBlock Text="Custom message (replaces {Message})" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBox Text="{Binding CustomMessage}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60" Watermark="Type your message here..."
+                                                 Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                    </StackPanel>
                                     <StackPanel Spacing="6">
                                         <TextBlock Text="Subject" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                                         <TextBox Text="{Binding Subject}" Watermark="Subject" Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>

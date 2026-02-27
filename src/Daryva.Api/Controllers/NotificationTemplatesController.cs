@@ -31,6 +31,11 @@ public class NotificationTemplatesController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var templates = await _notificationService.GetTemplatesAsync(channel, type, cancellationToken);
+        if (templates.Count == 0)
+        {
+            await _notificationService.SeedDefaultTemplatesAsync(_tenantContext.CurrentOrgId.Value, cancellationToken);
+            templates = await _notificationService.GetTemplatesAsync(channel, type, cancellationToken);
+        }
         var response = templates.Select(MapToResponse).ToList();
         return Ok(response);
     }

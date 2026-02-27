@@ -9,6 +9,7 @@ public interface INotificationService
 {
     Task<List<NotificationRecipientResponse>> BuildRecipientsAsync(RecipientFilterRequest filter, CancellationToken cancellationToken = default);
     Task<List<NotificationTemplate>> GetTemplatesAsync(string? channel, string? type, CancellationToken cancellationToken = default);
+    Task SeedDefaultTemplatesAsync(Guid organizationId, CancellationToken cancellationToken = default);
     Task<NotificationTemplate?> GetTemplateByIdAsync(Guid templateId, CancellationToken cancellationToken = default);
     Task<NotificationTemplate> CreateTemplateAsync(NotificationTemplate template, CancellationToken cancellationToken = default);
     Task UpdateTemplateAsync(NotificationTemplate template, CancellationToken cancellationToken = default);
@@ -99,6 +100,71 @@ public class NotificationService : INotificationService
             .OrderByDescending(t => t.IsDefault)
             .ThenByDescending(t => t.CreatedAt)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task SeedDefaultTemplatesAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        var anyExists = await _dbContext.NotificationTemplates
+            .IgnoreQueryFilters()
+            .AnyAsync(t => t.OrganizationId == organizationId, cancellationToken);
+        if (anyExists)
+            return;
+
+        var defaults = new[]
+        {
+            new NotificationTemplate
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                Name = "Rent Due Reminder",
+                Channel = "Email",
+                Type = "RentDue",
+                SubjectTemplate = "Rent Due Reminder - {Month}",
+                BodyTemplate = "Dear {TenantName},\r\n\r\nThis is a reminder that your rent payment of £{AmountDue} for {Month} is due on {DueDate}.\r\n\r\nProperty: {HouseAddress}\r\n\r\nPlease ensure payment is made by the due date.\r\n\r\nPayment Instructions: {PayInstructions}\r\n\r\nThank you.",
+                IsDefault = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new NotificationTemplate
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                Name = "Rent Overdue",
+                Channel = "Email",
+                Type = "RentOverdue",
+                SubjectTemplate = "URGENT: Rent Overdue - {Month}",
+                BodyTemplate = "Dear {TenantName},\r\n\r\nThis is to inform you that your rent payment of £{AmountDue} for {Month} is now overdue.\r\n\r\nProperty: {HouseAddress}\r\nDue Date: {DueDate}\r\n\r\nPlease arrange payment immediately to avoid further action.\r\n\r\nPayment Instructions: {PayInstructions}\r\n\r\nThank you.",
+                IsDefault = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new NotificationTemplate
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                Name = "Missing Student Letter",
+                Channel = "Email",
+                Type = "MissingDocuments",
+                SubjectTemplate = "Missing Student Confirmation Letter",
+                BodyTemplate = "Dear {TenantName},\r\n\r\nThis is a reminder that we are still missing your Student Confirmation Letter.\r\n\r\nProperty: {HouseAddress}\r\n\r\nPlease provide this document at your earliest convenience.\r\n\r\nThank you.",
+                IsDefault = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new NotificationTemplate
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                Name = "General Message",
+                Channel = "Email",
+                Type = "General",
+                SubjectTemplate = "Message from Landlord",
+                BodyTemplate = "Dear {TenantName},\r\n\r\n{Message}\r\n\r\nProperty: {HouseAddress}\r\n\r\nThank you.",
+                IsDefault = true,
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+
+        foreach (var t in defaults)
+            _dbContext.NotificationTemplates.Add(t);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<NotificationTemplate?> GetTemplateByIdAsync(Guid templateId, CancellationToken cancellationToken = default)

@@ -69,7 +69,7 @@ namespace Daryva.MVVM.ViewModels
             ChannelOptions = new ObservableCollection<string> { "Email", "SMS", "WhatsApp" };
             QueueStatusOptions = new ObservableCollection<string> { "Pending", "Failed", "Cancelled", "All" };
             HistoryStatusOptions = new ObservableCollection<string> { "Sent", "Failed", "All" };
-            VariableTokens = new ObservableCollection<string> { "{TenantName}", "{HouseAddress}", "{AmountDue}", "{DueDate}", "{Month}", "{PayInstructions}", "{Currency}" };
+            VariableTokens = new ObservableCollection<string> { "{TenantName}", "{HouseAddress}", "{AmountDue}", "{DueDate}", "{Month}", "{PayInstructions}", "{Currency}", "{Message}" };
 
             LoadRecipientsCommand = new RelayCommand(async _ => await LoadRecipientsAsync());
             LoadTemplatesCommand = new RelayCommand(async _ => await LoadTemplatesAsync());
@@ -322,6 +322,17 @@ namespace Daryva.MVVM.ViewModels
 
         public string PreviewText { get; set; } = string.Empty;
 
+        /// <summary>Custom message text for General template; replaces {Message} in the body.</summary>
+        public string CustomMessage
+        {
+            get => _customMessage;
+            set
+            {
+                if (SetProperty(ref _customMessage, value ?? string.Empty))
+                    PreviewMessageCommand.Execute(null);
+            }
+        }
+
         public RecipientViewModel? SelectedRecipient
         {
             get => _selectedRecipient;
@@ -432,6 +443,7 @@ namespace Daryva.MVVM.ViewModels
                 {
                     SelectedTemplateId = Templates.First().TemplateId;
                 }
+                OnPropertyChanged(nameof(IsGeneralTemplate));
             }
             catch (Exception ex)
             {
@@ -593,6 +605,7 @@ namespace Daryva.MVVM.ViewModels
         {
             if (SelectedRecipient == null) return;
 
+            var payInstructions = await _settingsService.GetSettingAsync("PaymentInstructions", "Please contact your landlord for payment instructions.") ?? "Please contact your landlord for payment instructions.";
             var context = new NotificationContext
             {
                 TenantName = SelectedRecipient.TenantName,
@@ -600,7 +613,8 @@ namespace Daryva.MVVM.ViewModels
                 AmountDue = SelectedRecipient.AmountDue,
                 DueDate = SelectedRecipient.DueDate,
                 Month = new DateTime(SelectedYear, SelectedMonth, 1).ToString("MMMM yyyy"),
-                PayInstructions = "Please contact your landlord for payment instructions."
+                PayInstructions = payInstructions,
+                Message = CustomMessage ?? ""
             };
 
             var renderedSubject = await _notificationService.RenderTemplateAsync(Subject, null, context);
@@ -711,6 +725,7 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
+                var payInstructions = await _settingsService.GetSettingAsync("PaymentInstructions", "Please contact your landlord for payment instructions.") ?? "Please contact your landlord for payment instructions.";
                 var d = ScheduledFor?.DateTime.Date ?? DateTime.Today;
                 var t = ScheduledTime ?? new TimeSpan(15, 0, 0);
                 var dt = d.Add(t);
@@ -724,7 +739,8 @@ namespace Daryva.MVVM.ViewModels
                         AmountDue = recipient.AmountDue,
                         DueDate = recipient.DueDate,
                         Month = new DateTime(SelectedYear, SelectedMonth, 1).ToString("MMMM yyyy"),
-                        PayInstructions = "Please contact your landlord for payment instructions."
+                        PayInstructions = payInstructions,
+                        Message = CustomMessage ?? ""
                     };
 
                     var renderedSubject = await _notificationService.RenderTemplateAsync(Subject, null, context);
@@ -785,7 +801,7 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
-                // Render the template with sample data for preview
+                var payInstructions = await _settingsService.GetSettingAsync("PaymentInstructions", "Please contact your landlord for payment instructions.") ?? "Please contact your landlord for payment instructions.";
                 var context = new NotificationContext
                 {
                     TenantName = "Test Tenant",
@@ -793,7 +809,8 @@ namespace Daryva.MVVM.ViewModels
                     AmountDue = 500.00m,
                     DueDate = DateTime.Now.AddDays(7),
                     Month = new DateTime(SelectedYear, SelectedMonth, 1).ToString("MMMM yyyy"),
-                    PayInstructions = "Please contact your landlord for payment instructions."
+                    PayInstructions = payInstructions,
+                    Message = CustomMessage ?? ""
                 };
 
                 var renderedSubject = await _notificationService.RenderTemplateAsync(Subject, null, context);
