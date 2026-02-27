@@ -52,20 +52,14 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var loadingWindow = new StartupLoadingWindow();
-            desktop.MainWindow = loadingWindow;
-            _ = InitializeDesktopAsync(desktop, loadingWindow);
+            _ = InitializeDesktopAsync(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private async Task InitializeDesktopAsync(
-        IClassicDesktopStyleApplicationLifetime desktop,
-        StartupLoadingWindow loadingWindow)
+    private async Task InitializeDesktopAsync(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        var splashShownAtUtc = DateTime.UtcNow;
-
         try
         {
             var serviceProvider = ServiceProvider!;
@@ -77,28 +71,15 @@ public partial class App : Application
 
             _ = serviceProvider.GetRequiredService<Daryva.Services.Business.ScheduledNotificationProcessor>();
 
-            var elapsed = DateTime.UtcNow - splashShownAtUtc;
-            var minSplashDuration = TimeSpan.FromSeconds(5);
-            var remaining = minSplashDuration - elapsed;
-            if (remaining > TimeSpan.Zero)
-            {
-                await Task.Delay(remaining).ConfigureAwait(false);
-            }
-
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 desktop.MainWindow = mainWindow;
                 mainWindow.Show();
-                loadingWindow.Close();
             });
         }
         catch
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                loadingWindow.Close();
-                desktop.Shutdown();
-            });
+            await Dispatcher.UIThread.InvokeAsync(() => desktop.Shutdown());
         }
     }
 

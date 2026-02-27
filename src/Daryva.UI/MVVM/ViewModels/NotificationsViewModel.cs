@@ -39,6 +39,7 @@ namespace Daryva.MVVM.ViewModels
         private string _queueStatusFilter = "Pending";
         private string _historyStatusFilter = "Sent";
         private bool _isLoadingRecipients;
+        private string _customMessage = string.Empty;
 
         public NotificationsViewModel(
             INotificationService notificationService,
@@ -284,9 +285,13 @@ namespace Daryva.MVVM.ViewModels
                 if (SetProperty(ref _selectedTemplateId, value))
                 {
                     LoadTemplateContent();
+                    OnPropertyChanged(nameof(IsGeneralTemplate));
                 }
             }
         }
+
+        /// <summary>True when the selected template is type "General"; show Custom message field.</summary>
+        public bool IsGeneralTemplate => Templates.FirstOrDefault(t => t.TemplateId == SelectedTemplateId)?.Type == "General";
 
         public string Subject
         {
