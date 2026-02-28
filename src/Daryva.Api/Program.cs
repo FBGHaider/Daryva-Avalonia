@@ -150,17 +150,19 @@ app.UseCors("Frontend");
 // Return 500 with JSON body (error, detail, inner) for any unhandled exception
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
-// Add development auth middleware (if enabled). Auth:Mode = "Dev" or DevAuth:Enabled = true.
+// Auth:Mode = "Dev" or DevAuth:Enabled = true (used for seeding and for fallback below)
 var authMode = app.Configuration.GetValue<string>("Auth:Mode");
 var devAuthEnabled = string.Equals(authMode, "Dev", StringComparison.OrdinalIgnoreCase)
     || app.Configuration.GetValue<bool>("DevAuth:Enabled");
+
+// Authentication first so Clerk/JWT can set User; DevAuth runs after as fallback when no token
+app.UseAuthentication();
+
 if (devAuthEnabled)
 {
     app.UseMiddleware<DevAuthMiddleware>();
 }
 
-// Add authentication/authorization middleware
-app.UseAuthentication();
 app.UseAuthorization();
 
 // Add tenant context middleware (after auth, before controllers)

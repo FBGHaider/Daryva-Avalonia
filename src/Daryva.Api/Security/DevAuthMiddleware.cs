@@ -5,10 +5,11 @@ namespace Daryva.Api.Security;
 
 /// <summary>
 /// Development-only authentication middleware.
-/// 
-/// When enabled via appsettings.DevAuth.Enabled, injects a fake user identity
-/// without requiring an external auth provider. Useful for local development and testing.
-/// 
+///
+/// When enabled, injects a dev user only when the request is not already authenticated
+/// (no valid Bearer token). Must run after UseAuthentication() so Clerk/JWT takes precedence.
+/// Enables local testing without a token while still using real identity when the client sends one.
+///
 /// WARNING: This middleware must NEVER be enabled in production.
 /// </summary>
 public class DevAuthMiddleware
@@ -36,30 +37,32 @@ public class DevAuthMiddleware
 
         if (_enabled)
         {
-            _logger.LogWarning("⚠️  DevAuth is ENABLED. This must NEVER be used in production. Requests will be authenticated as '{Email}'.", _userEmail);
+            _logger.LogWarning("⚠️  DevAuth is ENABLED (fallback when no Bearer token). Must NEVER be used in production. Unauthenticated requests will be treated as '{Email}'.", _userEmail);
         }
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Only inject dev user when no valid auth is present (e.g. no Bearer token or JWT failed).
+        // This must run after UseAuthentication() so Clerk/JWT can take precedence.
         if (_enabled)
         {
-            // Create a claims identity for the dev user
-            var claims = new List<Claim>
+            var isAuthenticated = context.User?.Identity?.IsAuthenticated == true;
+            if (!isAuthenticated)
             {
-                new(ClaimTypes.NameIdentifier, _userId),
-                new("sub", _userId),
-                new(ClaimTypes.Email, _userEmail),
-                new(ClaimTypes.Name, _userName),
-            };
+                var claims = new List<Claim>
+                {
+                    new(ClaimTypes.NameIdentifier, _userId),
+                    new("sub", _userId),
+                    new(ClaimTypes.Email, _userEmail),
+                    new(ClaimTypes.Name, _userName),
+                };
 
-            var claimsIdentity = new ClaimsIdentity(claims, "DevAuth");
-            var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
+                var claimsIdentity = new ClaimsIdentity(claims, "DevAuth");
+                context.User = new ClaimsPrincipal(claimsIdentity);
 
-            // Set the user on the HttpContext
-            context.User = claimsPrincipal;
-
-            _logger.LogDebug("DevAuth: Injected user '{Email}' (UserId: {UserId})", _userEmail, _userId);
+                _logger.LogDebug("DevAuth: No auth present; injected user '{Email}' (UserId: {UserId})", _userEmail, _userId);
+            }
         }
 
         await _next(context);
