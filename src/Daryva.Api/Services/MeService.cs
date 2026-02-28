@@ -82,6 +82,17 @@ public class MeService : IMeService
 
         var orgList = (await _orgService.GetUserOrganizationsAsync(userId, cancellationToken)).ToList();
 
+        // If user has no Daryva API orgs (e.g. first sign-in or only created org in Clerk), auto-create one
+        // so the app can go straight to dashboard instead of showing setup.
+        if (orgList.Count == 0)
+        {
+            var suggestedName = !string.IsNullOrWhiteSpace(profile.DisplayName)
+                ? $"{profile.DisplayName}'s organization"
+                : null;
+            await _orgService.EnsureDefaultOrganizationAsync(userId, suggestedName, cancellationToken);
+            orgList = (await _orgService.GetUserOrganizationsAsync(userId, cancellationToken)).ToList();
+        }
+
         var requiresOrgSetup = orgList.Count == 0;
         var requiresProfileSetup = string.IsNullOrWhiteSpace(profile.DisplayName);
 

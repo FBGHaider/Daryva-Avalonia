@@ -29,6 +29,15 @@ public interface IOrganizationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// If the user has no organizations, create a default one (e.g. for first-time or Clerk-only users).
+    /// Used so the app can skip "setup" and go straight to dashboard.
+    /// </summary>
+    Task EnsureDefaultOrganizationAsync(
+        string userId,
+        string? suggestedName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Get organization by ID (if user is member).
     /// </summary>
     Task<OrganizationResponse?> GetOrganizationAsync(
@@ -169,6 +178,26 @@ public class OrganizationService : IOrganizationService
             .Where(m => m.Organization != null)
             .Select(m => MapToResponse(m.Organization!, m.Role))
             .ToList();
+    }
+
+    public async Task EnsureDefaultOrganizationAsync(
+        string userId,
+        string? suggestedName,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _dbContext.OrganizationMembers
+            .AnyAsync(m => m.UserId == userId, cancellationToken);
+        if (existing)
+            return;
+
+        var name = string.IsNullOrWhiteSpace(suggestedName)
+            ? "My organization"
+            : suggestedName.Trim().Length > 256
+                ? suggestedName.Trim().Substring(0, 256)
+                : suggestedName.Trim();
+
+        await CreateOrganizationAsync(userId, new CreateOrganizationRequest { Name = name }, cancellationToken);
+        _logger.LogInformation("Auto-created default organization for user {UserId} (no Daryva orgs existed).", userId);
     }
 
     public async Task<OrganizationResponse?> GetOrganizationAsync(
