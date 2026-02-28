@@ -127,6 +127,7 @@ public class TenantContextMiddleware
         return path == "/health" ||
                path == "/api/me" ||    // Current user profile + onboarding state (no org context required)
                path == "/api/orgs" ||  // Allow listing user's organizations without X-Org-Id
+               path.StartsWith("/api/orgs/join/") || // Accept invite / join by code (no org context required)
                path.StartsWith("/api/auth/") ||
                path == "/swagger" ||
                path.StartsWith("/swagger/") ||

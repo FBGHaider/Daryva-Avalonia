@@ -3,6 +3,7 @@ import { Inter, Sora, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { site } from "@/lib/site";
 import { brand, defaultTitle, titleTemplate } from "@/lib/brand";
+import { ClerkProviderWrapper } from "@/components/providers/ClerkProviderWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -63,7 +64,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${sora.variable} ${spaceGrotesk.variable}`}>
-      <body className="min-h-screen font-body">{children}</body>
+      <body className="min-h-screen font-body">
+        <ClerkProviderWrapper>{children}</ClerkProviderWrapper>
+      </body>
     </html>
   );
 }
