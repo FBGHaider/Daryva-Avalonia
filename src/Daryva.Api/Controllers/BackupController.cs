@@ -36,6 +36,7 @@ public class BackupController : ControllerBase
         var expenses = await _dbContext.Expenses.AsNoTracking().ToListAsync(cancellationToken);
         var rentPayments = await _dbContext.RentPayments.AsNoTracking().ToListAsync(cancellationToken);
         var depositPayments = await _dbContext.DepositPayments.AsNoTracking().ToListAsync(cancellationToken);
+        var depositReturns = await _dbContext.DepositReturns.AsNoTracking().ToListAsync(cancellationToken);
         var templates = await _dbContext.NotificationTemplates.AsNoTracking().ToListAsync(cancellationToken);
         var notifications = await _dbContext.Notifications.AsNoTracking().ToListAsync(cancellationToken);
         var attempts = await _dbContext.NotificationAttempts.AsNoTracking().ToListAsync(cancellationToken);
@@ -175,7 +176,7 @@ public class BackupController : ControllerBase
             }).ToList()
         };
 
-        _logger.LogInformation("Exported backup for org {OrgId}: {Houses} houses, {Tenants} tenants, {Tenancies} tenancies", _tenantContext.CurrentOrgId.Value, export.Houses.Count, export.Tenants.Count, export.Tenancies.Count);
+        _logger.LogInformation("Exported backup for org {OrgId}: {Houses} houses, {Tenants} tenants, {Tenancies} tenancies, {DepositReturns} deposit returns", _tenantContext.CurrentOrgId.Value, export.Houses.Count, export.Tenants.Count, export.Tenancies.Count, export.DepositReturns.Count);
         return Ok(export);
     }
 

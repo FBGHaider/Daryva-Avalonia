@@ -21,6 +21,7 @@ namespace Daryva.MVVM.ViewModels
         private string _databaseType = "Unknown";
         private bool _isDatabaseConnected = false;
         private decimal _databaseSizeMB = 0;
+        private bool _canBackupOrRestore = false;
 
         public BackupSettingsViewModel(
             ISettingsService settingsService,
@@ -90,6 +91,13 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _databaseSizeMB, value);
         }
 
+        /// <summary>True when an organisation is selected so backup/restore can run.</summary>
+        public bool CanBackupOrRestore
+        {
+            get => _canBackupOrRestore;
+            set => SetProperty(ref _canBackupOrRestore, value);
+        }
+
         public List<string> BackupFrequencyOptions { get; } = new() { "Daily", "Weekly" };
 
         private async Task BrowseBackupLocationAsync()
@@ -113,6 +121,7 @@ namespace Daryva.MVVM.ViewModels
                 DatabaseType = "Cloud";
                 IsDatabaseConnected = await _settingsService.IsDatabaseConnectedAsync();
                 DatabaseSizeMB = await _settingsService.GetDatabaseSizeAsync();
+                CanBackupOrRestore = _apiClient.CurrentOrgId.HasValue;
             }
             catch (Exception ex)
             {

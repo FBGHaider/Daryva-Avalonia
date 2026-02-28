@@ -15,6 +15,7 @@ public class BulkImportRequest
     public List<ImportNotificationTemplate> NotificationTemplates { get; set; } = new();
     public List<ImportNotification> Notifications { get; set; } = new();
     public List<ImportNotificationAttempt> NotificationAttempts { get; set; } = new();
+    public List<ImportDepositReturn> DepositReturns { get; set; } = new();
 }
 
 public class ImportHouse
@@ -151,6 +152,15 @@ public class ImportNotificationAttempt
     public string? ProviderMessageId { get; set; }
 }
 
+public class ImportDepositReturn
+{
+    public int OldId { get; set; }
+    public int OldTenancyId { get; set; }
+    public DateTime ReturnedDate { get; set; }
+    public decimal AmountReturned { get; set; }
+    public string? Notes { get; set; }
+}
+
 /// <summary>
 /// Response from bulk import showing what was imported.
 /// </summary>
@@ -175,5 +185,6 @@ public class ImportStats
     public int NotificationTemplatesImported { get; set; }
     public int NotificationsImported { get; set; }
     public int NotificationAttemptsImported { get; set; }
+    public int DepositReturnsImported { get; set; }
     public int TotalItemsImported { get; set; }
 }

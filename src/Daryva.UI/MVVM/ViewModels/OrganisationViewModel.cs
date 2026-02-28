@@ -23,6 +23,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
         private readonly IAuthSessionService _authSession;
+        private readonly IBackupService _backupService;
 
         private Organisation? _currentOrganisation;
         private Organisation? _selectedOrganisation;
@@ -43,7 +44,8 @@ namespace Daryva.MVVM.ViewModels
             IOrganisationMemberService memberService,
             IHouseService houseService,
             IDialogService dialogService,
-            IAuthSessionService authSession)
+            IAuthSessionService authSession,
+            IBackupService backupService)
         {
             _orgService = orgService ?? throw new ArgumentNullException(nameof(orgService));
             _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
@@ -52,6 +54,7 @@ namespace Daryva.MVVM.ViewModels
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _authSession = authSession ?? throw new ArgumentNullException(nameof(authSession));
+            _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
 
             Organisations = new ObservableCollection<Organisation>();
             Members = new ObservableCollection<MemberVm>();
@@ -69,6 +72,7 @@ namespace Daryva.MVVM.ViewModels
             CopyRecoveryCodeCommand = new RelayCommand(async _ => await CopyRecoveryCodeAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
             RestoreOrgCommand = new RelayCommand(async _ => await RestoreOrgByIdAsync());
             RestoreFromBackupCommand = new RelayCommand(async _ => await RestoreFromBackupAsync(), _ => CurrentOrganisation != null);
+            BackupNowCommand = new RelayCommand(async _ => await BackupNowAsync(), _ => CurrentOrganisation != null);
             ExportForRentRepairCommand = new RelayCommand(async _ => await ExportForRentRepairAsync(), _ => CurrentOrganisation != null);
             RepairRentFromFileCommand = new RelayCommand(async _ => await RepairRentFromFileAsync(), _ => CurrentOrganisation != null);
 
@@ -107,6 +111,7 @@ namespace Daryva.MVVM.ViewModels
                     ((RelayCommand)InviteMemberCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)CopyRecoveryCodeCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RestoreFromBackupCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)BackupNowCommand).RaiseCanExecuteChanged();
                 }
             }
         }
@@ -215,6 +220,7 @@ namespace Daryva.MVVM.ViewModels
         public ICommand CopyRecoveryCodeCommand { get; }
         public ICommand RestoreOrgCommand { get; }
         public ICommand RestoreFromBackupCommand { get; }
+        public ICommand BackupNowCommand { get; }
         public ICommand ExportForRentRepairCommand { get; }
         public ICommand RepairRentFromFileCommand { get; }
 
@@ -622,6 +628,27 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
+        private async Task BackupNowAsync()
+        {
+            if (CurrentOrganisation == null) return;
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                var path = await _backupService.CreateBackupAsync(null);
+                _dialogService.ShowMessage($"Backup created successfully.\n\nSaved to: {path}", "Backup complete");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Backup failed: {ex.Message}", "Backup error");
+            }
+            finally
+            {
+                IsBusy = false;
+                ((RelayCommand)BackupNowCommand).RaiseCanExecuteChanged();
+            }
+        }
+
         private async Task RestoreFromBackupAsync()
         {
             if (CurrentOrganisation == null) return;
@@ -640,7 +667,7 @@ namespace Daryva.MVVM.ViewModels
                     {
                         var msg = result.Message;
                         if (result.Stats != null)
-                            msg += $"\n\nHouses: {result.Stats.HousesImported}, Tenants: {result.Stats.TenantsImported}, Tenancies: {result.Stats.TenanciesImported}, Expenses: {result.Stats.ExpensesImported}, Rent payments: {result.Stats.RentPaymentsImported}, Deposit payments: {result.Stats.DepositPaymentsImported}.";
+                            msg += $"\n\nHouses: {result.Stats.HousesImported}, Tenants: {result.Stats.TenantsImported}, Tenancies: {result.Stats.TenanciesImported}, Expenses: {result.Stats.ExpensesImported}, Rent payments: {result.Stats.RentPaymentsImported}, Deposit payments: {result.Stats.DepositPaymentsImported}, Deposit returns: {result.Stats.DepositReturnsImported}.";
                         _dialogService.ShowMessage(msg, "Backup restored");
                         _ = LoadAsync();
                     }

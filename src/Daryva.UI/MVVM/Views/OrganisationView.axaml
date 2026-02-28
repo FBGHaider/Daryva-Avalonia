@@ -201,6 +201,7 @@
                                     <TextBlock Text="Have a recovery code? Paste it below to switch back to that organisation." Classes="text-muted" FontSize="12"/>
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <Button Content="Restore organisation from code…" Classes="secondary" Command="{Binding RestoreOrgCommand}"/>
+                                        <Button Content="Backup now…" Classes="secondary" Command="{Binding BackupNowCommand}" ToolTip.Tip="Export API data (houses, tenants, tenancies, payments, deposit returns) to a JSON file"/>
                                         <Button Content="Restore from backup file…" Classes="secondary" Command="{Binding RestoreFromBackupCommand}" ToolTip.Tip="Import houses, tenants, tenancies, payments from a Daryva API backup JSON file"/>
                                         <Button Content="Export for rent repair…" Classes="secondary" Command="{Binding ExportForRentRepairCommand}" ToolTip.Tip="Export tenancies with current rent/deposit so you can fix wrong values (e.g. after migration)"/>
                                         <Button Content="Repair rent from file…" Classes="secondary" Command="{Binding RepairRentFromFileCommand}" ToolTip.Tip="Apply corrected rent/deposit from an edited export file"/>

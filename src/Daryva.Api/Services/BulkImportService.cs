@@ -58,7 +58,7 @@ public class BulkImportService : IBulkImportService
     public async Task<BulkImportResponse> ImportDataAsync(Guid organizationId, BulkImportRequest request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
-            "Starting bulk import for organization {OrgId}: {Houses} houses, {Tenants} tenants, {Tenancies} tenancies, {Expenses} expenses, {Documents} documents, {RentPayments} rent payments, {DepositPayments} deposit payments, {NotificationTemplates} templates, {Notifications} notifications, {NotificationAttempts} attempts",
+            "Starting bulk import for organization {OrgId}: {Houses} houses, {Tenants} tenants, {Tenancies} tenancies, {Expenses} expenses, {Documents} documents, {RentPayments} rent payments, {DepositPayments} deposit payments, {DepositReturns} deposit returns, {NotificationTemplates} templates, {Notifications} notifications, {NotificationAttempts} attempts",
             organizationId,
             request.Houses.Count,
             request.Tenants.Count,
@@ -67,6 +67,7 @@ public class BulkImportService : IBulkImportService
             request.Documents.Count,
             request.RentPayments.Count,
             request.DepositPayments.Count,
+            request.DepositReturns.Count,
             request.NotificationTemplates.Count,
             request.Notifications.Count,
             request.NotificationAttempts.Count);
@@ -696,6 +697,7 @@ public class BulkImportService : IBulkImportService
                 response.Stats.DocumentsImported +
                 response.Stats.RentPaymentsImported +
                 response.Stats.DepositPaymentsImported +
+                response.Stats.DepositReturnsImported +
                 response.Stats.NotificationTemplatesImported +
                 response.Stats.NotificationsImported +
                 response.Stats.NotificationAttemptsImported;
@@ -713,7 +715,7 @@ public class BulkImportService : IBulkImportService
             response.IdMappings["notifications"] = notificationIdMap.ToDictionary(k => k.Key, v => v.Value);
 
             _logger.LogInformation(
-                "Bulk import completed: {Houses} houses, {Tenants} tenants, {Tenancies} tenancies, {Expenses} expenses, {Documents} documents, {RentPayments} rent payments, {DepositPayments} deposit payments, {NotificationTemplates} templates, {Notifications} notifications, {NotificationAttempts} attempts",
+                "Bulk import completed: {Houses} houses, {Tenants} tenants, {Tenancies} tenancies, {Expenses} expenses, {Documents} documents, {RentPayments} rent payments, {DepositPayments} deposit payments, {DepositReturns} deposit returns, {NotificationTemplates} templates, {Notifications} notifications, {NotificationAttempts} attempts",
                 response.Stats.HousesImported,
                 response.Stats.TenantsImported,
                 response.Stats.TenanciesImported,
@@ -721,6 +723,7 @@ public class BulkImportService : IBulkImportService
                 response.Stats.DocumentsImported,
                 response.Stats.RentPaymentsImported,
                 response.Stats.DepositPaymentsImported,
+                response.Stats.DepositReturnsImported,
                 response.Stats.NotificationTemplatesImported,
                 response.Stats.NotificationsImported,
                 response.Stats.NotificationAttemptsImported);

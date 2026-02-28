@@ -83,6 +83,12 @@
                                Foreground="{DynamicResource PrimaryTextBrush}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,4"/>
+                    <TextBlock IsVisible="{Binding CanBackupOrRestore, Converter={x:Static BoolConverters.Not}}"
+                               Text="Select an organisation on the Organisation page before creating or restoring a backup."
+                               FontSize="12"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,8"/>
 
                     <Grid ColumnDefinitions="240,*" RowDefinitions="Auto">
                         <TextBlock Text="Backup Location:"
@@ -102,18 +108,22 @@
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <Button Content="Backup Now"
                                 Command="{Binding BackupNowCommand}"
+                                IsEnabled="{Binding CanBackupOrRestore}"
                                 Background="#FF9800"
                                 Foreground="White"
                                 BorderThickness="0"
-                                Padding="16,8"/>
+                                Padding="16,8"
+                                ToolTip.Tip="Export API data (houses, tenants, tenancies, payments, deposit returns) to a JSON file"/>
                         <Button Content="Restore Backup..."
                             Command="{Binding RestoreBackupCommand}"
+                            IsEnabled="{Binding CanBackupOrRestore}"
                             Background="Transparent"
                             BorderBrush="{DynamicResource BorderBrush}"
                             Foreground="{DynamicResource PrimaryTextBrush}"
                             BorderThickness="1"
                             Padding="16,8"
-                            Margin="8,0,0,0"/>
+                            Margin="8,0,0,0"
+                            ToolTip.Tip="Import a backup JSON file into the currently selected organisation"/>
                     </StackPanel>
 
                     <StackPanel Spacing="12" Margin="0,8,0,0">

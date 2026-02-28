@@ -144,6 +144,9 @@ public class ImportStatsDto
     [JsonPropertyName("depositPaymentsImported")]
     public int DepositPaymentsImported { get; set; }
 
+    [JsonPropertyName("depositReturnsImported")]
+    public int DepositReturnsImported { get; set; }
+
     [JsonPropertyName("totalItemsImported")]
     public int TotalItemsImported { get; set; }
 }
