@@ -111,8 +111,13 @@ public class PaymentsController : ControllerBase
         var orgId = _tenantContext.CurrentOrgId.Value;
         try
         {
+            // Sum deposit across same (tenant, house) group so record-payment dialog shows correct remaining
+            var groupIds = await _rentLedgerService.GetTenancyIdsInSameGroupAsync(tenancyId, cancellationToken);
+            if (groupIds == null || groupIds.Count == 0)
+                return NotFound(new { error = "Tenancy not found." });
+
             var total = await _dbContext.DepositPayments
-                .Where(p => p.OrganizationId == orgId && p.TenancyId == tenancyId)
+                .Where(p => p.OrganizationId == orgId && groupIds.Contains(p.TenancyId))
                 .SumAsync(p => p.AmountPaid, cancellationToken);
 
             return Ok(total);
