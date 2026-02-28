@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Daryva.Services.Api;
+using Daryva.Services.AppReset;
+using Daryva.Services.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Duende.IdentityModel.Client;
 using Duende.IdentityModel.OidcClient;
@@ -10,12 +12,14 @@ namespace Daryva.Services.Auth;
 /// <summary>
 /// SaaS auth via OIDC Authorization Code + PKCE; system browser and loopback redirect.
 /// Persists tokens with <see cref="ITokenStore"/>; syncs to <see cref="IAuthSessionService"/> for existing ApiClient.
+/// Updates <see cref="ISessionContext"/> on sign-in/sign-out so session-scoped storage and UI stay correct.
 /// </summary>
 public sealed class AuthService : IAuthService
 {
     private readonly ITokenStore _tokenStore;
     private readonly IAuthSessionService _authSession;
     private readonly IConfigurationService _configuration;
+    private readonly ISessionContext _sessionContext;
     private readonly IServiceProvider _serviceProvider;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private OidcClient? _oidcClient;
@@ -26,11 +30,13 @@ public sealed class AuthService : IAuthService
         ITokenStore tokenStore,
         IAuthSessionService authSession,
         IConfigurationService configuration,
+        ISessionContext sessionContext,
         IServiceProvider serviceProvider)
     {
         _tokenStore = tokenStore;
         _authSession = authSession;
         _configuration = configuration;
+        _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
@@ -78,6 +84,7 @@ public sealed class AuthService : IAuthService
         };
         await _tokenStore.SaveAsync(stored, cancellationToken).ConfigureAwait(false);
         _authSession.SetSession(result.AccessToken ?? string.Empty, result.RefreshToken ?? string.Empty, expiresAtUtc, userId, email);
+        _sessionContext.SetFromToken(userId, email);
         RaiseStateChanged(true);
     }
 
@@ -85,8 +92,8 @@ public sealed class AuthService : IAuthService
     {
         await _tokenStore.ClearAsync(cancellationToken).ConfigureAwait(false);
         _authSession.ClearSession();
-        var clearer = _serviceProvider.GetRequiredService<IAccountDataClearer>();
-        await clearer.ClearAsync(cancellationToken).ConfigureAwait(false);
+        var resetService = _serviceProvider.GetRequiredService<IAppResetService>();
+        await resetService.ResetToSignedOutAsync(cancellationToken).ConfigureAwait(false);
         RaiseStateChanged(false);
     }
 

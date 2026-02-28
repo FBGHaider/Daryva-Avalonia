@@ -138,6 +138,12 @@ namespace Daryva.Services.Business
             return Task.CompletedTask;
         }
 
+        public void ClearForSignOut()
+        {
+            lock (_readLock)
+                _readIds.Clear();
+        }
+
         private bool IsRead(Guid id)
         {
             lock (_readLock)

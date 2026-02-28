@@ -2,31 +2,33 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Daryva.Services.Auth;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.Services.Api;
 
 /// <summary>
 /// HTTP client wrapper for Daryva.Api backend.
-/// Handles base URL, Authorization Bearer, X-Org-Id, 401 refresh (via IAuthService), transient retry, and friendly errors.
+/// Handles base URL, Authorization Bearer, X-Org-Id from IOrgContext, 401 refresh (via IAuthService), transient retry, and friendly errors.
+/// X-Org-Id is always taken from OrgContext so it is absent when no org is selected (e.g. SignInView/SetupRequired).
 /// </summary>
 public class ApiClient : IApiClient
 {
-    private const string ApiCurrentOrgIdKey = "ApiCurrentOrgId";
     private const int TransientRetryDelayMs = 500;
 
     private readonly HttpClient _httpClient;
-    private Guid? _currentOrgId;
+    private readonly IOrgContext _orgContext;
     private readonly IConfigurationService _configuration;
     private readonly IAuthSessionService _authSession;
     private readonly IAuthService? _authService;
 
-    public Guid? CurrentOrgId => _currentOrgId;
+    public Guid? CurrentOrgId => _orgContext.CurrentOrgId;
     public HttpClient HttpClient => _httpClient;
 
-    public ApiClient(IConfigurationService configuration, IAuthSessionService authSession, IAuthService? authService = null)
+    public ApiClient(IConfigurationService configuration, IAuthSessionService authSession, IOrgContext orgContext, IAuthService? authService = null)
     {
         _configuration = configuration;
         _authSession = authSession;
+        _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
         _authService = authService;
 
         var baseAddress = configuration.GetValue("ApiBaseUrl") ?? "http://localhost:5000";
@@ -42,28 +44,17 @@ public class ApiClient : IApiClient
 
         _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
 
-        var persistedOrgId = configuration.GetValue(ApiCurrentOrgIdKey);
-        if (Guid.TryParse(persistedOrgId, out var orgId) && orgId != Guid.Empty)
-        {
-            SetCurrentOrgId(orgId);
-        }
-
         ApplyAuthState();
     }
 
     public void SetCurrentOrgId(Guid orgId)
     {
-        _currentOrgId = orgId;
-        _httpClient.DefaultRequestHeaders.Remove("X-Org-Id");
-        _httpClient.DefaultRequestHeaders.Add("X-Org-Id", orgId.ToString());
-        _configuration.SetLocalValue(ApiCurrentOrgIdKey, orgId.ToString());
+        _ = _orgContext.SetCurrentOrgAsync(orgId);
     }
 
     public void ClearCurrentOrgId()
     {
-        _currentOrgId = null;
-        _httpClient.DefaultRequestHeaders.Remove("X-Org-Id");
-        _configuration.SetLocalValue(ApiCurrentOrgIdKey, string.Empty);
+        _orgContext.ClearCurrentOrgSelection();
     }
 
     public void ApplyAuthState()

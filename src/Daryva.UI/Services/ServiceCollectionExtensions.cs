@@ -10,6 +10,8 @@ using Daryva.Services.Api;
 using Daryva.Services.Auth;
 using Daryva.Services.Migration;
 using Daryva.Services.OrgContext;
+using Daryva.Services.Session;
+using Daryva.Services.AppReset;
 
 namespace Daryva.Services
 {
@@ -35,6 +37,9 @@ namespace Daryva.Services
             // API Client Services
             services.AddSingleton<IAuthSessionService, AuthSessionService>();
             services.AddSingleton<ITokenStore, TokenStore>();
+            services.AddSingleton<ISessionContext, SessionContext>();
+            services.AddSingleton<IScopedStorage, ScopedStorage>();
+            services.AddSingleton<IAppResetService, AppResetService>();
             services.AddSingleton<IAccountDataClearer, AccountDataClearer>();
             services.AddSingleton<IAuthService, AuthService>();
             services.AddSingleton<IApiClient, ApiClient>();

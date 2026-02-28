@@ -40,6 +40,13 @@ namespace Daryva.Services.Navigation
             OnCurrentViewModelChanged();
         }
 
+        public void ClearStackAndCurrent()
+        {
+            _navigationStack.Clear();
+            _currentViewModel = null;
+            OnCurrentViewModelChanged();
+        }
+
         public void NavigateBack()
         {
             if (_navigationStack.Count > 0)

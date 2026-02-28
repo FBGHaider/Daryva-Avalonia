@@ -34,5 +34,10 @@ namespace Daryva.Services.Navigation
         /// Gets a ViewModel of the specified type from the navigation stack or current view.
         /// </summary>
         T? GetViewModel<T>() where T : MVVM.ViewModels.BaseViewModel;
+
+        /// <summary>
+        /// Clears the navigation stack and current view. Call on sign-out so no stale ViewModels from the previous session remain.
+        /// </summary>
+        void ClearStackAndCurrent();
     }
 }

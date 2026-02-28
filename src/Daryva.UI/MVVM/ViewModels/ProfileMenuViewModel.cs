@@ -40,6 +40,19 @@ namespace Daryva.MVVM.ViewModels
             OpenSupportCommand = new RelayCommand(_ => OpenSupport());
             LogoutCommand = new RelayCommand(async _ => await LogoutAsync());
 
+            _authService.StateChanged += OnAuthStateChanged;
+            _ = LoadUserInfoAsync();
+        }
+
+        private void OnAuthStateChanged(object? sender, AuthStateChangedEventArgs e)
+        {
+            if (!e.IsSignedIn)
+            {
+                UserDisplayName = "User";
+                UserInitials = "U";
+                OrgName = null;
+                return;
+            }
             _ = LoadUserInfoAsync();
         }
 

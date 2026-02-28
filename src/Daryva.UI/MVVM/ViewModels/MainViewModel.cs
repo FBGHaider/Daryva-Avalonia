@@ -113,6 +113,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (!e.IsSignedIn)
                 {
+                    _lastDisplayedOrgId = null;
                     _navigationService.NavigateTo<SignInViewModel>();
                     IsOnboardingMode = true;
                     CurrentOrganizationName = "(Sign in)";

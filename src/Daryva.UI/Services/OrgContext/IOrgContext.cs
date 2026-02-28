@@ -33,6 +33,9 @@ public interface IOrgContext
     /// <summary>Notifies that current org details (e.g. name) changed so subscribers can refresh.</summary>
     void NotifyCurrentOrgDetailsChanged();
 
+    /// <summary>Clears only the current org selection (keeps Orgs list). Use when switching or when no org should be sent (e.g. X-Org-Id absent).</summary>
+    void ClearCurrentOrgSelection();
+
     /// <summary>Clears in-memory org state when the user signs out so the next sign-in does not show stale data.</summary>
     void ClearForSignOut();
 }

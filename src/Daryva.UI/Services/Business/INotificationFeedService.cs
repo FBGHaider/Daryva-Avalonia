@@ -26,5 +26,10 @@ namespace Daryva.Services.Business
         /// Marks the given notification IDs as read.
         /// </summary>
         Task MarkAllAsReadAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Clears in-memory state (e.g. read flags). Call on sign-out so the next user does not see previous session state.
+        /// </summary>
+        void ClearForSignOut();
     }
 }
