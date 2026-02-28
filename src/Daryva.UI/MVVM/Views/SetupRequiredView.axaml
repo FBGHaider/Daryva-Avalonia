@@ -21,6 +21,11 @@
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryTextBrush}"
                        HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding SignedInWithText, FallbackValue='Signed in'}"
+                       FontSize="14"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,8"/>
 
             <!-- Choose Org: user has orgs but must select one -->
             <StackPanel IsVisible="{Binding ShowChooseOrg}" Spacing="12">
@@ -65,11 +70,6 @@
                         HorizontalAlignment="Center"
                         MinWidth="200"/>
             </StackPanel>
-
-            <TextBlock Text="{Binding SignedInWithText}"
-                       Foreground="{DynamicResource SecondaryTextBrush}"
-                       FontSize="13"
-                       HorizontalAlignment="Center"/>
 
             <StackPanel Spacing="12" HorizontalAlignment="Center">
                 <Button Content="Open setup in browser"
