@@ -104,8 +104,8 @@ public class TenantApiService : ITenantApiService
             
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                throw new InvalidOperationException($"Failed to update tenant: {response.StatusCode} - {error}");
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new InvalidOperationException(ApiErrorFormatter.Format("update tenant", response.StatusCode, body));
             }
 
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);

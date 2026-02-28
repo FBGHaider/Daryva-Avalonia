@@ -173,6 +173,7 @@ public class TenanciesController : ControllerBase
     [HttpPut("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> UpdateTenancy(Guid id, [FromBody] UpdateTenancyRequest request, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -184,17 +185,34 @@ public class TenanciesController : ControllerBase
         if (tenancy == null)
             return NotFound();
 
-        tenancy.MoveInDate = request.MoveInDate;
-        tenancy.MoveOutDate = request.MoveOutDate;
+        var moveIn = request.MoveInDate.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(request.MoveInDate.Date, DateTimeKind.Utc)
+            : request.MoveInDate.ToUniversalTime();
+        var moveOut = request.MoveOutDate.HasValue
+            ? (DateTime?) (request.MoveOutDate.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(request.MoveOutDate.Value.Date, DateTimeKind.Utc)
+                : request.MoveOutDate.Value.ToUniversalTime())
+            : null;
+
+        tenancy.MoveInDate = moveIn;
+        tenancy.MoveOutDate = moveOut;
         tenancy.RentStartMonth = request.RentStartMonth;
         tenancy.RentStartYear = request.RentStartYear;
         tenancy.RentAmountMonthly = request.RentAmountMonthly;
         tenancy.DepositAmount = request.DepositAmount;
         tenancy.PaymentDueDay = request.PaymentDueDay;
-        tenancy.Status = request.Status ?? tenancy.Status;
+        tenancy.Status = string.IsNullOrWhiteSpace(request.Status) ? (tenancy.Status ?? "Active") : request.Status.Trim();
         tenancy.Notes = request.Notes;
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return NoContent();
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to save tenancy.", detail = ex.Message, inner = ex.InnerException?.Message });
+        }
     }
 
     [HttpDelete("{id:guid}")]

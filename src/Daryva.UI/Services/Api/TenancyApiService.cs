@@ -117,8 +117,9 @@ public class TenancyApiService : ITenancyApiService
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, string action, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode) return;
-        var error = await response.Content.ReadAsStringAsync(cancellationToken);
-        throw new InvalidOperationException($"Failed to {action}: {response.StatusCode} - {error}");
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var message = ApiErrorFormatter.Format(action, response.StatusCode, body);
+        throw new InvalidOperationException(message);
     }
 
     private class CreateTenancyResponse

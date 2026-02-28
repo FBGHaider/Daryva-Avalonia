@@ -147,6 +147,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
 
+// Return 500 with JSON body (error, detail, inner) for any unhandled exception
+app.UseMiddleware<ExceptionHandlerMiddleware>();
+
 // Add development auth middleware (if enabled). Auth:Mode = "Dev" or DevAuth:Enabled = true.
 var authMode = app.Configuration.GetValue<string>("Auth:Mode");
 var devAuthEnabled = string.Equals(authMode, "Dev", StringComparison.OrdinalIgnoreCase)
