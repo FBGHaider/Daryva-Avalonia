@@ -132,4 +132,9 @@ public class HouseResponse
     /// Sum of monthly rent for active tenancies.
     /// </summary>
     public decimal TotalMonthlyRent { get; set; }
+
+    /// <summary>
+    /// When true, house is archived (soft delete).
+    /// </summary>
+    public bool IsArchived { get; set; }
 }

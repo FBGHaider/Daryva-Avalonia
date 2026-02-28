@@ -53,6 +53,11 @@ public class House : IOrgScopedEntity
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// When true, house is archived (soft delete). Archived houses are excluded from default lists.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
+    /// <summary>
     /// Navigation: Organization reference.
     /// </summary>
     public Organization? Organization { get; set; }

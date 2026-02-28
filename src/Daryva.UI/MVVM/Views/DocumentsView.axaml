@@ -79,25 +79,25 @@
                             ClipToBounds="True"
                             IsVisible="{Binding HasDocuments}">
                     <Grid RowDefinitions="Auto,*">
-                        <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,12">
-                            <Grid ColumnDefinitions="100,140,200,90,90,90,70,70,100">
-                                <TextBlock Grid.Column="0" Text="Type" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Grid.Column="1" Text="Tenant / House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Grid.Column="2" Text="File Name" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Grid.Column="3" Text="Uploaded" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Grid.Column="4" Text="Valid To" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Grid.Column="5" Text="Status" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Grid.Column="6" Text="Version" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Grid.Column="7" Text="Source" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,14">
+                            <Grid ColumnDefinitions="180,160,300,100,100,92,76,76,112">
+                                <TextBlock Grid.Column="0" Text="Type" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="1" Text="Tenant / House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="2" Text="File Name" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="3" Text="Uploaded" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="4" Text="Valid To" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="5" Text="Status" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="6" Text="Version" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                <TextBlock Grid.Column="7" Text="Source" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
                                 <TextBlock Grid.Column="8" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </Grid>
                         </Border>
                     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                         <ListBox ItemsSource="{Binding Documents}" SelectedItem="{Binding SelectedDocument}" SelectionMode="Single"
-                                 Background="{DynamicResource SurfaceBrush}" BorderThickness="0" MinWidth="940">
+                                 Background="{DynamicResource SurfaceBrush}" BorderThickness="0" MinWidth="1200">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,12" Background="Transparent" Cursor="Hand">
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,14" Background="Transparent" Cursor="Hand">
                                         <Border.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem Header="View" Command="{Binding DataContext.ViewDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
@@ -105,21 +105,21 @@
                                                 <MenuItem Header="Delete" Command="{Binding DataContext.DeleteDocumentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                                             </ContextMenu>
                                         </Border.ContextMenu>
-                                        <Grid ColumnDefinitions="100,140,200,90,90,90,70,70,100">
-                                            <TextBlock Grid.Column="0" Text="{Binding DisplayName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding TenantOrHouseDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding FileName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" FontSize="13"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding UploadedAt, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding ValidTo, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
-                                            <Border Grid.Column="5" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        <Grid ColumnDefinitions="180,160,300,100,100,92,76,76,112">
+                                            <TextBlock Grid.Column="0" Text="{Binding Type}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13" Margin="0,0,12,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TenantOrHouseDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13" Margin="0,0,12,0"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding FileName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" FontSize="13" Margin="0,0,12,0"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding UploadedAt, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" Margin="0,0,12,0"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding ValidTo, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" Margin="0,0,12,0"/>
+                                            <Border Grid.Column="5" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,12,0"
                                                     Background="{Binding DocumentStatus, Converter={StaticResource StatusToColorConverter}}">
                                                 <TextBlock Text="{Binding DocumentStatusDisplay}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" FontWeight="SemiBold"/>
                                             </Border>
-                                            <Border Grid.Column="6" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            <Border Grid.Column="6" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,12,0"
                                                     Background="{DynamicResource Surface2Brush}">
                                                 <TextBlock Text="{Binding Version, StringFormat='v{0}'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
                                             </Border>
-                                            <Border Grid.Column="7" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            <Border Grid.Column="7" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,12,0"
                                                     Background="{Binding Source, Converter={StaticResource SourceToChipBrushConverter}}">
                                                 <TextBlock Text="{Binding Source}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11"/>
                                             </Border>

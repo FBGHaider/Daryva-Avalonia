@@ -12,6 +12,9 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
 
+        private int? _editingHouseId;
+        private Guid? _editingHouseApiId;
+        private string _name = string.Empty;
         private string _addressLine1 = string.Empty;
         private string? _addressLine2;
         private string _city = string.Empty;
@@ -28,6 +31,34 @@ namespace Daryva.MVVM.ViewModels
         public event EventHandler? CloseRequested;
 
         public ICommand SaveCommand { get; }
+
+        /// <summary>Title for the dialog (e.g. "Add House" or "Edit House").</summary>
+        public string DialogTitle => _editingHouseId.HasValue ? "Edit House" : "Add House";
+
+        /// <summary>Load existing house for editing. Call before showing the dialog.</summary>
+        public void LoadForEdit(House house)
+        {
+            if (house == null) return;
+            _editingHouseId = house.HouseId;
+            _editingHouseApiId = house.ApiId;
+            Name = string.IsNullOrWhiteSpace(house.Name) ? house.AddressLine1 : house.Name;
+            AddressLine1 = house.AddressLine1;
+            AddressLine2 = house.AddressLine2;
+            City = house.City;
+            Postcode = house.Postcode;
+            TotalRooms = house.TotalRooms > 0 ? house.TotalRooms : 1;
+            OnPropertyChanged(nameof(DialogTitle));
+        }
+
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                SetProperty(ref _name, value ?? string.Empty);
+                ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
+            }
+        }
 
         public string AddressLine1
         {
@@ -85,6 +116,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 var house = new House
                 {
+                    Name = Name,
                     AddressLine1 = AddressLine1,
                     AddressLine2 = AddressLine2,
                     City = City,
@@ -92,13 +124,23 @@ namespace Daryva.MVVM.ViewModels
                     TotalRooms = TotalRooms
                 };
 
-                await _houseService.CreateHouseAsync(house);
-                _dialogService.ShowMessage("House added successfully!", "Success");
+                if (_editingHouseId.HasValue)
+                {
+                    house.HouseId = _editingHouseId.Value;
+                    house.ApiId = _editingHouseApiId;
+                    await _houseService.UpdateHouseAsync(house);
+                    _dialogService.ShowMessage("House updated successfully!", "Success");
+                }
+                else
+                {
+                    await _houseService.CreateHouseAsync(house);
+                    _dialogService.ShowMessage("House added successfully!", "Success");
+                }
                 CloseRequested?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {
-                _dialogService.ShowMessage($"Error adding house: {ex.Message}", "Error");
+                _dialogService.ShowMessage($"Error saving house: {ex.Message}", "Error");
             }
         }
     }

@@ -40,6 +40,9 @@ public class HouseDto
 
     [JsonPropertyName("totalMonthlyRent")]
     public decimal TotalMonthlyRent { get; set; }
+
+    [JsonPropertyName("isArchived")]
+    public bool IsArchived { get; set; }
 }
 
 public class CreateHouseDto
@@ -93,7 +96,12 @@ public interface IHouseApiService
     /// Get all houses for the current organization.
     /// Requires X-Org-Id header to be set via IApiClient.
     /// </summary>
-    Task<List<HouseDto>> GetHousesAsync(CancellationToken cancellationToken = default);
+    Task<List<HouseDto>> GetHousesAsync(bool includeArchived = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Archive a house (soft delete).
+    /// </summary>
+    Task<HouseDto?> ArchiveHouseAsync(Guid houseId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get a specific house by ID.

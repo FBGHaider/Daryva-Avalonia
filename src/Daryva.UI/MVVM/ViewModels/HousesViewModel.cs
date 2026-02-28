@@ -10,6 +10,7 @@ using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
+using Daryva.Services.Navigation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
@@ -21,8 +22,10 @@ namespace Daryva.MVVM.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly IHouseReportExportService _houseReportExportService;
         private readonly ISettingsService _settingsService;
+        private readonly INavigationService _navigationService;
         private string _searchTerm = string.Empty;
         private bool _showActiveOnly = false;
+        private bool _showArchivedOnly = false;
         private House? _selectedHouse;
         private bool _isLoading;
 
@@ -31,13 +34,15 @@ namespace Daryva.MVVM.ViewModels
             IDialogService dialogService,
             IServiceProvider serviceProvider,
             IHouseReportExportService houseReportExportService,
-            ISettingsService settingsService)
+            ISettingsService settingsService,
+            INavigationService navigationService)
         {
             _houseService = houseService;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _houseReportExportService = houseReportExportService ?? throw new ArgumentNullException(nameof(houseReportExportService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             Houses = new ObservableCollection<House>();
             Houses.CollectionChanged += OnHousesCollectionChanged;
 
@@ -48,6 +53,16 @@ namespace Daryva.MVVM.ViewModels
             ExportReportCommand = new RelayCommand(async _ => await ExportHouseReportAsync(), _ => SelectedHouse != null);
             ClearSearchCommand = new RelayCommand(_ => SearchTerm = string.Empty, _ => !string.IsNullOrWhiteSpace(SearchTerm));
 
+            // Row-scoped actions (parameter = House for that row)
+            OpenHouseCommand = new RelayCommand<House>(house => _ = OpenHouseAsync(house), house => house != null);
+            EditHouseCommand = new RelayCommand<House>(house => _ = EditHouseAsync(house), house => house != null);
+            AddTenantForHouseCommand = new RelayCommand<House>(house => _ = AddTenantForHouseAsync(house), house => house != null);
+            RecordExpenseForHouseCommand = new RelayCommand<House>(house => _ = RecordExpenseForHouseAsync(house), house => house != null);
+            UploadDocumentForHouseCommand = new RelayCommand<House>(house => _ = UploadDocumentForHouseAsync(house), house => house != null);
+            ExportHouseReportForHouseCommand = new RelayCommand<House>(house => _ = ExportHouseReportForHouseAsync(house), house => house != null);
+            ArchiveHouseCommand = new RelayCommand<House>(house => _ = ArchiveHouseAsync(house), house => house != null);
+            DeleteHouseCommand = new RelayCommand<House>(house => _ = DeleteHouseAsync(house), house => house != null && CanDeleteHouse(house));
+
             LoadHousesCommand.Execute(null);
         }
 
@@ -57,6 +72,23 @@ namespace Daryva.MVVM.ViewModels
         public ICommand RemoveHouseCommand { get; }
         public ICommand ExportReportCommand { get; }
         public ICommand ClearSearchCommand { get; }
+
+        /// <summary>Row action: open house details (Phase 4 will navigate to HouseDetailsView).</summary>
+        public ICommand OpenHouseCommand { get; }
+        /// <summary>Row action: edit house (opens AddHouse dialog).</summary>
+        public ICommand EditHouseCommand { get; }
+        /// <summary>Row action: add tenant for this house.</summary>
+        public ICommand AddTenantForHouseCommand { get; }
+        /// <summary>Row action: record expense for this house.</summary>
+        public ICommand RecordExpenseForHouseCommand { get; }
+        /// <summary>Row action: upload document for this house.</summary>
+        public ICommand UploadDocumentForHouseCommand { get; }
+        /// <summary>Row action: export house report for this house.</summary>
+        public ICommand ExportHouseReportForHouseCommand { get; }
+        /// <summary>Row action: archive house.</summary>
+        public ICommand ArchiveHouseCommand { get; }
+        /// <summary>Row action: delete house (only when safe; otherwise use Archive).</summary>
+        public ICommand DeleteHouseCommand { get; }
 
         public ObservableCollection<House> Houses { get; }
 
@@ -97,6 +129,19 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
+        /// <summary>When true, archived houses are included in the list.</summary>
+        public bool ShowArchivedOnly
+        {
+            get => _showArchivedOnly;
+            set
+            {
+                if (SetProperty(ref _showArchivedOnly, value))
+                {
+                    LoadHousesCommand.Execute(null);
+                }
+            }
+        }
+
         public House? SelectedHouse
         {
             get => _selectedHouse;
@@ -116,7 +161,7 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 IsLoading = true;
-                var houses = await _houseService.GetAllHousesAsync();
+                var houses = await _houseService.GetAllHousesAsync(includeArchived: ShowArchivedOnly);
                 
                 // Clear and reload on UI thread
                 await Dispatcher.UIThread.InvokeAsync(() =>
@@ -124,6 +169,10 @@ namespace Daryva.MVVM.ViewModels
                     Houses.Clear();
                     foreach (var house in houses)
                     {
+                        if (ShowArchivedOnly && !house.IsArchived)
+                            continue;
+                        if (!ShowArchivedOnly && house.IsArchived)
+                            continue;
                         if (!ShowActiveOnly || house.ActiveTenantCount > 0)
                         {
                             Houses.Add(house);
@@ -419,6 +468,124 @@ namespace Daryva.MVVM.ViewModels
             {
                 _dialogService.ShowMessage($"Error exporting house report: {ex.Message}", "Error");
             }
+        }
+
+        private async Task OpenHouseAsync(House? house)
+        {
+            if (house == null) return;
+            SelectedHouse = house;
+            // Phase 4: navigate to HouseDetailsView with house.HouseId
+        }
+
+        private async Task EditHouseAsync(House? house)
+        {
+            if (house == null) return;
+            var viewModel = _serviceProvider.GetRequiredService<AddHouseViewModel>();
+            viewModel.LoadForEdit(house);
+            var dialog = new MVVM.Views.AddHouseDialog(viewModel);
+            var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+            if (mainWindow != null)
+            {
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                await dialog.ShowDialog(mainWindow);
+            }
+            else
+            {
+                dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                dialog.Show();
+            }
+            await LoadHousesAsync();
+        }
+
+        private async Task AddTenantForHouseAsync(House? house)
+        {
+            if (house == null) return;
+            // Placeholder: open Add Tenant flow for house.HouseId (Phase 3)
+            await Task.CompletedTask;
+        }
+
+        private async Task RecordExpenseForHouseAsync(House? house)
+        {
+            if (house == null) return;
+            // Placeholder: open Record Expense for house (Phase 3)
+            await Task.CompletedTask;
+        }
+
+        private async Task UploadDocumentForHouseAsync(House? house)
+        {
+            if (house == null) return;
+            // Placeholder: open Upload Document for house (Phase 3)
+            await Task.CompletedTask;
+        }
+
+        private async Task ExportHouseReportForHouseAsync(House? house)
+        {
+            if (house == null) return;
+            try
+            {
+                var houseName = house.Postcode?.Replace(" ", "") ?? house.AddressLine1.Replace(" ", "");
+                var defaultFile = $"Daryva_HouseReport_{houseName}_{DateTime.Now:yyyy-MM-dd}.xlsx";
+                var documentPath = await _settingsService.GetSettingAsync("DocumentStoragePath", string.Empty) ?? string.Empty;
+                string baseFolder = !string.IsNullOrWhiteSpace(documentPath)
+                    ? Path.Combine(documentPath, "HouseReports")
+                    : Path.Combine(AppContext.BaseDirectory, "HouseReports");
+                if (!Directory.Exists(baseFolder)) Directory.CreateDirectory(baseFolder);
+                var path = Path.Combine(baseFolder, defaultFile);
+                var range = new DateRange { FromDate = null, ToDate = null };
+                string? exportedPath = null;
+                await _dialogService.RunWithProgressAsync(
+                    "Exporting House Report",
+                    $"Generating Excel report for {house.AddressLine1}. Please wait...",
+                    async () =>
+                    {
+                        exportedPath = await _houseReportExportService.ExportHouseReportAsync(
+                            house.HouseId, range, path, CancellationToken.None);
+                    });
+                if (!string.IsNullOrWhiteSpace(exportedPath))
+                    _dialogService.ShowMessage($"House report exported successfully to:\n{exportedPath}", "Export Complete");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error exporting house report: {ex.Message}", "Error");
+            }
+        }
+
+        private async Task ArchiveHouseAsync(House? house)
+        {
+            if (house == null) return;
+            try
+            {
+                var updated = await _houseService.ArchiveHouseAsync(house.HouseId);
+                if (updated != null)
+                {
+                    await LoadHousesAsync();
+                    _dialogService.ShowMessage($"House '{house.AddressLine1}' has been archived. Use \"Show archived\" to see it.", "Archived");
+                }
+                else
+                {
+                    _dialogService.ShowMessage("Archive is not supported by the current data source.", "Archive");
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error archiving house: {ex.Message}", "Error");
+            }
+        }
+
+        private bool CanDeleteHouse(House? house)
+        {
+            if (house == null) return false;
+            // Safe to delete only when no active tenants (payments/expenses/documents could be added when API exposes counts)
+            return house.ActiveTenantCount == 0;
+        }
+
+        private async Task DeleteHouseAsync(House? house)
+        {
+            if (house == null) return;
+            SelectedHouse = house;
+            await RemoveHouseAsync();
         }
     }
 }

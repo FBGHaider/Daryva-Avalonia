@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
-             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
              x:Class="Daryva.MVVM.Views.TenantsView"
              x:CompileBindings="False"
              x:Name="Root">
@@ -13,201 +13,203 @@
         <converters:DateTimeToDisplayConverter x:Key="DateTimeToDisplayConverter"/>
     </UserControl.Resources>
     <UserControl.Styles>
-        <!-- Tenants page: card and header styles (Daryva – calm, premium, 16px+ radius) -->
-        <Style Selector="Border.tenants-card">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="16"/>
-            <Setter Property="Padding" Value="20"/>
-        </Style>
-        <Style Selector="Border.tenants-stats-card">
+        <Style Selector="Border.command-bar">
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Padding" Value="16"/>
         </Style>
-        <Style Selector="TextBox.tenants-search">
+        <Style Selector="Border.stat-pill">
             <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="MinWidth" Value="280"/>
-        </Style>
-        <Style Selector="TextBox.tenants-search:focus">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="Padding" Value="12,8"/>
         </Style>
     </UserControl.Styles>
 
-    <Border Padding="24" ClipToBounds="True" HorizontalAlignment="Stretch">
-        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
-            <!-- ========== HEADER: Title + Subtitle + Primary CTA ========== -->
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
-                <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="Tenants" FontSize="28" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="Manage renters across all properties" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Button Content="{Binding ShowArchivedOnly, Converter={StaticResource BoolToTitleConverter}, ConverterParameter='View Active|View Leave'}"
-                            Command="{Binding ViewArchivedCommand}"
-                            Classes="secondary"
-                            IsVisible="True"/>
-                    <Button Content="+ Add Tenant"
-                            Command="{Binding AddTenantCommand}"
-                            Classes="primary"
-                            IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
-                    <Button Content="Edit Tenant"
-                            Command="{Binding EditTenantCommand}"
-                            Classes="secondary"
-                            IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
-                    <Button Content="Mark as leave"
-                            Command="{Binding RemoveTenantCommand}"
-                            Classes="secondary"
-                            IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
-                    <Button Content="Recover"
-                            Command="{Binding RecoverTenantCommand}"
-                            Classes="primary"
-                            IsVisible="{Binding ShowArchivedOnly}"/>
-                    <Button Content="Remove permanently"
-                            Command="{Binding DeleteArchivedCommand}"
-                            Background="{DynamicResource StatusDangerBrush}"
-                            Foreground="White"
-                            IsVisible="{Binding ShowArchivedOnly}"/>
-                    <Button Content="Refresh" Command="{Binding LoadTenantsCommand}" Classes="secondary"/>
-                </StackPanel>
-            </Grid>
+    <Border Padding="24">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+            <!-- Command bar: same structure as Houses -->
+            <Border Grid.Row="0" Classes="command-bar">
+                <Grid RowDefinitions="Auto,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="Tenants" Classes="page-title"/>
+                            <TextBlock Classes="text-muted" FontSize="13"
+                                       Text="Manage renters across all properties"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+                            <Button Content="{Binding ShowArchivedOnly, Converter={StaticResource BoolToTitleConverter}, ConverterParameter='View Active|View Leave'}"
+                                    Command="{Binding ViewArchivedCommand}"
+                                    Classes="secondary"/>
+                            <Button Content="+ Add Tenant"
+                                    Command="{Binding AddTenantCommand}"
+                                    Classes="primary"
+                                    IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
+                            <Button Content="Edit Tenant"
+                                    Command="{Binding EditTenantCommand}"
+                                    Classes="secondary"
+                                    IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
+                            <Button Content="Mark as leave"
+                                    Command="{Binding RemoveTenantCommand}"
+                                    Classes="secondary"
+                                    IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
+                            <Button Content="Recover"
+                                    Command="{Binding RecoverTenantCommand}"
+                                    Classes="primary"
+                                    IsVisible="{Binding ShowArchivedOnly}"/>
+                            <Button Content="Remove permanently"
+                                    Command="{Binding DeleteArchivedCommand}"
+                                    Background="{DynamicResource StatusDangerBrush}"
+                                    Foreground="White"
+                                    IsVisible="{Binding ShowArchivedOnly}"/>
+                            <Button Content="Refresh" Command="{Binding LoadTenantsCommand}" Classes="secondary"/>
+                        </StackPanel>
+                    </Grid>
 
-            <!-- ========== FILTERS ROW: Search + House + Status ========== -->
-            <Border Grid.Row="1" Classes="tenants-card" Margin="0,0,0,16">
-                <StackPanel Orientation="Horizontal" Spacing="16">
-                    <TextBox Classes="tenants-search"
-                             Watermark="Search tenants by name, email, phone…"
-                             Text="{Binding SearchTerm}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="House:" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
-                        <ComboBox ItemsSource="{Binding HouseFilterOptions}"
-                                  SelectedItem="{Binding SelectedHouseFilter}"
-                                  MinWidth="220"
-                                  PlaceholderText="All Houses"
-                                  Background="{DynamicResource Surface2Brush}"
-                                  Foreground="{DynamicResource TextPrimaryBrush}"
-                                  BorderBrush="{DynamicResource BorderBrush}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Display}" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </StackPanel>
-                    <TextBlock Text="{Binding SubtitleText}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="13"/>
-                </StackPanel>
-            </Border>
-
-            <!-- ========== STATS STRIP ========== -->
-            <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,Auto" Margin="0,0,0,16">
-                <Border Grid.Column="0" Classes="tenants-stats-card" Margin="0,0,12,0">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Active Tenants" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
-                        <TextBlock Text="{Binding ActiveCount}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="1" Classes="tenants-stats-card" Margin="0,0,12,0">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Ending Soon" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
-                        <TextBlock Text="{Binding LeavingSoonCount}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="2" Classes="tenants-stats-card">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Overdue Rent" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
-                        <TextBlock Text="{Binding OverdueCount}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <!-- ========== MAIN TABLE ========== -->
-            <Border Grid.Row="3" Classes="tenants-card" Padding="0">
-                <Grid RowDefinitions="Auto,*">
-                    <Border Grid.Row="0"
-                            Background="{DynamicResource TableHeaderBackgroundBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="0,0,0,1"
-                            CornerRadius="16,16,0,0"
-                            Padding="16,12"
-                            Margin="-1,-1,-1,0">
-                        <Grid ColumnDefinitions="200,220,140,160,*,120">
-                            <TextBlock Grid.Column="0" Text="Name" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="1" Text="Email" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="2" Text="Phone" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="3" Text="University" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="4" Text="Current House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="5" Text="Leave date" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding ShowArchivedOnly}"/>
+                    <Grid Grid.Row="1" ColumnDefinitions="280,Auto,*">
+                        <Grid Grid.Column="0" ColumnDefinitions="*,Auto" Margin="0,0,12,0">
+                            <TextBox Grid.Column="0"
+                                     Watermark="Search tenants by name, email, phone…"
+                                     Text="{Binding SearchTerm}"/>
+                            <Button Grid.Column="1"
+                                    Width="34"
+                                    Margin="8,0,0,0"
+                                    Classes="icon-button"
+                                    Content="✕"
+                                    Command="{Binding ClearSearchCommand}"/>
                         </Grid>
-                    </Border>
-                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <ListBox ItemsSource="{Binding Tenants}"
-                                 SelectedItem="{Binding SelectedTenant}"
-                                 SelectionMode="Single"
-                                 Background="Transparent"
-                                 BorderThickness="0">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="0,0,0,1"
-                                            Padding="16,12"
-                                            Background="Transparent"
-                                            Cursor="Hand">
-                                        <Grid ColumnDefinitions="200,220,140,160,*,120">
-                                            <TextBlock Grid.Column="0" Text="{Binding FullName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Email}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding PhoneNumber}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding UniversityName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding CurrentHouseAddress}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Grid.Column="5" Text="{Binding LeaveDate, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding DataContext.ShowArchivedOnly, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Padding" Value="0"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:selected">
-                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
-                                </Style>
-                                <Style Selector="ListBoxItem:pointerover">
-                                    <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
-                                </Style>
-                            </ListBox.Styles>
-                        </ListBox>
-                    </ScrollViewer>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="House:" Classes="text-muted" FontSize="13" VerticalAlignment="Center"/>
+                            <ComboBox ItemsSource="{Binding HouseFilterOptions}"
+                                      SelectedItem="{Binding SelectedHouseFilter}"
+                                      MinWidth="220"
+                                      PlaceholderText="All tenants">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Display}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="{Binding SubtitleText}" Classes="text-muted" FontSize="13" VerticalAlignment="Center"/>
+                    </Grid>
                 </Grid>
             </Border>
 
-            <!-- ========== DEPOSIT RETURNS (Leave tab only) ========== -->
-            <TextBlock Grid.Row="4" Text="Deposit returns pending" FontSize="16" FontWeight="SemiBold" Margin="0,20,0,8"
-                       Foreground="{DynamicResource TextPrimaryBrush}"
+            <!-- Stat pills: same as Houses (horizontal label + bold value) -->
+            <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,16,0,0">
+                <Border Classes="stat-pill" Margin="0,0,10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Active Tenants" Classes="text-muted" FontSize="12"/>
+                        <TextBlock Text="{Binding ActiveCount}" FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+                <Border Classes="stat-pill" Margin="0,0,10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Ending Soon" Classes="text-muted" FontSize="12"/>
+                        <TextBlock Text="{Binding LeavingSoonCount}" FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+                <Border Classes="stat-pill">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Overdue Rent" Classes="text-muted" FontSize="12"/>
+                        <TextBlock Text="{Binding OverdueCount}" FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
+
+            <!-- Table: command-bar wrapper, header/cells match Houses padding and fonts -->
+            <Grid Grid.Row="2" Margin="0,16,0,0">
+                <Border Classes="command-bar" IsVisible="{Binding HasTenants}">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="10,8">
+                            <Grid ColumnDefinitions="200,220,140,160,*,120">
+                                <TextBlock Grid.Column="0" Text="Name" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="1" Text="Email" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="2" Text="Phone" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="3" Text="University" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="4" Text="Current House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="5" Text="Leave date" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding ShowArchivedOnly}"/>
+                            </Grid>
+                        </Border>
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <ListBox ItemsSource="{Binding Tenants}"
+                                     SelectedItem="{Binding SelectedTenant}"
+                                     SelectionMode="Single"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     MinHeight="200">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="0,0,0,1"
+                                                Padding="10,8"
+                                                Background="Transparent"
+                                                Cursor="Hand"
+                                                MinHeight="48">
+                                            <Grid ColumnDefinitions="200,220,140,160,*,120">
+                                                <TextBlock Grid.Column="0" Text="{Binding FullName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Email}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding PhoneNumber}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding UniversityName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding CurrentHouseAddress}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="5" Text="{Binding LeaveDate, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding DataContext.ShowArchivedOnly, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:selected">
+                                        <Setter Property="Background" Value="#1A2A46"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover">
+                                        <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <Border Classes="command-bar" IsVisible="{Binding HasTenants, Converter={x:Static BoolConverters.Not}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                        <TextBlock Text="👥" FontSize="42" HorizontalAlignment="Center"/>
+                        <TextBlock Text="No tenants yet" Classes="section-title" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Add your first tenant to start managing rent and documents."
+                                   Classes="text-muted"
+                                   TextAlignment="Center"/>
+                        <Button Content="+ Add Tenant" Classes="primary" Command="{Binding AddTenantCommand}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Deposit returns (Leave tab only) -->
+            <TextBlock Grid.Row="3" Text="Deposit returns pending" Classes="section-title" Margin="0,20,0,8"
                        IsVisible="{Binding ShowArchivedOnly}"/>
-            <Border Grid.Row="5" Classes="tenants-card"
+            <Border Grid.Row="4" Classes="command-bar"
                     IsVisible="{Binding ShowArchivedOnly}">
                 <Grid RowDefinitions="Auto,*">
-                    <Border Grid.Row="0" Background="{DynamicResource TableHeaderBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,12">
+                    <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="10,8">
                         <Grid ColumnDefinitions="180,220,120,120,*">
-                            <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="1" Text="House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="2" Text="Leave date" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="3" Text="Amount to return" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Grid.Column="4" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="1" Text="House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="2" Text="Leave date" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="3" Text="Amount to return" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="4" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                         </Grid>
                     </Border>
                     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" MaxHeight="220">
                         <ListBox ItemsSource="{Binding DepositReturnList}" Background="Transparent" BorderThickness="0">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,12">
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="10,8" MinHeight="48">
                                         <Grid ColumnDefinitions="180,220,120,120,*">
                                             <TextBlock Grid.Column="0" Text="{Binding TenantName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -228,7 +230,7 @@
                                     <Setter Property="Padding" Value="0"/>
                                 </Style>
                                 <Style Selector="ListBoxItem:pointerover">
-                                    <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
                                 </Style>
                             </ListBox.Styles>
                         </ListBox>

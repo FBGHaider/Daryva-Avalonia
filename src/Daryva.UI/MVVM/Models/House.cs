@@ -24,5 +24,8 @@ namespace Daryva.MVVM.Models
         // Calculated properties (not stored in DB)
         public int ActiveTenantCount { get; set; }
         public decimal TotalMonthlyRent { get; set; }
+
+        /// <summary>When true, house is archived (soft delete).</summary>
+        public bool IsArchived { get; set; }
     }
 }

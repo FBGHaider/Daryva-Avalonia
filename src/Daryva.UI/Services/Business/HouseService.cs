@@ -14,9 +14,16 @@ namespace Daryva.Services.Business
             _tenancyRepository = tenancyRepository ?? throw new ArgumentNullException(nameof(tenancyRepository));
         }
 
-        public async Task<IEnumerable<House>> GetAllHousesAsync()
+        public async Task<IEnumerable<House>> GetAllHousesAsync(bool includeArchived = false)
         {
+            // Local repo does not filter by archived; return all
             return await _houseRepository.GetAllHousesAsync();
+        }
+
+        public async Task<House?> ArchiveHouseAsync(int houseId)
+        {
+            // Archive not implemented for local SQLite; return null (UI may show message)
+            return await Task.FromResult<House?>(null);
         }
 
         public async Task<House?> GetHouseByIdAsync(int houseId)

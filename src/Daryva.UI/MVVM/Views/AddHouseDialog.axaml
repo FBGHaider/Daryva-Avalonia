@@ -15,7 +15,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Add New House" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"
+        <TextBlock Grid.Row="0" Text="{Binding DialogTitle}" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"
                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">

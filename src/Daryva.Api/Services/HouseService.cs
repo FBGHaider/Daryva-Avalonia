@@ -15,8 +15,18 @@ public interface IHouseService
     /// <summary>
     /// Get all houses for the current organization.
     /// </summary>
+    /// <param name="includeArchived">When false, archived houses are excluded.</param>
     Task<IEnumerable<HouseResponse>> GetHousesAsync(
         Guid orgId,
+        bool includeArchived = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Archive a house (soft delete). Idempotent if already archived.
+    /// </summary>
+    Task<HouseResponse?> ArchiveHouseAsync(
+        Guid orgId,
+        Guid houseId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -72,12 +82,14 @@ public class HouseService : IHouseService
 
     public async Task<IEnumerable<HouseResponse>> GetHousesAsync(
         Guid orgId,
+        bool includeArchived = false,
         CancellationToken cancellationToken = default)
     {
         // Global query filter automatically filters by OrganizationId == CurrentOrgId
-        var houses = await _dbContext.Houses
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        var query = _dbContext.Houses.AsNoTracking();
+        if (!includeArchived)
+            query = query.Where(h => !h.IsArchived);
+        var houses = await query.ToListAsync(cancellationToken);
         var activeTenancyStats = await BuildCurrentActiveTenancyStatsAsync(cancellationToken);
 
         return houses.Select(house =>
@@ -182,6 +194,27 @@ public class HouseService : IHouseService
         return MapToResponse(house, 0, 0m);
     }
 
+    public async Task<HouseResponse?> ArchiveHouseAsync(
+        Guid orgId,
+        Guid houseId,
+        CancellationToken cancellationToken = default)
+    {
+        var house = await _dbContext.Houses
+            .FirstOrDefaultAsync(h => h.Id == houseId, cancellationToken);
+
+        if (house == null)
+            return null;
+
+        house.IsArchived = true;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Archived house {HouseId} in organization {OrgId}.", houseId, orgId);
+
+        var statsByHouse = await BuildCurrentActiveTenancyStatsAsync(cancellationToken);
+        var (activeCount, totalRent) = statsByHouse.TryGetValue(houseId, out var s) ? s : (0, 0m);
+        return MapToResponse(house, activeCount, totalRent);
+    }
+
     public async Task<bool> DeleteHouseAsync(
         Guid orgId,
         Guid houseId,
@@ -233,7 +266,8 @@ public class HouseService : IHouseService
             TotalRooms = house.TotalRooms,
             CreatedAt = house.CreatedAt,
             ActiveTenantCount = activeTenantCount,
-            TotalMonthlyRent = totalMonthlyRent
+            TotalMonthlyRent = totalMonthlyRent,
+            IsArchived = house.IsArchived
         };
 
     /// <summary>

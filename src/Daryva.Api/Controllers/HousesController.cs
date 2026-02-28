@@ -33,7 +33,7 @@ public class HousesController : ControllerBase
     /// Get all houses for the current organization.
     /// Requires X-Org-Id header or implicit org selection.
     ///
-    /// GET /api/houses
+    /// GET /api/houses?includeArchived=false
     /// Headers:
     ///   X-Org-Id: 550e8400-e29b-41d4-a716-446655440000 (required if user belongs to multiple orgs)
     /// </summary>
@@ -42,6 +42,7 @@ public class HousesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<IEnumerable<HouseResponse>>> GetHouses(
+        [FromQuery] bool includeArchived = false,
         CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -49,6 +50,7 @@ public class HousesController : ControllerBase
 
         var houses = await _houseService.GetHousesAsync(
             _tenantContext.CurrentOrgId.Value,
+            includeArchived,
             cancellationToken);
 
         return Ok(houses);
@@ -178,7 +180,39 @@ public class HousesController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a house.
+    /// Archive a house (soft delete). Archived houses are excluded from GET unless includeArchived=true.
+    ///
+    /// POST /api/houses/{houseId}/archive
+    /// </summary>
+    [HttpPost("{houseId}/archive")]
+    [ProducesResponseType(typeof(HouseResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<HouseResponse>> ArchiveHouse(
+        Guid houseId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return BadRequest(new { error = "Organization context not set." });
+
+        var house = await _houseService.ArchiveHouseAsync(
+            _tenantContext.CurrentOrgId.Value,
+            houseId,
+            cancellationToken);
+
+        if (house == null)
+            return NotFound(new { error = "House not found." });
+
+        _logger.LogInformation(
+            "User {UserId} archived house {HouseId} in organization {OrgId}.",
+            _tenantContext.UserId, houseId, _tenantContext.CurrentOrgId.Value);
+
+        return Ok(house);
+    }
+
+    /// <summary>
+    /// Delete a house permanently.
     ///
     /// DELETE /api/houses/{houseId}
     /// </summary>

@@ -24,9 +24,9 @@ public class HouseApiServiceAdapter : IHouseService
         _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
     }
 
-    public async Task<IEnumerable<House>> GetAllHousesAsync()
+    public async Task<IEnumerable<House>> GetAllHousesAsync(bool includeArchived = false)
     {
-        var houseDtos = await _houseApiService.GetHousesAsync();
+        var houseDtos = await _houseApiService.GetHousesAsync(includeArchived);
         var activeTenants = await _tenantApiService.GetTenantsAsync(includeArchived: false);
 
         var activeTenantCountsByHouse = activeTenants
@@ -50,6 +50,16 @@ public class HouseApiServiceAdapter : IHouseService
 
             return house;
         });
+    }
+
+    public async Task<House?> ArchiveHouseAsync(int houseId)
+    {
+        var house = await GetHouseByIdAsync(houseId);
+        if (house == null || !house.ApiId.HasValue)
+            return null;
+
+        var dto = await _houseApiService.ArchiveHouseAsync(house.ApiId.Value);
+        return dto != null ? MapToHouse(dto) : null;
     }
 
     public async Task<House?> GetHouseByIdAsync(int houseId)
@@ -149,7 +159,6 @@ public class HouseApiServiceAdapter : IHouseService
     {
         return new House
         {
-            // Use hash of Guid as int ID (not perfect but works for UI purposes)
             HouseId = _idMapper.MapHouseId(dto.Id),
             ApiId = dto.Id,
             Name = dto.Name,
@@ -160,7 +169,8 @@ public class HouseApiServiceAdapter : IHouseService
             CreatedAt = dto.CreatedAt,
             TotalRooms = dto.TotalRooms,
             ActiveTenantCount = dto.ActiveTenantCount,
-            TotalMonthlyRent = dto.TotalMonthlyRent
+            TotalMonthlyRent = dto.TotalMonthlyRent,
+            IsArchived = dto.IsArchived
         };
     }
 }

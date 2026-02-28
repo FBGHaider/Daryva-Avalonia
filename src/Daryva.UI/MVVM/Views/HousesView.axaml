@@ -66,20 +66,20 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         </Style>
         <Style Selector="Button.house-action-btn">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="30"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
         <Style Selector="Button.house-action-btn:pointerover">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         </Style>
         <Style Selector="dgrid|DataGrid.premium-grid dgrid|DataGridRow:pointerover">
             <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
@@ -122,6 +122,7 @@
 
                         <WrapPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,12,0">
                             <CheckBox Classes="active-chip" Content="Active only" IsChecked="{Binding ShowActiveOnly}" Margin="0,0,8,0"/>
+                            <CheckBox Classes="active-chip" Content="Show archived" IsChecked="{Binding ShowArchivedOnly}" Margin="0,0,8,0"/>
                             <Button Classes="chip-btn" Content="Has vacancies" Margin="0,0,8,0"/>
                             <Button Classes="chip-btn" Content="Overdue rent" Margin="0,0,8,0"/>
                             <Button Classes="chip-btn" Content="Docs expiring" Margin="0,0,8,0"/>
@@ -176,7 +177,18 @@
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch">
                             <dgrid:DataGrid.Columns>
-                                <dgrid:DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/>
+                                <dgrid:DataGridTemplateColumn Header="Name" Width="2*">
+                                    <dgrid:DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsArchived}">
+                                                    <TextBlock Text="Archived" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </dgrid:DataGridTemplateColumn.CellTemplate>
+                                </dgrid:DataGridTemplateColumn>
                                 <dgrid:DataGridTextColumn Header="Address" Binding="{Binding AddressLine1}" Width="2*"/>
                                 <dgrid:DataGridTextColumn Header="City" Binding="{Binding City}" Width="*"/>
                                 <dgrid:DataGridTextColumn Header="Postcode" Binding="{Binding Postcode}" Width="*"/>
@@ -201,23 +213,46 @@
                                         </DataTemplate>
                                     </dgrid:DataGridTemplateColumn.CellTemplate>
                                 </dgrid:DataGridTemplateColumn>
-                                <dgrid:DataGridTemplateColumn Header="Actions" Width="170">
+                                <dgrid:DataGridTemplateColumn Header="Actions" Width="160">
                                     <dgrid:DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Button Classes="house-action-btn" Content="⋯" IsEnabled="False">
-                                                    <Button.ContextMenu>
-                                                        <ContextMenu>
-                                                            <MenuItem Header="View" IsEnabled="False"/>
-                                                            <MenuItem Header="Edit" IsEnabled="False"/>
-                                                            <MenuItem Header="Documents" IsEnabled="False"/>
-                                                            <MenuItem Header="Record Payment" IsEnabled="False"/>
-                                                        </ContextMenu>
-                                                    </Button.ContextMenu>
+                                            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Button Classes="house-action-btn"
+                                                        ToolTip.Tip="Open house details"
+                                                        Command="{Binding DataContext.OpenHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="↗"/>
+                                                <Button Classes="house-action-btn"
+                                                        ToolTip.Tip="Edit house"
+                                                        Command="{Binding DataContext.EditHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="✎"/>
+                                                <Button Classes="house-action-btn" Content="⋯" ToolTip.Tip="More actions">
+                                                    <Button.Flyout>
+                                                        <MenuFlyout Placement="Bottom">
+                                                            <MenuItem Header="Add Tenant"
+                                                                      Command="{Binding DataContext.AddTenantForHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                            <MenuItem Header="Record Expense"
+                                                                      Command="{Binding DataContext.RecordExpenseForHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                            <MenuItem Header="Upload Document"
+                                                                      Command="{Binding DataContext.UploadDocumentForHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                            <MenuItem Header="Export House Report"
+                                                                      Command="{Binding DataContext.ExportHouseReportForHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                            <Separator/>
+                                                            <MenuItem Header="Archive House"
+                                                                      Command="{Binding DataContext.ArchiveHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"/>
+                                                            <MenuItem Header="Delete House"
+                                                                      Command="{Binding DataContext.DeleteHouseCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                      CommandParameter="{Binding}"
+                                                                      ToolTip.Tip="Cannot delete when house has tenants, payments, expenses, or documents. Archive instead."/>
+                                                        </MenuFlyout>
+                                                    </Button.Flyout>
                                                 </Button>
-                                                <Button Classes="house-action-btn" Content="✎" IsEnabled="False"/>
-                                                <Button Classes="house-action-btn" Content="📄" IsEnabled="False"/>
-                                                <Button Classes="house-action-btn" Content="£" IsEnabled="False"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </dgrid:DataGridTemplateColumn.CellTemplate>

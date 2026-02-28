@@ -19,11 +19,12 @@ public class HouseApiService : IHouseApiService
         };
     }
 
-    public async Task<List<HouseDto>> GetHousesAsync(CancellationToken cancellationToken = default)
+    public async Task<List<HouseDto>> GetHousesAsync(bool includeArchived = false, CancellationToken cancellationToken = default)
     {
         try
         {
-            var response = await _apiClient.HttpClient.GetAsync("api/houses", cancellationToken);
+            var query = includeArchived ? "?includeArchived=true" : "";
+            var response = await _apiClient.HttpClient.GetAsync("api/houses" + query, cancellationToken);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -116,6 +117,30 @@ public class HouseApiService : IHouseApiService
                 throw new InvalidOperationException("Failed to deserialize updated house response.");
 
             return updatedHouse;
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException("Failed to connect to API. Please check that the backend is running.", ex);
+        }
+    }
+
+    public async Task<HouseDto?> ArchiveHouseAsync(Guid houseId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _apiClient.HttpClient.PostAsync($"api/houses/{houseId}/archive", null, cancellationToken);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new InvalidOperationException($"Failed to archive house: {response.StatusCode} - {error}");
+            }
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            return JsonSerializer.Deserialize<HouseDto>(content, _jsonOptions);
         }
         catch (HttpRequestException ex)
         {
