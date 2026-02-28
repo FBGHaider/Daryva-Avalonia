@@ -24,6 +24,8 @@ namespace Daryva.MVVM.ViewModels
         private readonly ISettingsService _settingsService;
         private readonly IAuthApiService _authApiService;
         private readonly IAuthSessionService _authSessionService;
+        private readonly NotificationCenterViewModel _notificationCenter;
+        private readonly ProfileMenuViewModel _profileMenu;
 
         private int _housesCount;
         private int _activeTenantsCount;
@@ -39,7 +41,7 @@ namespace Daryva.MVVM.ViewModels
         private EventHandler<BaseViewModel?>? _navigationHandler;
         private EventHandler? _paymentDataHandler;
 
-        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService)
+        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService, NotificationCenterViewModel notificationCenter, ProfileMenuViewModel profileMenu)
         {
             _houseService = houseService;
             _tenantService = tenantService;
@@ -50,6 +52,8 @@ namespace Daryva.MVVM.ViewModels
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _authApiService = authApiService ?? throw new ArgumentNullException(nameof(authApiService));
             _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
+            _notificationCenter = notificationCenter ?? throw new ArgumentNullException(nameof(notificationCenter));
+            _profileMenu = profileMenu ?? throw new ArgumentNullException(nameof(profileMenu));
 
             OverdueRent = new ObservableCollection<OverdueRentItem>();
             MissingDocuments = new ObservableCollection<MissingDocumentItem>();
@@ -84,7 +88,16 @@ namespace Daryva.MVVM.ViewModels
             
             // Load data on initialization
             LoadDashboardDataCommand.Execute(null);
+
+            // Refresh notification count on load
+            _ = _notificationCenter.RefreshAsync();
         }
+
+        /// <summary>Notification center (bell drawer) for the header.</summary>
+        public NotificationCenterViewModel NotificationCenter => _notificationCenter;
+
+        /// <summary>Profile menu (avatar dropdown) for the header.</summary>
+        public ProfileMenuViewModel ProfileMenu => _profileMenu;
 
         /// <summary>
         /// Cleanup method to unsubscribe from events.

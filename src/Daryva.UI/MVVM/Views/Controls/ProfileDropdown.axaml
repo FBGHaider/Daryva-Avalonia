@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             x:Class="Daryva.MVVM.Views.Controls.ProfileDropdown"
+             x:Name="DropdownRoot"
+             x:CompileBindings="False">
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}"/>
+    </UserControl.KeyBindings>
+    <UserControl.Styles>
+        <Style Selector="Border.profile-dropdown-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BoxShadow" Value="0 4 20 0 #35000000"/>
+            <Setter Property="MinWidth" Value="220"/>
+        </Style>
+        <Style Selector="Button.profile-menu-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.profile-menu-item:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+        </Style>
+    </UserControl.Styles>
+    <Grid IsVisible="{Binding IsOpen}">
+        <!-- Click-outside overlay -->
+        <Border Background="#10000000" ZIndex="0" PointerPressed="Overlay_PointerPressed"/>
+        <Border Classes="profile-dropdown-card" ZIndex="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,0,0">
+            <StackPanel>
+                <!-- Optional header with org name -->
+                <Border Padding="14,12" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" IsVisible="{Binding HasOrgName}">
+                    <TextBlock Text="{Binding OrgName}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                </Border>
+                <Button Classes="profile-menu-item" Command="{Binding OpenMyProfileCommand}" Content="👤  My Profile"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenOrganisationCommand}" Content="🏢  Organisation / Team"/>
+                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenPreferencesCommand}" Content="⚙  Preferences"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenSupportCommand}" Content="❓  Help &amp; Support"/>
+                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0"/>
+                <Button Classes="profile-menu-item" Command="{Binding LogoutCommand}" Content="🚪  Log out" Foreground="{DynamicResource StatusDangerBrush}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

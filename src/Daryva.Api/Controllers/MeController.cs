@@ -1,0 +1,52 @@
+using System.Security.Claims;
+using Daryva.Api.Dtos;
+using Daryva.Api.Security;
+using Daryva.Api.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Daryva.Api.Controllers;
+
+/// <summary>
+/// Current user profile, organisations, and onboarding state.
+/// Used by app.daryva.com to drive redirects (org setup, profile setup).
+/// </summary>
+[ApiController]
+[Route("api/me")]
+[Authorize]
+public class MeController : ControllerBase
+{
+    private readonly IMeService _meService;
+    private readonly ITenantContext _tenantContext;
+    private readonly ILogger<MeController> _logger;
+
+    public MeController(IMeService meService, ITenantContext tenantContext, ILogger<MeController> logger)
+    {
+        _meService = meService;
+        _tenantContext = tenantContext;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Get current user profile, organisations, and onboarding flags.
+    /// On first call, ensures AppUserProfile exists (create from JWT sub/email).
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(MeResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<MeResponseDto>> GetMe(CancellationToken cancellationToken = default)
+    {
+        var userId = _tenantContext.UserId;
+        if (string.IsNullOrEmpty(userId) || userId == "unknown-user")
+            return Unauthorized(new { error = "Not authenticated." });
+
+        var email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email");
+        await _meService.EnsureUserProfileAsync(userId, email, cancellationToken);
+
+        var me = await _meService.GetMeAsync(userId, cancellationToken);
+        if (me == null)
+            return Unauthorized(new { error = "User profile not found." });
+
+        return Ok(me);
+    }
+}

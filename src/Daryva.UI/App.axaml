@@ -9,6 +9,7 @@
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
         <StyleInclude Source="avares://Daryva/Themes/DesignSystem.axaml"/>
+        <StyleInclude Source="avares://Daryva/Themes/NotificationStyles.axaml"/>
     </Application.Styles>
     <Application.Resources>
         <ResourceDictionary>
@@ -74,6 +75,21 @@
         </DataTemplate>
         <DataTemplate DataType="viewModels:BackupSettingsViewModel">
             <views:BackupSettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:AccountViewModel">
+            <views:AccountView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:OrganisationViewModel">
+            <views:OrganisationView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:AccountProfileSectionViewModel">
+            <views:AccountProfileSectionView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:AccountSecuritySectionViewModel">
+            <views:AccountSecuritySectionView />
+        </DataTemplate>
+        <DataTemplate DataType="viewModels:AccountNotificationsSectionViewModel">
+            <views:AccountNotificationsSectionView />
         </DataTemplate>
     </Application.DataTemplates>
 </Application>

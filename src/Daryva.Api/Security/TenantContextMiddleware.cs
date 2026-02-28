@@ -125,6 +125,7 @@ public class TenantContextMiddleware
     {
         var path = httpContext.Request.Path.Value ?? "";
         return path == "/health" ||
+               path == "/api/me" ||    // Current user profile + onboarding state (no org context required)
                path == "/api/orgs" ||  // Allow listing user's organizations without X-Org-Id
                path.StartsWith("/api/auth/") ||
                path == "/swagger" ||

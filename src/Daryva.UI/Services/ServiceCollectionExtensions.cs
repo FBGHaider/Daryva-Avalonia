@@ -92,6 +92,20 @@ namespace Daryva.Services
             services.AddScoped<NotificationApiServiceAdapter>();
             services.AddScoped<INotificationService, NotificationApiServiceAdapter>();
 
+            services.AddSingleton<NotificationFeedService>();
+            services.AddSingleton<INotificationFeedService>(sp => sp.GetRequiredService<NotificationFeedService>());
+
+            services.AddScoped<UserProfileService>();
+            services.AddScoped<IUserProfileService>(sp => sp.GetRequiredService<UserProfileService>());
+
+            services.AddScoped<UserPreferencesService>();
+            services.AddScoped<IUserPreferencesService>(sp => sp.GetRequiredService<UserPreferencesService>());
+
+            services.AddScoped<OrganisationMemberService>();
+            services.AddScoped<IOrganisationMemberService>(sp => sp.GetRequiredService<OrganisationMemberService>());
+            services.AddScoped<OrganisationService>();
+            services.AddScoped<IOrganisationService>(sp => sp.GetRequiredService<OrganisationService>());
+
             services.AddScoped<IEmailSender>(serviceProvider =>
             {
                 var configService = serviceProvider.GetService<IConfigurationService>();
@@ -127,6 +141,8 @@ namespace Daryva.Services
         public static IServiceCollection AddViewModels(this IServiceCollection services)
         {
             services.AddSingleton<Daryva.MVVM.ViewModels.MainViewModel>();
+            services.AddSingleton<Daryva.MVVM.ViewModels.NotificationCenterViewModel>();
+            services.AddSingleton<Daryva.MVVM.ViewModels.ProfileMenuViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.DashboardViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.HousesViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.TenantsViewModel>();
@@ -136,8 +152,15 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.AddEditExpenseViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.NotificationsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.SettingsViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.AccountViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.OrganisationViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.OnboardingViewModel>();
-            
+
+            // Account section ViewModels
+            services.AddTransient<Daryva.MVVM.ViewModels.AccountProfileSectionViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.AccountSecuritySectionViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.AccountNotificationsSectionViewModel>();
+
             // Settings section ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.GeneralSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.ThemeSettingsViewModel>();

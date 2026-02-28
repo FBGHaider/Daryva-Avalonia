@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Daryva.MVVM.Views.AccountNotificationsSectionView"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+        </Style>
+        <Style Selector="Border.settings-footer">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1,1,0,0"/>
+            <Setter Property="Padding" Value="20,14"/>
+        </Style>
+    </UserControl.Styles>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <TextBlock Grid.Row="0" Text="Notifications" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,20"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="20">
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Alert types" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Choose which in-app and email notifications you receive." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <StackPanel Spacing="12">
+                            <CheckBox IsChecked="{Binding RentAlertsEnabled, Mode=TwoWay}" Content="Rent alerts (Overdue, Due soon)" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <CheckBox IsChecked="{Binding DocsExpiryEnabled, Mode=TwoWay}" Content="Document expiry alerts" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <CheckBox IsChecked="{Binding TeamActivityEnabled, Mode=TwoWay}" Content="Team activity alerts" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <CheckBox IsChecked="{Binding ProductUpdatesEnabled, Mode=TwoWay}" Content="Product updates" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Delivery" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <StackPanel Spacing="12">
+                            <CheckBox IsChecked="{Binding InAppEnabled, Mode=TwoWay}" Content="In-app notifications" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <CheckBox IsChecked="{Binding EmailEnabled, Mode=TwoWay}" Content="Email notifications" IsEnabled="False" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="Email notifications — Coming soon." FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Classes="settings-footer" Margin="0,20,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="Save to update preferences." VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Button Content="Reset" Command="{Binding ResetNotificationPrefsCommand}"
+                            Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14,10" CornerRadius="8"/>
+                    <Button Content="Save Preferences" Command="{Binding SaveNotificationPrefsCommand}"
+                            Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" Padding="14,10" CornerRadius="8"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

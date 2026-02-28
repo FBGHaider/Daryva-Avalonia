@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             xmlns:vm="clr-namespace:Daryva.MVVM.ViewModels;assembly=Daryva"
+             x:Class="Daryva.MVVM.Views.Controls.NotificationDrawer"
+             x:Name="DrawerRoot"
+             Focusable="True"
+             x:CompileBindings="False">
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}"/>
+    </UserControl.KeyBindings>
+    <UserControl.Styles>
+        <StyleInclude Source="avares://Daryva/Themes/NotificationStyles.axaml"/>
+    </UserControl.Styles>
+    <Grid IsVisible="{Binding IsOpen}">
+        <!-- Overlay: click to close -->
+        <Border Classes="notification-overlay"
+                Background="#40000000"
+                ZIndex="0"
+                PointerPressed="Overlay_PointerPressed"/>
+        <!-- Drawer panel (right-aligned) -->
+        <Border Classes="notification-drawer"
+                HorizontalAlignment="Right"
+                ZIndex="1"
+                Width="400">
+            <Grid RowDefinitions="Auto,*">
+                <!-- Header -->
+                <Border Grid.Row="0" Padding="20,16" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="Notifications" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                Content="Mark all as read"
+                                Command="{Binding MarkAllReadCommand}"
+                                Background="Transparent"
+                                Foreground="{DynamicResource BrandPrimaryBrush}"
+                                BorderThickness="0"
+                                FontSize="13"
+                                Padding="8,4"
+                                IsVisible="{Binding ShowBadge}"/>
+                    </Grid>
+                </Border>
+                <!-- List or empty state -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <!-- Loading -->
+                        <TextBlock Text="Loading…" Foreground="{DynamicResource TextMutedBrush}" Padding="20" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center"/>
+                        <!-- Empty state -->
+                        <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="32" IsVisible="{Binding ShowEmptyState}">
+                            <TextBlock Text="✓" FontSize="32" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="You're all caught up." FontSize="15" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <!-- List -->
+                        <ItemsControl ItemsSource="{Binding Items}" IsVisible="{Binding HasItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:NotificationItemVm">
+                                    <Button Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="14,12"
+                                            HorizontalContentAlignment="Stretch"
+                                            Command="{Binding DataContext.OpenNotificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Styles>
+                                            <Style Selector="Button">
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            </Style>
+                                            <Style Selector="Button:pointerover">
+                                                <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+                                            </Style>
+                                        </Button.Styles>
+                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                                            <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Width="36" Height="36" CornerRadius="18" Background="{DynamicResource Surface2Brush}" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding TypeIcon}" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <Border Grid.Row="0" Grid.Column="2" Width="8" Height="8" CornerRadius="4" Background="{DynamicResource BrandPrimaryBrush}" IsVisible="{Binding !IsRead}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding CreatedAtDisplay}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,0,0" IsVisible="{Binding IsRead}"/>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Message}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

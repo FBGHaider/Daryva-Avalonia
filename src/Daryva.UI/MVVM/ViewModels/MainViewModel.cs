@@ -18,6 +18,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IConfigurationService _configurationService;
         private readonly IApiClient _apiClient;
         private readonly IOrganizationApiService _organizationApiService;
+        private readonly IOrganisationService? _organisationService;
         private readonly IAuthSessionService _authSessionService;
         private BaseViewModel? _currentViewModel;
         private NavigationItem? _selectedNavigationItem;
@@ -33,7 +34,8 @@ namespace Daryva.MVVM.ViewModels
             IConfigurationService configurationService,
             IApiClient apiClient,
             IOrganizationApiService organizationApiService,
-            IAuthSessionService authSessionService)
+            IAuthSessionService authSessionService,
+            IOrganisationService? organisationService = null)
         {
             _navigationService = navigationService;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
@@ -41,6 +43,7 @@ namespace Daryva.MVVM.ViewModels
             _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _organizationApiService = organizationApiService ?? throw new ArgumentNullException(nameof(organizationApiService));
             _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
+            _organisationService = organisationService;
 
             // Initialize navigation items
             NavigationItems = new ObservableCollection<NavigationItem>
@@ -52,6 +55,8 @@ namespace Daryva.MVVM.ViewModels
                 new NavigationItem { Title = "Expenses", Icon = "💳", ViewModelType = typeof(ExpensesViewModel) },
                 new NavigationItem { Title = "Documents", Icon = "📄", ViewModelType = typeof(DocumentsViewModel) },
                 new NavigationItem { Title = "Notifications", Icon = "🔔", ViewModelType = typeof(NotificationsViewModel) },
+                new NavigationItem { Title = "Organisation", Icon = "🏢", ViewModelType = typeof(OrganisationViewModel) },
+                new NavigationItem { Title = "Account", Icon = "👤", ViewModelType = typeof(AccountViewModel) },
                 new NavigationItem { Title = "Settings", Icon = "⚙️", ViewModelType = typeof(SettingsViewModel) }
             };
 
@@ -229,7 +234,23 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (_apiClient.CurrentOrgId.HasValue)
                 {
-                    CurrentOrganizationName = _apiClient.CurrentOrgId.Value.ToString();
+                    var orgId = _apiClient.CurrentOrgId.Value;
+                    if (_organisationService != null)
+                    {
+                        try
+                        {
+                            var localOrg = await _organisationService.GetOrganisationAsync(orgId);
+                            CurrentOrganizationName = localOrg?.Name ?? orgId.ToString();
+                        }
+                        catch
+                        {
+                            CurrentOrganizationName = orgId.ToString();
+                        }
+                    }
+                    else
+                    {
+                        CurrentOrganizationName = orgId.ToString();
+                    }
                     _lastDisplayedOrgId = _apiClient.CurrentOrgId;
                 }
                 else
@@ -292,6 +313,10 @@ namespace Daryva.MVVM.ViewModels
                 NavigateToExpenses();
             else if (item.ViewModelType == typeof(NotificationsViewModel))
                 NavigateToNotifications();
+            else if (item.ViewModelType == typeof(OrganisationViewModel))
+                NavigateToOrganisation();
+            else if (item.ViewModelType == typeof(AccountViewModel))
+                NavigateToAccount();
             else if (item.ViewModelType == typeof(SettingsViewModel))
                 NavigateToSettings();
         }
@@ -336,6 +361,18 @@ namespace Daryva.MVVM.ViewModels
         {
             _navigationService.NavigateTo<NotificationsViewModel>();
             SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(NotificationsViewModel));
+        }
+
+        private void NavigateToOrganisation()
+        {
+            _navigationService.NavigateTo<OrganisationViewModel>();
+            SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(OrganisationViewModel));
+        }
+
+        private void NavigateToAccount()
+        {
+            _navigationService.NavigateTo<AccountViewModel>();
+            SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(AccountViewModel));
         }
 
         private void NavigateToSettings()

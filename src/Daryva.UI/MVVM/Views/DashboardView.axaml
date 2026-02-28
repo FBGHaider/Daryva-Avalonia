@@ -40,24 +40,50 @@
         </Style>
     </UserControl.Styles>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="20">
-            <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
-                    <TextBlock Text="Dashboard" Classes="page-title"/>
-                    <TextBlock Text="{Binding GreetingText}" Classes="text-muted" FontSize="14"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <TextBox Classes="top-search" Watermark="Search..."/>
-                    <Button Content="🔔" Width="36" Height="36"/>
-                    <Border Width="36" Height="36" CornerRadius="18"
-                            Background="{DynamicResource Surface2Brush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1">
-                        <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                </StackPanel>
-            </Grid>
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="20">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                        <TextBlock Text="Dashboard" Classes="page-title"/>
+                        <TextBlock Text="{Binding GreetingText}" Classes="text-muted" FontSize="14"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBox Classes="top-search" Watermark="Search..."/>
+                        <!-- Notification bell with badge: centered, larger bell, badge outside box -->
+                        <Grid Width="36" Height="36" VerticalAlignment="Center" ClipToBounds="False">
+                            <Button Width="36" Height="36" Padding="0"
+                                    Command="{Binding NotificationCenter.ToggleOpenCommand}"
+                                    Background="Transparent" BorderThickness="0"
+                                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                                <TextBlock Text="🔔" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+                            <!-- Badge positioned outside top-right of the box -->
+                            <Border Width="18" Height="18" CornerRadius="9"
+                                    Background="{DynamicResource StatusDangerBrush}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Margin="0,-6,-6,0"
+                                    IsVisible="{Binding NotificationCenter.ShowBadge}"
+                                    ZIndex="1">
+                                <TextBlock Text="{Binding NotificationCenter.BadgeText}" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                        <!-- Profile avatar (36×36, same size and alignment as bell) -->
+                        <Button Width="36" Height="36" Padding="0"
+                                Command="{Binding ProfileMenu.ToggleOpenCommand}"
+                                Background="{DynamicResource Surface2Brush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="18"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="{Binding ProfileMenu.UserInitials}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
 
             <Grid ColumnDefinitions="*,*,*,*">
                 <controls:KpiCard Grid.Column="0"
@@ -142,5 +168,10 @@
                 </StackPanel>
             </Border>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+        <!-- Notification drawer overlay (right-side panel) -->
+        <controls:NotificationDrawer DataContext="{Binding NotificationCenter}"/>
+        <!-- Profile drawer overlay (right-side panel, same pattern as notifications) -->
+        <controls:ProfileDrawer DataContext="{Binding ProfileMenu}"/>
+    </Grid>
 </UserControl>

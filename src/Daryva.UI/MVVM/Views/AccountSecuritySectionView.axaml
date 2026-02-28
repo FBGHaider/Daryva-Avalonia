@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Daryva.MVVM.Views.AccountSecuritySectionView"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+        </Style>
+    </UserControl.Styles>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="20">
+            <TextBlock Text="Security" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,20"/>
+
+            <Border Classes="settings-card">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Password" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Password managed by provider." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                    <Button Content="Change password" IsEnabled="False" Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="12,8" CornerRadius="8"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="settings-card">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Two-factor authentication" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Coming soon." FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                    <Button Content="Enable 2FA" IsEnabled="False" Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="12,8" CornerRadius="8"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="settings-card">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Active sessions" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Coming soon." FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="settings-card">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Sign out of all devices" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Coming soon." FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                    <Button Content="Sign out everywhere" IsEnabled="False" Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="12,8" CornerRadius="8"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             x:Class="Daryva.MVVM.Views.Controls.ProfileDrawer"
+             x:Name="ProfileDrawerRoot"
+             Focusable="True"
+             x:CompileBindings="False">
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}"/>
+    </UserControl.KeyBindings>
+    <UserControl.Styles>
+        <StyleInclude Source="avares://Daryva/Themes/NotificationStyles.axaml"/>
+    </UserControl.Styles>
+    <Grid IsVisible="{Binding IsOpen}">
+        <!-- Overlay: click to close -->
+        <Border Classes="notification-overlay"
+                Background="#40000000"
+                ZIndex="0"
+                PointerPressed="Overlay_PointerPressed"/>
+        <!-- Right-side panel (same pattern as notification drawer) -->
+        <Border Classes="profile-drawer"
+                HorizontalAlignment="Right"
+                ZIndex="1"
+                Width="300">
+            <StackPanel>
+                <!-- Header -->
+                <Border Padding="20,20" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Account" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding UserDisplayName}" FontSize="14" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding OrgName}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasOrgName}"/>
+                    </StackPanel>
+                </Border>
+                <!-- Menu items -->
+                <Button Classes="profile-menu-item" Command="{Binding OpenMyProfileCommand}" Content="👤  My Account"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenOrganisationCommand}" Content="🏢  Organisation / Team"/>
+                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="12,0"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenPreferencesCommand}" Content="⚙  Preferences"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenSupportCommand}" Content="❓  Help &amp; Support"/>
+                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="12,0"/>
+                <Button Classes="profile-menu-item" Command="{Binding LogoutCommand}" Content="🚪  Log out" Foreground="{DynamicResource StatusDangerBrush}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

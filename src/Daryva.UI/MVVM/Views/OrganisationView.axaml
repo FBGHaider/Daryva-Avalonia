@@ -1,0 +1,209 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+             x:Class="Daryva.MVVM.Views.OrganisationView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <UserControl.Resources>
+        <converters:OrgRoleToBadgeBrushConverter x:Key="OrgRoleToBadgeBrushConverter"/>
+        <converters:MemberStatusToBadgeBrushConverter x:Key="MemberStatusToBadgeBrushConverter"/>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <!-- Match Houses/Dashboard: card and chip styles -->
+        <Style Selector="Border.command-bar">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="Border.stat-pill">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="Padding" Value="12,8"/>
+        </Style>
+        <Style Selector="Border.badge-role">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+        <Style Selector="Border.badge-status">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+        <Style Selector="Button.member-action-btn">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.member-action-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+        </Style>
+        <Style Selector="Border.member-row">
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style Selector="Border.member-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+        </Style>
+    </UserControl.Styles>
+    <Border Padding="24" Background="{DynamicResource BgBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="0" Margin="0,0,0,32">
+                <!-- Page header: match Houses (title + subtitle + right pill) -->
+                <Border Classes="command-bar" Margin="0,0,0,16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="{Binding PageTitle}" Classes="page-title"/>
+                            <TextBlock Text="{Binding Subtitle}" Classes="text-muted" FontSize="13" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <Border Grid.Column="1" Classes="stat-pill" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentOrganisationName}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Organisation card -->
+                <Border Classes="command-bar" Margin="0,0,0,16">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="Organisation" Classes="section-title" FontSize="16"/>
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
+                                <TextBlock Text="Current organisation" Classes="text-muted" FontSize="12"/>
+                                <ComboBox ItemsSource="{Binding Organisations}"
+                                          SelectedItem="{Binding SelectedOrganisation}"
+                                          MinWidth="220"
+                                          PlaceholderText="Select organisation"
+                                          Background="{DynamicResource Surface2Brush}"
+                                          Foreground="{DynamicResource TextPrimaryBrush}"
+                                          BorderBrush="{DynamicResource BorderBrush}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="0,0,0,0">
+                                <Button Content="Switch" Classes="secondary" Command="{Binding SwitchOrgCommand}"/>
+                                <Button Content="Create organisation" Classes="primary" Command="{Binding CreateOrgCommand}"/>
+                                <Button Content="Rename" Classes="secondary" Command="{Binding RenameOrgCommand}" IsEnabled="{Binding CanRenameOrg}"/>
+                            </StackPanel>
+                            <WrapPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,12,0,0">
+                                <Border Classes="stat-pill" Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="Houses" Classes="text-muted" FontSize="12"/>
+                                        <TextBlock Text="{Binding HousesCount}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="stat-pill">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="Active tenants" Classes="text-muted" FontSize="12"/>
+                                        <TextBlock Text="{Binding ActiveTenantsCount}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </WrapPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Team members card -->
+                <Border Classes="command-bar" Margin="0,0,0,16">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="Team members" Classes="section-title" FontSize="16"/>
+                        <TextBox Watermark="Search team members…" Text="{Binding MemberSearchText}" Margin="0,0,0,4"/>
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="0">
+                            <ItemsControl ItemsSource="{Binding Members}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Classes="member-row">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Change role" Command="{Binding DataContext.ChangeRoleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                    <MenuItem Header="Remove" Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                <Border Grid.Column="1" Classes="badge-role" Background="{Binding Role, Converter={StaticResource OrgRoleToBadgeBrushConverter}}" Margin="8,0">
+                                                    <TextBlock Text="{Binding RoleDisplay}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                </Border>
+                                                <Border Grid.Column="2" Classes="badge-status" Background="{Binding Status, Converter={StaticResource MemberStatusToBadgeBrushConverter}}" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding StatusDisplay}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                </Border>
+                                                <TextBlock Grid.Column="3" Text="{Binding JoinedAt, StringFormat='{}{0:dd MMM yyyy}'}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="4" Classes="member-action-btn" Content="⋯" ToolTip.Tip="Actions">
+                                                    <Button.Flyout>
+                                                        <MenuFlyout Placement="Bottom">
+                                                            <MenuItem Header="Change role" Command="{Binding DataContext.ChangeRoleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                            <MenuItem Header="Remove" Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                                        </MenuFlyout>
+                                                    </Button.Flyout>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                        <TextBlock Text="No team members yet. Use the form below to invite someone." Classes="text-muted" FontSize="13"
+                                   IsVisible="{Binding IsMembersListEmpty}" Margin="0,8,0,0"/>
+                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,14,0,0">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Invite member" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding InviteEmail}" Watermark="Email address" Margin="0,0,12,0"/>
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding InviteRole}" MinWidth="120" Margin="0,0,12,0"
+                                              Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <Button Grid.Column="2" Content="Send invite" Classes="primary" Command="{Binding InviteMemberCommand}"/>
+                                </Grid>
+                                <TextBlock Text="Enter an email address and role, then click Send invite." Classes="text-muted" FontSize="12" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Plan & billing (Coming soon) -->
+                <Border Classes="command-bar" Margin="0,0,0,16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Plan &amp; billing" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Border Classes="stat-pill" HorizontalAlignment="Left" Margin="0,4,0,0">
+                                <TextBlock Text="Plan: Starter (Coming soon)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Audit log (Coming soon) -->
+                <Border Classes="command-bar">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Audit log" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Border Classes="stat-pill" HorizontalAlignment="Left" Margin="0,4,0,0">
+                                <TextBlock Text="Coming soon" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>

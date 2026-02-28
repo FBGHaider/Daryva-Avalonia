@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Daryva.MVVM.Views.AccountProfileSectionView"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+        </Style>
+        <Style Selector="Border.settings-footer">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1,1,0,0"/>
+            <Setter Property="Padding" Value="20,14"/>
+        </Style>
+    </UserControl.Styles>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <TextBlock Grid.Row="0" Text="Profile" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,20"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="20">
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Personal information" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6" Margin="0,0,8,0">
+                                <TextBlock Text="Full Name" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox Text="{Binding FullName, Mode=TwoWay}" MinWidth="0" Padding="10,8"
+                                         Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" Watermark="Your full name"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" Margin="8,0,0,0">
+                                <TextBlock Text="Email" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox Text="{Binding Email, Mode=OneWay}" IsReadOnly="True" MinWidth="0" Padding="10,8"
+                                         Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                                <TextBlock Text="{Binding EmailHelperText}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="6" Margin="0,12,8,0">
+                                <TextBlock Text="Phone Number (optional)" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox Text="{Binding Phone, Mode=TwoWay}" MinWidth="0" Padding="10,8"
+                                         Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" Watermark="+44 ..."/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6" Margin="8,12,0,0">
+                                <TextBlock Text="Time Zone" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <ComboBox ItemsSource="{Binding TimeZoneIds}" SelectedItem="{Binding TimeZoneId, Mode=TwoWay}"
+                                          MinWidth="0" Padding="8,6" PlaceholderText="Select time zone"
+                                          Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,16,0,0">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Avatar" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <Button Content="Upload photo" Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12,8" CornerRadius="8" IsEnabled="False"/>
+                                <TextBlock Text="Photo upload coming soon." FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Classes="settings-footer" Margin="0,20,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="Save to update your profile." VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Button Content="Reset" Command="{Binding ResetProfileCommand}"
+                            Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14,10" CornerRadius="8"/>
+                    <Button Content="Save Changes" Command="{Binding SaveProfileCommand}"
+                            Background="{DynamicResource BrandPrimaryBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" Padding="14,10" CornerRadius="8"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

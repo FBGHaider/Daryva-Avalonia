@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public required DbSet<OrganizationInvite> OrganizationInvites { get; set; }
     public required DbSet<OrganizationJoinCode> OrganizationJoinCodes { get; set; }
     public required DbSet<AppUser> AppUsers { get; set; }
+    public required DbSet<AppUserProfile> AppUserProfiles { get; set; }
     public required DbSet<AuthRefreshToken> AuthRefreshTokens { get; set; }
     public required DbSet<House> Houses { get; set; }
     public required DbSet<Tenant> Tenants { get; set; }
@@ -111,7 +112,20 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.OrganizationId);
         });
 
-        // ========== APP USER (Global/Auth Entity) ==========
+        // ========== APP USER PROFILE (OIDC/Dev - Id = provider sub) ==========
+        modelBuilder.Entity<AppUserProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(256);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.DisplayName).HasMaxLength(256);
+            entity.Property(e => e.Phone).HasMaxLength(50);
+            entity.Property(e => e.TimeZoneId).HasMaxLength(128);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(e => e.Email);
+        });
+
+        // ========== APP USER (Global/Auth Entity - local email/password) ==========
         modelBuilder.Entity<AppUser>(entity =>
         {
             entity.HasKey(e => e.Id);
