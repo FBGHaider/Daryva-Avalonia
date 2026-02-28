@@ -6,6 +6,10 @@
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
              x:Class="Daryva.MVVM.Views.HousesView"
              x:CompileBindings="False">
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="Enter" Command="{Binding OpenSelectedHouseCommand}"/>
+        <KeyBinding Gesture="Escape" Command="{Binding ClearSelectionCommand}"/>
+    </UserControl.KeyBindings>
     <UserControl.Styles>
         <Style Selector="Border.command-bar">
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
@@ -81,6 +85,10 @@
             <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         </Style>
+        <Style Selector="Button.house-action-btn:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
         <Style Selector="dgrid|DataGrid.premium-grid dgrid|DataGridRow:pointerover">
             <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
         </Style>
@@ -96,18 +104,19 @@
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
                         <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
                             <TextBlock Text="Houses" Classes="page-title"/>
-                            <TextBlock Classes="text-muted" FontSize="13"
-                                       Text="{Binding HouseCount, StringFormat='{}{0} houses • --/mo • -- tenants'}"/>
+                            <TextBlock Text="{Binding SubtitleText}" Classes="text-muted" FontSize="13"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
                             <Button Content="Add House" Classes="primary" Command="{Binding AddHouseCommand}"/>
-                            <Button Content="Export" Classes="secondary" Command="{Binding ExportReportCommand}"/>
+                            <Button Content="Export" Classes="secondary" Command="{Binding ExportReportCommand}"
+                                    ToolTip.Tip="Export report for selected house"/>
                             <Button Content="Refresh" Classes="secondary" Command="{Binding LoadHousesCommand}"/>
-                            <Button Content="Remove" Command="{Binding RemoveHouseCommand}"/>
+                            <Button Content="Remove" Command="{Binding RemoveHouseCommand}"
+                                    ToolTip.Tip="Remove selected house (select a house first)"/>
                         </StackPanel>
                     </Grid>
 
-                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*">
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
                         <Grid Grid.Column="0" ColumnDefinitions="280,Auto" Margin="0,0,12,0">
                             <TextBox Grid.Column="0"
                                      Watermark="Search by name/address/city/postcode"
@@ -120,7 +129,8 @@
                                     Command="{Binding ClearSearchCommand}"/>
                         </Grid>
 
-                        <WrapPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,12,0">
+                        <WrapPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,0"
+                                   HorizontalAlignment="Stretch" MinWidth="0">
                             <CheckBox Classes="active-chip" Content="Active only" IsChecked="{Binding ShowActiveOnly}" Margin="0,0,8,0"/>
                             <CheckBox Classes="active-chip" Content="Show archived" IsChecked="{Binding ShowArchivedOnly}" Margin="0,0,8,0"/>
                             <Button Classes="chip-btn" Content="Has vacancies" Margin="0,0,8,0"/>
@@ -169,13 +179,14 @@
             <Grid Grid.Row="3" Margin="0,16,0,0">
                 <Border Classes="command-bar" IsVisible="{Binding HasHouses}">
                     <Grid>
-                        <dgrid:DataGrid Classes="premium-grid"
+                        <dgrid:DataGrid x:Name="HousesGrid" Classes="premium-grid"
                                         ItemsSource="{Binding Houses}"
                                         SelectedItem="{Binding SelectedHouse}"
                                         IsReadOnly="True"
                                         AutoGenerateColumns="False"
                                         HorizontalAlignment="Stretch"
-                                        VerticalAlignment="Stretch">
+                                        VerticalAlignment="Stretch"
+                                        DoubleTapped="HousesGrid_OnDoubleTapped">
                             <dgrid:DataGrid.Columns>
                                 <dgrid:DataGridTemplateColumn Header="Name" Width="2*">
                                     <dgrid:DataGridTemplateColumn.CellTemplate>
@@ -265,11 +276,22 @@
                 <Border Classes="command-bar" IsVisible="{Binding HasHouses, Converter={x:Static BoolConverters.Not}}">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                         <TextBlock Text="🏠" FontSize="42" HorizontalAlignment="Center"/>
-                        <TextBlock Text="No houses yet" Classes="section-title" HorizontalAlignment="Center"/>
+                        <TextBlock Text="No houses yet" Classes="section-title" HorizontalAlignment="Center"
+                                   IsVisible="{Binding IsSearchNoResults, Converter={x:Static BoolConverters.Not}}"/>
+                        <TextBlock Text="No houses match your search" Classes="section-title" HorizontalAlignment="Center"
+                                   IsVisible="{Binding IsSearchNoResults}"/>
                         <TextBlock Text="Add your first property to start tracking tenants, rent, and documents."
-                                   Classes="text-muted"
-                                   TextAlignment="Center"/>
-                        <Button Content="Add House" Classes="primary" Command="{Binding AddHouseCommand}" HorizontalAlignment="Center"/>
+                                   Classes="text-muted" TextAlignment="Center"
+                                   IsVisible="{Binding IsSearchNoResults, Converter={x:Static BoolConverters.Not}}"/>
+                        <TextBlock Text="Try a different search or clear the filter to see all houses."
+                                   Classes="text-muted" TextAlignment="Center"
+                                   IsVisible="{Binding IsSearchNoResults}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                            <Button Content="Add House" Classes="primary" Command="{Binding AddHouseCommand}"
+                                    IsVisible="{Binding IsSearchNoResults, Converter={x:Static BoolConverters.Not}}"/>
+                            <Button Content="Clear search" Classes="secondary" Command="{Binding ClearSearchCommand}"
+                                    IsVisible="{Binding IsSearchNoResults}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </Grid>

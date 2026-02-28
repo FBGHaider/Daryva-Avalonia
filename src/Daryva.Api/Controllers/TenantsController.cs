@@ -236,7 +236,7 @@ public class TenantsController : ControllerBase
     }
 
     /// <summary>
-    /// Archive a tenant.
+    /// Archive a tenant (mark as left) and end any active tenancies.
     ///
     /// POST /api/tenants/{tenantId}/archive
     /// </summary>
@@ -251,24 +251,9 @@ public class TenantsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var tenant = await _tenantService.GetTenantByIdAsync(tenantId);
-        if (tenant == null)
+        var archived = await _tenantService.ArchiveTenantAsync(tenantId, cancellationToken);
+        if (!archived)
             return NotFound();
-
-        var archiveDate = DateTime.UtcNow.Date;
-        var activeTenancies = tenant.Tenancies
-            .Where(te => string.Equals(te.Status, "Active", StringComparison.OrdinalIgnoreCase))
-            .Where(te => !te.MoveOutDate.HasValue || te.MoveOutDate.Value.Date > archiveDate)
-            .ToList();
-
-        foreach (var tenancy in activeTenancies)
-        {
-            tenancy.MoveOutDate = archiveDate;
-            tenancy.Status = "Ended";
-        }
-
-        tenant.IsArchived = true;
-        await _tenantService.UpdateTenantAsync(tenant);
 
         return NoContent();
     }
@@ -289,12 +274,9 @@ public class TenantsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var tenant = await _tenantService.GetTenantByIdAsync(tenantId);
-        if (tenant == null)
+        var unarchived = await _tenantService.UnarchiveTenantAsync(tenantId, cancellationToken);
+        if (!unarchived)
             return NotFound();
-
-        tenant.IsArchived = false;
-        await _tenantService.UpdateTenantAsync(tenant);
 
         return NoContent();
     }

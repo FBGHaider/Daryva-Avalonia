@@ -269,16 +269,14 @@
                 </Border>
             </Grid>
 
-            <!-- Deposit Ledger card (distinct section) -->
+            <!-- Deposit Ledger card (same layout as Rent Ledger) -->
             <Grid Grid.Row="4">
                 <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1" CornerRadius="12" Padding="0"
                         IsVisible="{Binding HasDepositLedgerRows}">
                     <Grid RowDefinitions="Auto,Auto,*">
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="16,16,16,12">
-                            <TextBlock Text="📋" FontSize="18" VerticalAlignment="Center"/>
-                            <TextBlock Text="Deposit Ledger" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <TextBlock Grid.Row="0" Text="Deposit Ledger" FontSize="16" FontWeight="SemiBold" Margin="16,16,16,12"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <Border Grid.Row="1" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="0,0,0,1" Padding="12,10,16,10">
                             <Grid ColumnDefinitions="200,120,90,90,100,*">
@@ -290,9 +288,9 @@
                                 <TextBlock Grid.Column="5" Text="Actions" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                             </Grid>
                         </Border>
-                        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="300">
+                        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="400">
                             <ListBox ItemsSource="{Binding FlatDepositLedgerRows}" SelectionMode="Single"
-                                     Background="Transparent" BorderThickness="0" MinWidth="700">
+                                     Background="Transparent" BorderThickness="0" MinWidth="780">
                                 <ListBox.Styles>
                                     <Style Selector="ListBoxItem">
                                         <Setter Property="Background" Value="Transparent"/>

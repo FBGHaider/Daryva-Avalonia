@@ -63,6 +63,9 @@ namespace Daryva.MVVM.ViewModels
             ArchiveHouseCommand = new RelayCommand<House>(house => _ = ArchiveHouseAsync(house), house => house != null);
             DeleteHouseCommand = new RelayCommand<House>(house => _ = DeleteHouseAsync(house), house => house != null && CanDeleteHouse(house));
 
+            ClearSelectionCommand = new RelayCommand(_ => SelectedHouse = null, _ => SelectedHouse != null);
+            OpenSelectedHouseCommand = new RelayCommand(_ => OpenHouseAsync(SelectedHouse), _ => SelectedHouse != null);
+
             LoadHousesCommand.Execute(null);
         }
 
@@ -89,13 +92,21 @@ namespace Daryva.MVVM.ViewModels
         public ICommand ArchiveHouseCommand { get; }
         /// <summary>Row action: delete house (only when safe; otherwise use Archive).</summary>
         public ICommand DeleteHouseCommand { get; }
+        /// <summary>Clear the selected house (e.g. Esc key).</summary>
+        public ICommand ClearSelectionCommand { get; }
+        /// <summary>Open the selected house (e.g. Enter key or double-click).</summary>
+        public ICommand OpenSelectedHouseCommand { get; }
 
         public ObservableCollection<House> Houses { get; }
 
         public bool IsLoading
         {
             get => _isLoading;
-            private set => SetProperty(ref _isLoading, value);
+            private set
+            {
+                if (SetProperty(ref _isLoading, value))
+                    OnPropertyChanged(nameof(IsSearchNoResults));
+            }
         }
 
         public int HouseCount => Houses.Count;
@@ -103,6 +114,10 @@ namespace Daryva.MVVM.ViewModels
         public int TotalActiveTenants => Houses.Sum(h => h.ActiveTenantCount);
         public decimal TotalMonthlyRent => Houses.Sum(h => h.TotalMonthlyRent);
         public bool HasHouses => Houses.Count > 0;
+        /// <summary>Header subtitle: e.g. "3 houses • £2,400/mo • 5 tenants".</summary>
+        public string SubtitleText => $"{HouseCount} houses • £{TotalMonthlyRent:N0}/mo • {TotalActiveTenants} tenants";
+        /// <summary>True when the list is empty due to search/filter (show "No houses match your search").</summary>
+        public bool IsSearchNoResults => !HasHouses && !string.IsNullOrWhiteSpace(SearchTerm) && !IsLoading;
 
         public string SearchTerm
         {
@@ -112,6 +127,7 @@ namespace Daryva.MVVM.ViewModels
                 if (SetProperty(ref _searchTerm, value))
                 {
                     ((RelayCommand)ClearSearchCommand).RaiseCanExecuteChanged();
+                    OnPropertyChanged(nameof(IsSearchNoResults));
                     SearchCommand.Execute(null);
                 }
             }
@@ -151,7 +167,8 @@ namespace Daryva.MVVM.ViewModels
                 {
                     ((RelayCommand)RemoveHouseCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)ExportReportCommand).RaiseCanExecuteChanged();
-                    System.Diagnostics.Debug.WriteLine($"SelectedHouse changed to: {value?.AddressLine1 ?? "null"}");
+                    ((RelayCommand)ClearSelectionCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)OpenSelectedHouseCommand).RaiseCanExecuteChanged();
                 }
             }
         }
@@ -232,6 +249,8 @@ namespace Daryva.MVVM.ViewModels
             OnPropertyChanged(nameof(TotalActiveTenants));
             OnPropertyChanged(nameof(TotalMonthlyRent));
             OnPropertyChanged(nameof(HasHouses));
+            OnPropertyChanged(nameof(IsSearchNoResults));
+            OnPropertyChanged(nameof(SubtitleText));
         }
 
         private async Task ShowAddHouseDialogAsync()

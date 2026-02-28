@@ -46,6 +46,16 @@ public interface ITenantService
     Task DeleteTenantAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Archive a tenant and end any active tenancies (tracked, single save).
+    /// </summary>
+    Task<bool> ArchiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Unarchive a tenant.
+    /// </summary>
+    Task<bool> UnarchiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -112,11 +122,50 @@ public class TenantService : ITenantService
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
-        var tenant = await GetTenantByIdAsync(tenantId, cancellationToken);
+        var tenant = await _dbContext.Tenants
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
         if (tenant != null)
         {
             _dbContext.Tenants.Remove(tenant);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task<bool> ArchiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var tenant = await _dbContext.Tenants
+            .Include(t => t.Tenancies)
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+        if (tenant == null)
+            return false;
+
+        var archiveDate = DateTime.UtcNow.Date;
+        foreach (var tenancy in tenant.Tenancies)
+        {
+            if (string.Equals(tenancy.Status, "Active", StringComparison.OrdinalIgnoreCase)
+                && (!tenancy.MoveOutDate.HasValue || tenancy.MoveOutDate.Value.Date > archiveDate))
+            {
+                tenancy.MoveOutDate = archiveDate;
+                tenancy.Status = "Ended";
+            }
+        }
+
+        tenant.IsArchived = true;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Archived tenant {TenantId}", tenantId);
+        return true;
+    }
+
+    public async Task<bool> UnarchiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var tenant = await _dbContext.Tenants
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+        if (tenant == null)
+            return false;
+
+        tenant.IsArchived = false;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Unarchived tenant {TenantId}", tenantId);
+        return true;
     }
 }

@@ -1,8 +1,7 @@
 services:
+  # Run with: docker compose run --rm migrate (uses image from CI; migrations run before new API is up)
   migrate:
-    build:
-      context: .
-      dockerfile: src/Daryva.Api/Dockerfile.migrate
+    image: ${DARYVA_MIGRATE_IMAGE:-ghcr.io/daryva/daryva-api-migrate:latest}
     environment:
       ConnectionStrings__DefaultConnection: ${API_CONNECTION_STRING:?set_in_server_env}
     depends_on:
