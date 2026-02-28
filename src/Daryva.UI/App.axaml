@@ -31,6 +31,9 @@
         <DataTemplate DataType="viewModels:SetupRequiredViewModel">
             <views:SetupRequiredView />
         </DataTemplate>
+        <DataTemplate DataType="viewModels:SignInViewModel">
+            <views:SignInView />
+        </DataTemplate>
         <DataTemplate DataType="viewModels:HousesViewModel">
             <views:HousesView />
         </DataTemplate>

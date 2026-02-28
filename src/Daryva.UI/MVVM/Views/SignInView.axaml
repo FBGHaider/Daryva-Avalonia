@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+             mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="400"
+             x:Class="Daryva.MVVM.Views.SignInView"
+             x:CompileBindings="False">
+    <UserControl.Resources>
+        <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+    </UserControl.Resources>
+    <Border Padding="24" Background="{DynamicResource PrimaryBackgroundBrush}">
+        <StackPanel Spacing="20" MaxWidth="400" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Image Source="/Assets/Logo/Daryva_icon.ico"
+                   Width="80"
+                   Height="80"
+                   HorizontalAlignment="Center"
+                   Stretch="Uniform"/>
+            <TextBlock Text="Sign in to Daryva"
+                       FontSize="26"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PrimaryTextBrush}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Use your Daryva account to continue."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"/>
+            <Button Content="Sign in"
+                    Command="{Binding SignInCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                    HorizontalAlignment="Center"
+                    MinWidth="200"/>
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="{DynamicResource StatusDangerBrush}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       IsVisible="{Binding HasErrorMessage}"
+                       HorizontalAlignment="Center"/>
+        </StackPanel>
+    </Border>
+</UserControl>

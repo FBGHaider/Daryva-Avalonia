@@ -5,7 +5,9 @@ using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
+using Daryva.Services.Auth;
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -22,6 +24,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IOrganisationService? _organisationService;
         private readonly IAuthSessionService _authSessionService;
         private readonly IOrgContext _orgContext;
+        private readonly IAuthService _authService;
         private BaseViewModel? _currentViewModel;
         private NavigationItem? _selectedNavigationItem;
         private EventHandler<BaseViewModel?>? _navigationHandler;
@@ -38,6 +41,7 @@ namespace Daryva.MVVM.ViewModels
             IOrganizationApiService organizationApiService,
             IAuthSessionService authSessionService,
             IOrgContext orgContext,
+            IAuthService authService,
             IOrganisationService? organisationService = null)
         {
             _navigationService = navigationService;
@@ -47,7 +51,10 @@ namespace Daryva.MVVM.ViewModels
             _organizationApiService = organizationApiService ?? throw new ArgumentNullException(nameof(organizationApiService));
             _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
             _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _organisationService = organisationService;
+
+            _authService.StateChanged += OnAuthStateChanged;
 
             // Initialize navigation items
             NavigationItems = new ObservableCollection<NavigationItem>
@@ -98,13 +105,74 @@ namespace Daryva.MVVM.ViewModels
             _ = RefreshCurrentOrganizationLabelAsync();
         }
 
+        private void OnAuthStateChanged(object? sender, AuthStateChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!e.IsSignedIn)
+                {
+                    _navigationService.NavigateTo<SignInViewModel>();
+                    IsOnboardingMode = true;
+                    CurrentOrganizationName = "(Sign in)";
+                    return;
+                }
+                _ = ApplyPostSignInAsync();
+            });
+        }
+
+        private async System.Threading.Tasks.Task ApplyPostSignInAsync()
+        {
+            try
+            {
+                await _orgContext.RefreshAsync().ConfigureAwait(false);
+                if (_orgContext.RequiresOnboarding || _orgContext.RequiresProfile)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        _navigationService.NavigateTo<SetupRequiredViewModel>();
+                        IsOnboardingMode = true;
+                        CurrentOrganizationName = "(Select organization)";
+                    });
+                    return;
+                }
+                var orgs = _orgContext.Orgs;
+                if (orgs.Count > 0)
+                {
+                    var preferred = _configurationService.GetValue("ApiCurrentOrgId");
+                    Guid? preferredGuid = Guid.TryParse(preferred, out var parsed) ? parsed : null;
+                    var preferredOrg = preferredGuid.HasValue ? orgs.FirstOrDefault(o => o.Id == preferredGuid.Value) : null;
+                    if (preferredOrg != null)
+                        await _orgContext.SetCurrentOrgAsync(preferredOrg.Id).ConfigureAwait(false);
+                    else
+                        await _orgContext.SetCurrentOrgAsync(orgs[0].Id).ConfigureAwait(false);
+                }
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _ = RefreshCurrentOrganizationLabelAsync(force: true);
+                    _navigationService.NavigateTo<DashboardViewModel>();
+                    _ = LoadAppStartPageAndNavigateAsync();
+                });
+            }
+            catch
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _navigationService.NavigateTo<SignInViewModel>();
+                    IsOnboardingMode = true;
+                });
+            }
+        }
+
         private async System.Threading.Tasks.Task InitializeOrganizationContextAsync()
         {
             try
             {
-                if (!_authSessionService.IsAuthenticated)
+                var hasSession = await _authService.HasValidSessionAsync().ConfigureAwait(true);
+                if (!hasSession)
                 {
-                    NavigateToOnboarding();
+                    _navigationService.NavigateTo<SignInViewModel>();
+                    IsOnboardingMode = true;
+                    CurrentOrganizationName = "(Sign in)";
                     return;
                 }
 

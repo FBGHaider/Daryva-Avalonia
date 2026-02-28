@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.Services.Api;
+using Daryva.Services.Auth;
 using Daryva.Services.Navigation;
 
 namespace Daryva.MVVM.ViewModels
@@ -13,6 +14,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly INavigationService _navigationService;
         private readonly IAuthApiService _authApiService;
         private readonly IAuthSessionService _authSessionService;
+        private readonly IAuthService _authService;
 
         private bool _isOpen;
         private string _userDisplayName = "User";
@@ -22,11 +24,13 @@ namespace Daryva.MVVM.ViewModels
         public ProfileMenuViewModel(
             INavigationService navigationService,
             IAuthApiService authApiService,
-            IAuthSessionService authSessionService)
+            IAuthSessionService authSessionService,
+            IAuthService authService)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _authApiService = authApiService ?? throw new ArgumentNullException(nameof(authApiService));
             _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
 
             ToggleOpenCommand = new RelayCommand(_ => ToggleOpen());
             CloseCommand = new RelayCommand(_ => Close());
@@ -164,8 +168,8 @@ namespace Daryva.MVVM.ViewModels
         private async Task LogoutAsync()
         {
             Close();
-            await _authApiService.LogoutAsync();
-            _navigationService.NavigateTo<OnboardingViewModel>();
+            await _authService.SignOutAsync();
+            // MainViewModel subscribes to IAuthService.StateChanged and navigates to SignInView
         }
     }
 }

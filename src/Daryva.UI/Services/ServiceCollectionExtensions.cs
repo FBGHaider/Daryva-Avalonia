@@ -162,6 +162,7 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.OrganisationViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.OnboardingViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.SetupRequiredViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.SignInViewModel>();
 
             // Account section ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.AccountProfileSectionViewModel>();
