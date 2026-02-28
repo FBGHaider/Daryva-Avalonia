@@ -141,6 +141,13 @@ This means the **Oidc:ClientId** in your desktop config is not recognized by Cle
   5. **Public = ON:** In the OAuth app settings, ensure **Public** is turned **ON** (required for PKCE / no client secret).
   6. **Same instance:** Confirm **Oidc:Authority** matches your Clerk instance (e.g. `https://merry-marmoset-71.clerk.accounts.dev`). If it still fails, create a **new** OAuth application and use its Client ID.
 
+### 401 Unauthorized when creating an organisation (desktop)
+
+The desktop shows "Signed in with your@email.com" but creating an organisation returns **401 (Unauthorized)**.
+
+- **Cause:** The API is not validating your Clerk token. In development this usually means **Jwt:Authority** is empty in `src/Daryva.Api/appsettings.Development.json`, so the API uses a local signing key and rejects Clerk-issued JWTs.
+- **Fix:** In `appsettings.Development.json` set **Jwt:Authority** to your Clerk issuer URL (same as the desktop’s **Oidc:Authority**), e.g. `https://xxx.clerk.accounts.dev`. Leave **SigningKey** unused when using Authority. Restart the API. See [section 4. API config](#4-api-daryvaapi-config) above.
+
 ### "invalid_scope" / "The OAuth 2.0 Client is not allowed to request scope 'openid'"
 
 Clerk is rejecting the requested scopes because the OAuth application does not have them enabled.
