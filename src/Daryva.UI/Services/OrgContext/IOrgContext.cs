@@ -14,4 +14,9 @@ public interface IOrgContext
 
     Task RefreshAsync(CancellationToken cancellationToken = default);
     Task SetCurrentOrgAsync(Guid orgId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Raised when the current org changes (e.g. after SetCurrentOrgAsync). Subscribe to trigger app-wide data refresh.
+    /// </summary>
+    event EventHandler<CurrentOrgChangedEventArgs>? CurrentOrgChanged;
 }

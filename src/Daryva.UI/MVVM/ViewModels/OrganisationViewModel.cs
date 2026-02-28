@@ -6,6 +6,7 @@ using Daryva.MVVM.Models;
 using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -15,6 +16,7 @@ namespace Daryva.MVVM.ViewModels
     public class OrganisationViewModel : BaseViewModel
     {
         private readonly IOrganisationService _orgService;
+        private readonly IOrgContext _orgContext;
         private readonly IOrganisationMemberService _memberService;
         private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
@@ -34,12 +36,14 @@ namespace Daryva.MVVM.ViewModels
 
         public OrganisationViewModel(
             IOrganisationService orgService,
+            IOrgContext orgContext,
             IOrganisationMemberService memberService,
             IHouseService houseService,
             IDialogService dialogService,
             IAuthSessionService authSession)
         {
             _orgService = orgService ?? throw new ArgumentNullException(nameof(orgService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
             _memberService = memberService ?? throw new ArgumentNullException(nameof(memberService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -58,7 +62,14 @@ namespace Daryva.MVVM.ViewModels
             ChangeRoleCommand = new RelayCommand<MemberVm>(async m => await ChangeRoleAsync(m), m => CanChangeRoleFor(m));
             RemoveMemberCommand = new RelayCommand<MemberVm>(async m => await RemoveMemberAsync(m), m => CanRemoveMember(m));
 
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
+
             _ = LoadAsync();
+        }
+
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => _ = LoadAsync());
         }
 
         public string PageTitle => "Organisation";
@@ -301,7 +312,7 @@ namespace Daryva.MVVM.ViewModels
             IsBusy = true;
             try
             {
-                await _orgService.SetCurrentOrganisationAsync(SelectedOrganisation.Id);
+                await _orgContext.SetCurrentOrgAsync(SelectedOrganisation.Id);
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     CurrentOrganisation = SelectedOrganisation;

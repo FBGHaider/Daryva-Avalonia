@@ -11,6 +11,7 @@ using Daryva.MVVM.Models;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 using Daryva.Services.Navigation;
+using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
@@ -23,6 +24,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseReportExportService _houseReportExportService;
         private readonly ISettingsService _settingsService;
         private readonly INavigationService _navigationService;
+        private readonly IOrgContext _orgContext;
         private string _searchTerm = string.Empty;
         private bool _showActiveOnly = false;
         private bool _showArchivedOnly = false;
@@ -67,6 +69,11 @@ namespace Daryva.MVVM.ViewModels
             OpenSelectedHouseCommand = new RelayCommand(_ => OpenHouseAsync(SelectedHouse), _ => SelectedHouse != null);
 
             LoadHousesCommand.Execute(null);
+        }
+
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => LoadHousesCommand.Execute(null));
         }
 
         public ICommand LoadHousesCommand { get; }

@@ -9,6 +9,7 @@ using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 using Daryva.Services.Navigation;
+using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
@@ -26,6 +27,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IAuthSessionService _authSessionService;
         private readonly NotificationCenterViewModel _notificationCenter;
         private readonly ProfileMenuViewModel _profileMenu;
+        private readonly IOrgContext _orgContext;
 
         private int _housesCount;
         private int _activeTenantsCount;
@@ -41,7 +43,7 @@ namespace Daryva.MVVM.ViewModels
         private EventHandler<BaseViewModel?>? _navigationHandler;
         private EventHandler? _paymentDataHandler;
 
-        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService, NotificationCenterViewModel notificationCenter, ProfileMenuViewModel profileMenu)
+        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService, NotificationCenterViewModel notificationCenter, ProfileMenuViewModel profileMenu, IOrgContext orgContext)
         {
             _houseService = houseService;
             _tenantService = tenantService;
@@ -54,6 +56,7 @@ namespace Daryva.MVVM.ViewModels
             _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
             _notificationCenter = notificationCenter ?? throw new ArgumentNullException(nameof(notificationCenter));
             _profileMenu = profileMenu ?? throw new ArgumentNullException(nameof(profileMenu));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
 
             OverdueRent = new ObservableCollection<OverdueRentItem>();
             MissingDocuments = new ObservableCollection<MissingDocumentItem>();
@@ -85,6 +88,8 @@ namespace Daryva.MVVM.ViewModels
             // Subscribe to payment data changes - refresh when payments are recorded/unrecorded
             _paymentDataHandler = OnPaymentDataChanged;
             PaymentDataChanged += _paymentDataHandler;
+
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
             
             // Load data on initialization
             LoadDashboardDataCommand.Execute(null);
@@ -102,8 +107,14 @@ namespace Daryva.MVVM.ViewModels
         /// <summary>
         /// Cleanup method to unsubscribe from events.
         /// </summary>
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => LoadDashboardDataCommand.Execute(null));
+        }
+
         public void Cleanup()
         {
+            _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
             if (_navigationHandler != null && _navigationService != null)
             {
                 _navigationService.CurrentViewModelChanged -= _navigationHandler;

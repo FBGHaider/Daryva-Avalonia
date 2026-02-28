@@ -7,6 +7,7 @@ using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
+using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Threading;
 
@@ -20,6 +21,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
+        private readonly IOrgContext _orgContext;
 
         private string _searchTerm = string.Empty;
         private Document? _selectedDocument;
@@ -50,6 +52,11 @@ namespace Daryva.MVVM.ViewModels
             ClearFiltersCommand = new RelayCommand(_ => SearchTerm = string.Empty);
 
             LoadDocumentsCommand.Execute(null);
+        }
+
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => LoadDocumentsCommand.Execute(null));
         }
 
         public ICommand LoadDocumentsCommand { get; }

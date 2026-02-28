@@ -10,6 +10,7 @@ using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Data;
 using Daryva.Services.Dialog;
+using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
@@ -22,6 +23,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
+        private readonly IOrgContext _orgContext;
 
         private string _selectedTab = "Summary"; // "Summary" (first) or "List"
         private int _selectedTabIndex = 0;
@@ -109,6 +111,11 @@ namespace Daryva.MVVM.ViewModels
 
             // Load initial data asynchronously on UI thread
             _ = LoadInitialDataAsync();
+        }
+
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => _ = LoadInitialDataAsync());
         }
 
         public ICommand LoadExpensesCommand { get; }

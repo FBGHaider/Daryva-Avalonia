@@ -24,6 +24,8 @@ public sealed class OrgContext : IOrgContext
     public bool RequiresOnboarding { get; private set; }
     public bool RequiresProfile { get; private set; }
 
+    public event EventHandler<CurrentOrgChangedEventArgs>? CurrentOrgChanged;
+
     public OrgContext(IServiceProvider serviceProvider, IApiClient apiClient, IConfigurationService configuration)
     {
         _serviceProvider = serviceProvider;
@@ -97,6 +99,7 @@ public sealed class OrgContext : IOrgContext
         _currentOrgId = orgId;
         _apiClient.SetCurrentOrgId(orgId);
         _configuration.SetLocalValue(ApiCurrentOrgIdKey, orgId.ToString());
+        CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
         return Task.CompletedTask;
     }
 }

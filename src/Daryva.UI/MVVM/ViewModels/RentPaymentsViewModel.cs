@@ -2,6 +2,7 @@ using System.Windows.Input;
 using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.Services.Navigation;
+using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
@@ -10,14 +11,16 @@ namespace Daryva.MVVM.ViewModels
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly INavigationService _navigationService;
+        private readonly IOrgContext _orgContext;
         private BaseViewModel? _currentTabViewModel;
         private string _selectedTab = "Rent Ledger";
         private int _selectedTabIndex = 0;
 
-        public RentPaymentsViewModel(IServiceProvider serviceProvider, INavigationService navigationService)
+        public RentPaymentsViewModel(IServiceProvider serviceProvider, INavigationService navigationService, IOrgContext orgContext)
         {
             _serviceProvider = serviceProvider;
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
 
             // Initialize tab ViewModels
             LedgerViewModel = _serviceProvider.GetRequiredService<RentLedgerViewModel>();
@@ -35,8 +38,15 @@ namespace Daryva.MVVM.ViewModels
                 TransactionsViewModel.LoadTransactionsCommand.Execute(null);
             });
 
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
+
             // Refresh Rent Ledger and Transactions when a payment is recorded (from any screen)
             DashboardViewModel.PaymentDataChanged += OnPaymentDataChanged;
+        }
+
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => RefreshCommand.Execute(null));
         }
 
         private void OnPaymentDataChanged(object? sender, EventArgs e)

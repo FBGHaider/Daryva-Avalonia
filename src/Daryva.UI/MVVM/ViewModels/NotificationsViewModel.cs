@@ -8,6 +8,7 @@ using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -20,6 +21,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IEmailSender _emailSender;
         private readonly IQueueProcessedNotifier _queueProcessedNotifier;
         private readonly ISettingsService _settingsService;
+        private readonly IOrgContext _orgContext;
 
         private int _selectedTabIndex;
         private string _targetType = "Single";
@@ -122,6 +124,19 @@ namespace Daryva.MVVM.ViewModels
             {
                 LoadQueueCommand.Execute(null);
                 LoadHistoryCommand.Execute(null);
+            });
+        }
+
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                LoadHousesCommand.Execute(null);
+                LoadTenantsCommand.Execute(null);
+                LoadRecipientsCommand.Execute(null);
+                LoadQueueCommand.Execute(null);
+                LoadHistoryCommand.Execute(null);
+                LoadTemplatesCommand.Execute(null);
             });
         }
 

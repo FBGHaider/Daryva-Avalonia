@@ -5,6 +5,7 @@ using Daryva.Services;
 using Daryva.Services.Api;
 using Daryva.Services.Auth;
 using Daryva.Services.Navigation;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.MVVM.ViewModels;
 
@@ -13,6 +14,7 @@ public class OnboardingViewModel : BaseViewModel
     private readonly IAuthApiService _authApiService;
     private readonly IAuthSessionService _authSessionService;
     private readonly IAuthService _authService;
+    private readonly IOrgContext _orgContext;
     private readonly IOrganizationApiService _organizationApiService;
     private readonly IApiClient _apiClient;
     private readonly INavigationService _navigationService;
@@ -211,6 +213,7 @@ public class OnboardingViewModel : BaseViewModel
         IAuthApiService authApiService,
         IAuthSessionService authSessionService,
         IAuthService authService,
+        IOrgContext orgContext,
         IOrganizationApiService organizationApiService,
         IApiClient apiClient,
         INavigationService navigationService,
@@ -219,6 +222,7 @@ public class OnboardingViewModel : BaseViewModel
         _authApiService = authApiService;
         _authSessionService = authSessionService;
         _authService = authService;
+        _orgContext = orgContext;
         _organizationApiService = organizationApiService;
         _apiClient = apiClient;
         _navigationService = navigationService;
@@ -378,7 +382,7 @@ public class OnboardingViewModel : BaseViewModel
             NewOrganizationName = string.Empty;
             await LoadOrganizationsAsync();
             SelectedOrganization = Organizations.FirstOrDefault(o => o.Id == created.Id) ?? created;
-            _apiClient.SetCurrentOrgId(created.Id);
+            await _orgContext.SetCurrentOrgAsync(created.Id);
             _navigationService.NavigateTo<DashboardViewModel>();
         });
     }
@@ -412,7 +416,7 @@ public class OnboardingViewModel : BaseViewModel
 
             var result = await _organizationApiService.JoinByInviteAsync(InviteToken.Trim());
             InviteToken = string.Empty;
-            _apiClient.SetCurrentOrgId(result.OrganizationId);
+            await _orgContext.SetCurrentOrgAsync(result.OrganizationId);
             _navigationService.NavigateTo<DashboardViewModel>();
         });
     }

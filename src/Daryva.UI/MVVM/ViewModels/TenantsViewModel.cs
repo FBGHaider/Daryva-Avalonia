@@ -7,6 +7,7 @@ using Daryva.Services.Business;
 using Daryva.Services.Data;
 using Daryva.Services.Dialog;
 using Daryva.Services.Navigation;
+using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
@@ -28,6 +29,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly INavigationService _navigationService;
         private readonly ITenancyRepository _tenancyRepository;
         private readonly IPaymentService _paymentService;
+        private readonly IOrgContext _orgContext;
         private string _searchTerm = string.Empty;
         private Tenant? _selectedTenant;
         private bool _showArchivedOnly = false;
@@ -62,6 +64,11 @@ namespace Daryva.MVVM.ViewModels
 
             _ = LoadHouseFilterAsync();
             LoadTenantsCommand.Execute(null);
+        }
+
+        private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => LoadTenantsCommand.Execute(null));
         }
 
         public ICommand LoadTenantsCommand { get; }
