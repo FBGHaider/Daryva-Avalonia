@@ -1,19 +1,26 @@
+using System.IO;
+using System.Text.Json;
 using Daryva.Services;
 using Daryva.Services.Api;
+using Daryva.Services.Platform;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.Services.OrgContext;
 
 /// <summary>
-/// Org context backed by GET /api/me. Persists CurrentOrgId via IApiClient/config.
+/// Org context backed by GET /api/me. Persists CurrentOrgId via config and AppData/current_org.json.
+/// Organisation is the root aggregate: app must not enter dashboard without a valid CurrentOrgId.
 /// </summary>
 public sealed class OrgContext : IOrgContext
 {
     private const string ApiCurrentOrgIdKey = "ApiCurrentOrgId";
+    private const string CurrentOrgFileName = "current_org.json";
 
     private readonly IServiceProvider _serviceProvider;
     private readonly IApiClient _apiClient;
     private readonly IConfigurationService _configuration;
+    private readonly IAuthSessionService _authSession;
+    private readonly IAppPaths _appPaths;
 
     private List<OrgSummary> _orgs = new();
     private Guid? _currentOrgId;
@@ -32,11 +39,18 @@ public sealed class OrgContext : IOrgContext
     private string GetCurrentOrgConfigKey() =>
         !string.IsNullOrEmpty(_currentUserId) ? ApiCurrentOrgIdKey + "_" + _currentUserId : ApiCurrentOrgIdKey;
 
-    public OrgContext(IServiceProvider serviceProvider, IApiClient apiClient, IConfigurationService configuration)
+    public OrgContext(
+        IServiceProvider serviceProvider,
+        IApiClient apiClient,
+        IConfigurationService configuration,
+        IAuthSessionService authSession,
+        IAppPaths appPaths)
     {
         _serviceProvider = serviceProvider;
         _apiClient = apiClient;
         _configuration = configuration;
+        _authSession = authSession ?? throw new ArgumentNullException(nameof(authSession));
+        _appPaths = appPaths ?? throw new ArgumentNullException(nameof(appPaths));
 
         var raw = configuration.GetValue(ApiCurrentOrgIdKey);
         if (Guid.TryParse(raw, out var id) && id != Guid.Empty)
@@ -53,7 +67,7 @@ public sealed class OrgContext : IOrgContext
 
         if (me == null)
         {
-            _currentUserId = null;
+            _currentUserId = _authSession.UserId;
             // /api/me failed (e.g. 401, network). Try GET /api/orgs so we don't show setup when user has orgs.
             _orgs = await TryLoadOrgsFromApiAsync(orgApiService, cancellationToken).ConfigureAwait(false);
             if (_orgs.Count == 0)
@@ -64,7 +78,7 @@ public sealed class OrgContext : IOrgContext
             {
                 _currentOrgId = null;
                 _apiClient.ClearCurrentOrgId();
-                _configuration.SetLocalValue(GetCurrentOrgConfigKey(), string.Empty);
+                ClearPersistedCurrentOrg();
                 return;
             }
             ApplyPreferredOrFirstOrg();
@@ -75,7 +89,7 @@ public sealed class OrgContext : IOrgContext
         RequiresOnboarding = me.RequiresOrgSetup;
         RequiresProfile = me.RequiresProfileSetup;
 
-        _orgs = me.Organisations
+        _orgs = (me.Organisations ?? new List<MeOrganisationDto>())
             .Select(o => new OrgSummary { Id = o.Id, Name = o.Name, Role = o.CurrentUserRole ?? "Member" })
             .ToList();
 
@@ -98,7 +112,7 @@ public sealed class OrgContext : IOrgContext
             {
                 _currentOrgId = null;
                 _apiClient.ClearCurrentOrgId();
-                _configuration.SetLocalValue(GetCurrentOrgConfigKey(), string.Empty);
+                ClearPersistedCurrentOrg();
                 return;
             }
         }
@@ -107,6 +121,15 @@ public sealed class OrgContext : IOrgContext
     }
 
     public void NotifyCurrentOrgDetailsChanged() => CurrentOrgDetailsChanged?.Invoke(this, EventArgs.Empty);
+
+    public void ClearForSignOut()
+    {
+        _orgs.Clear();
+        _currentOrgId = null;
+        _currentUserId = null;
+        _apiClient.ClearCurrentOrgId();
+        ClearPersistedCurrentOrg();
+    }
 
     private async Task<List<OrgSummary>> TryLoadOrgsFromApiAsync(IOrganizationApiService? orgApiService, CancellationToken cancellationToken)
     {
@@ -145,20 +168,26 @@ public sealed class OrgContext : IOrgContext
     private void ApplyPreferredOrFirstOrg()
     {
         var key = GetCurrentOrgConfigKey();
-        var preferredRaw = _configuration.GetValue(key);
-        var preferredId = Guid.TryParse(preferredRaw, out var p) && p != Guid.Empty ? p : (Guid?)null;
+        var preferredId = ReadPersistedCurrentOrgId();
+        if (!preferredId.HasValue)
+        {
+            var preferredRaw = _configuration.GetValue(key);
+            preferredId = Guid.TryParse(preferredRaw, out var p) && p != Guid.Empty ? p : (Guid?)null;
+        }
         var preferred = preferredId.HasValue ? _orgs.FirstOrDefault(o => o.Id == preferredId.Value) : null;
 
         if (preferred != null)
         {
             _currentOrgId = preferred.Id;
             _apiClient.SetCurrentOrgId(preferred.Id);
+            SavePersistedCurrentOrg(preferred.Id);
         }
         else if (_orgs.Count == 1)
         {
             _currentOrgId = _orgs[0].Id;
             _apiClient.SetCurrentOrgId(_orgs[0].Id);
             _configuration.SetLocalValue(key, _orgs[0].Id.ToString());
+            SavePersistedCurrentOrg(_orgs[0].Id);
         }
         else if (_currentOrgId.HasValue && _orgs.Any(o => o.Id == _currentOrgId.Value))
         {
@@ -166,10 +195,55 @@ public sealed class OrgContext : IOrgContext
         }
         else
         {
-            _currentOrgId = _orgs[0].Id;
-            _apiClient.SetCurrentOrgId(_orgs[0].Id);
-            _configuration.SetLocalValue(key, _orgs[0].Id.ToString());
+            // Multiple orgs and no valid stored selection: leave CurrentOrgId null so app shows Choose Org screen.
+            _currentOrgId = null;
+            _apiClient.ClearCurrentOrgId();
         }
+    }
+
+    private Guid? ReadPersistedCurrentOrgId()
+    {
+        var userId = _currentUserId ?? _authSession.UserId;
+        if (string.IsNullOrEmpty(userId)) return null;
+        try
+        {
+            var path = Path.Combine(_appPaths.AppData, CurrentOrgFileName);
+            if (!File.Exists(path)) return null;
+            var json = File.ReadAllText(path);
+            var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("userId", out var u) && u.GetString() == userId &&
+                root.TryGetProperty("currentOrgId", out var o) && Guid.TryParse(o.GetString(), out var id) && id != Guid.Empty)
+                return id;
+        }
+        catch { /* ignore */ }
+        return null;
+    }
+
+    private void SavePersistedCurrentOrg(Guid orgId)
+    {
+        var userId = _currentUserId ?? _authSession.UserId;
+        if (string.IsNullOrEmpty(userId)) return;
+        try
+        {
+            var path = Path.Combine(_appPaths.AppData, CurrentOrgFileName);
+            var json = JsonSerializer.Serialize(new { userId, currentOrgId = orgId.ToString() });
+            File.WriteAllText(path, json);
+        }
+        catch { /* ignore */ }
+        _configuration.SetLocalValue(GetCurrentOrgConfigKey(), orgId.ToString());
+    }
+
+    private void ClearPersistedCurrentOrg()
+    {
+        _configuration.SetLocalValue(GetCurrentOrgConfigKey(), string.Empty);
+        try
+        {
+            var path = Path.Combine(_appPaths.AppData, CurrentOrgFileName);
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch { /* ignore */ }
     }
 
     public Task SetCurrentOrgAsync(Guid orgId, CancellationToken cancellationToken = default)
@@ -178,7 +252,7 @@ public sealed class OrgContext : IOrgContext
             return Task.CompletedTask;
         _currentOrgId = orgId;
         _apiClient.SetCurrentOrgId(orgId);
-        _configuration.SetLocalValue(GetCurrentOrgConfigKey(), orgId.ToString());
+        SavePersistedCurrentOrg(orgId);
         CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
         return Task.CompletedTask;
     }
@@ -189,7 +263,7 @@ public sealed class OrgContext : IOrgContext
             _orgs.Add(new OrgSummary { Id = orgId, Name = name ?? "Organisation", Role = "Member" });
         _currentOrgId = orgId;
         _apiClient.SetCurrentOrgId(orgId);
-        _configuration.SetLocalValue(GetCurrentOrgConfigKey(), orgId.ToString());
+        SavePersistedCurrentOrg(orgId);
         CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
         return Task.CompletedTask;
     }

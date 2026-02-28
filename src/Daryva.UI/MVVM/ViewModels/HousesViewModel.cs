@@ -70,13 +70,20 @@ namespace Daryva.MVVM.ViewModels
             ClearSelectionCommand = new RelayCommand(_ => SelectedHouse = null, _ => SelectedHouse != null);
             OpenSelectedHouseCommand = new RelayCommand(_ => _ = OpenHouseAsync(SelectedHouse), _ => SelectedHouse != null);
 
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
             LoadHousesCommand.Execute(null);
         }
 
+        /// <summary>True when no organisation is selected; show "Select an organisation" and do not load data.</summary>
+        public bool NoOrgSelected => !_orgContext.CurrentOrgId.HasValue;
+
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            if (_orgContext == null) return;
-            Dispatcher.UIThread.Post(() => LoadHousesCommand.Execute(null));
+            Dispatcher.UIThread.Post(() =>
+            {
+                OnPropertyChanged(nameof(NoOrgSelected));
+                LoadHousesCommand.Execute(null);
+            });
         }
 
         public ICommand LoadHousesCommand { get; }
@@ -185,6 +192,12 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task LoadHousesAsync()
         {
+            if (!_orgContext.CurrentOrgId.HasValue)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => Houses.Clear());
+                OnPropertyChanged(nameof(NoOrgSelected));
+                return;
+            }
             try
             {
                 IsLoading = true;

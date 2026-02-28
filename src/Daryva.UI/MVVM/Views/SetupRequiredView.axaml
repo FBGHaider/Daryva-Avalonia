@@ -21,12 +21,39 @@
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryTextBrush}"
                        HorizontalAlignment="Center"/>
-            <TextBlock Text="No organisation in this session. Create one, or restore an existing org using a recovery code you saved earlier (e.g. for &quot;2 houses&quot;)."
-                       Foreground="{DynamicResource SecondaryTextBrush}"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       HorizontalAlignment="Center"/>
-            <StackPanel Spacing="12" HorizontalAlignment="Center">
+
+            <!-- Choose Org: user has orgs but must select one -->
+            <StackPanel IsVisible="{Binding ShowChooseOrg}" Spacing="12">
+                <TextBlock Text="Select an organisation to continue."
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding OrganisationsList}"
+                          SelectedItem="{Binding SelectedOrg}"
+                          MinWidth="280"
+                          HorizontalAlignment="Center"
+                          PlaceholderText="Select organisation">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Continue"
+                        Command="{Binding ContinueWithSelectedOrgCommand}"
+                        IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"
+                        MinWidth="200"/>
+            </StackPanel>
+
+            <!-- Create Org: user has zero orgs -->
+            <StackPanel IsVisible="{Binding ShowCreateOnly}" Spacing="12">
+                <TextBlock Text="Create an organisation to get started, or restore one using a recovery code you saved earlier."
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"/>
                 <Button Content="Create organisation"
                         Command="{Binding CreateOrganisationCommand}"
                         IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
@@ -37,6 +64,9 @@
                         IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
                         HorizontalAlignment="Center"
                         MinWidth="200"/>
+            </StackPanel>
+
+            <StackPanel Spacing="12" HorizontalAlignment="Center">
                 <Button Content="Open setup in browser"
                         Command="{Binding OpenOnboardingInBrowserCommand}"
                         HorizontalAlignment="Center"

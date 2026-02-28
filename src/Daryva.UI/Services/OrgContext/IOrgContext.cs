@@ -32,4 +32,7 @@ public interface IOrgContext
 
     /// <summary>Notifies that current org details (e.g. name) changed so subscribers can refresh.</summary>
     void NotifyCurrentOrgDetailsChanged();
+
+    /// <summary>Clears in-memory org state when the user signs out so the next sign-in does not show stale data.</summary>
+    void ClearForSignOut();
 }

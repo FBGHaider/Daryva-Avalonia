@@ -29,14 +29,14 @@ namespace Daryva.MVVM.ViewModels
         private readonly INavigationService _navigationService;
         private readonly ITenancyRepository _tenancyRepository;
         private readonly IPaymentService _paymentService;
-        private readonly IOrgContext _orgContext = null!;
+        private readonly IOrgContext _orgContext;
         private string _searchTerm = string.Empty;
         private Tenant? _selectedTenant;
         private bool _showArchivedOnly = false;
         private HouseFilterItem? _selectedHouseFilter;
         private bool _isLoading;
 
-        public TenantsViewModel(ITenantService tenantService, IHouseService houseService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService, INavigationService navigationService, ITenancyRepository tenancyRepository, IPaymentService paymentService)
+        public TenantsViewModel(ITenantService tenantService, IHouseService houseService, IDialogService dialogService, IServiceProvider serviceProvider, ISettingsService settingsService, INavigationService navigationService, ITenancyRepository tenancyRepository, IPaymentService paymentService, IOrgContext orgContext)
         {
             _tenantService = tenantService;
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
@@ -46,6 +46,7 @@ namespace Daryva.MVVM.ViewModels
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _tenancyRepository = tenancyRepository ?? throw new ArgumentNullException(nameof(tenancyRepository));
             _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
             Tenants = new ObservableCollection<Tenant>();
             DepositReturnList = new ObservableCollection<DepositReturnReminderItem>();
             HouseFilterOptions = new ObservableCollection<HouseFilterItem>();
@@ -62,14 +63,20 @@ namespace Daryva.MVVM.ViewModels
             LoadDepositReturnsCommand = new RelayCommand(async _ => await LoadDepositReturnsAsync());
             RecordDepositReturnedCommand = new RelayCommand(async p => await RecordDepositReturnedAsync(p as DepositReturnReminderItem), p => p is DepositReturnReminderItem);
 
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
             _ = LoadHouseFilterAsync();
             LoadTenantsCommand.Execute(null);
         }
 
+        public bool NoOrgSelected => !_orgContext.CurrentOrgId.HasValue;
+
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            if (_orgContext == null) return;
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => LoadTenantsCommand.Execute(null));
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                OnPropertyChanged(nameof(NoOrgSelected));
+                LoadTenantsCommand.Execute(null);
+            });
         }
 
         public ICommand LoadTenantsCommand { get; }
@@ -248,6 +255,12 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task LoadTenantsAsync()
         {
+            if (!_orgContext.CurrentOrgId.HasValue)
+            {
+                Tenants.Clear();
+                OnPropertyChanged(nameof(NoOrgSelected));
+                return;
+            }
             try
             {
                 var tenants = await GetFilteredTenantsAsync();

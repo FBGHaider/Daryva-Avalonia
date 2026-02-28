@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
 using Daryva.Api.Services;
@@ -52,9 +53,11 @@ public class OrgsController : ControllerBase
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var callerEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email");
             var org = await _orgService.CreateOrganizationAsync(
                 _tenantContext.UserId,
                 request,
+                callerEmail,
                 cancellationToken);
 
             _logger.LogInformation(

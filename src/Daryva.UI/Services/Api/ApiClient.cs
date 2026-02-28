@@ -31,7 +31,7 @@ public class ApiClient : IApiClient
 
         var baseAddress = configuration.GetValue("ApiBaseUrl") ?? "http://localhost:5000";
 
-        var authHandler = new ApiAuthHandler(new Uri(baseAddress), _authSession, _authService);
+        var authHandler = new ApiAuthHandler(this, new Uri(baseAddress), _authSession, _authService);
         authHandler.InnerHandler = new HttpClientHandler();
         
         _httpClient = new HttpClient(authHandler)
@@ -78,13 +78,15 @@ public class ApiClient : IApiClient
 
     private sealed class ApiAuthHandler : DelegatingHandler
     {
+        private readonly ApiClient _owner;
         private readonly Uri _baseAddress;
         private readonly IAuthSessionService _authSession;
         private readonly IAuthService? _authService;
         private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
-        public ApiAuthHandler(Uri baseAddress, IAuthSessionService authSession, IAuthService? authService)
+        public ApiAuthHandler(ApiClient owner, Uri baseAddress, IAuthSessionService authSession, IAuthService? authService)
         {
+            _owner = owner ?? throw new ArgumentNullException(nameof(owner));
             _baseAddress = baseAddress;
             _authSession = authSession;
             _authService = authService;
@@ -98,6 +100,7 @@ public class ApiClient : IApiClient
             {
                 await EnsureFreshTokenIfNeededAsync(cancellationToken);
                 AttachAccessToken(request);
+                AttachOrgId(request);
             }
 
             var response = await SendWithTransientRetryAsync(request, cancellationToken);
@@ -116,7 +119,15 @@ public class ApiClient : IApiClient
 
             var retryRequest = await CloneRequestAsync(request, cancellationToken);
             AttachAccessToken(retryRequest);
+            AttachOrgId(retryRequest);
             return await base.SendAsync(retryRequest, cancellationToken);
+        }
+
+        private void AttachOrgId(HttpRequestMessage request)
+        {
+            request.Headers.Remove("X-Org-Id");
+            if (_owner.CurrentOrgId.HasValue)
+                request.Headers.TryAddWithoutValidation("X-Org-Id", _owner.CurrentOrgId.Value.ToString());
         }
 
         private async Task<HttpResponseMessage> SendWithTransientRetryAsync(HttpRequestMessage request, CancellationToken cancellationToken)

@@ -79,18 +79,33 @@ namespace Daryva.Services.Business
         public async Task<Organisation> CreateOrganisationAsync(string name, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Organisation name is required.", nameof(name));
+
+            if (_organizationApiService != null)
+            {
+                var dto = await _organizationApiService.CreateOrganizationAsync(name.Trim(), cancellationToken).ConfigureAwait(false);
+                var org = new Organisation
+                {
+                    Id = dto.Id,
+                    Name = dto.Name,
+                    CreatedAt = dto.CreatedAt,
+                    PlanTier = dto.CurrentUserRole != null ? "Starter" : null
+                };
+                await SetCurrentOrganisationAsync(org.Id, cancellationToken).ConfigureAwait(false);
+                return org;
+            }
+
             var list = await ReadOrgsAsync(cancellationToken).ConfigureAwait(false);
-            var org = new Organisation
+            var localOrg = new Organisation
             {
                 Id = Guid.NewGuid(),
                 Name = name.Trim(),
                 CreatedAt = DateTime.UtcNow,
                 PlanTier = "Starter"
             };
-            list.Add(org);
+            list.Add(localOrg);
             await WriteOrgsAsync(list, cancellationToken).ConfigureAwait(false);
-            await SetCurrentOrganisationAsync(org.Id, cancellationToken).ConfigureAwait(false);
-            return org;
+            await SetCurrentOrganisationAsync(localOrg.Id, cancellationToken).ConfigureAwait(false);
+            return localOrg;
         }
 
         public async Task RenameOrganisationAsync(Guid orgId, string newName, CancellationToken cancellationToken = default)

@@ -131,8 +131,10 @@ namespace Daryva.MVVM.ViewModels
         {
             try
             {
+                // Use the new account's token for all subsequent API calls (fixes "another account still shows old dashboard").
+                _apiClient.ApplyAuthState();
                 await _orgContext.RefreshAsync().ConfigureAwait(false);
-                if (_orgContext.RequiresOnboarding || _orgContext.RequiresProfile)
+                if (_orgContext.Orgs.Count == 0 || !_orgContext.CurrentOrgId.HasValue)
                 {
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
@@ -142,7 +144,6 @@ namespace Daryva.MVVM.ViewModels
                     });
                     return;
                 }
-                // Current org already set by RefreshAsync (per-account key).
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _ = RefreshCurrentOrganizationLabelAsync(force: true);
@@ -152,7 +153,6 @@ namespace Daryva.MVVM.ViewModels
             }
             catch
             {
-                // Token exchange succeeded but loading org/me failed (e.g. API down). Stay signed in and show setup so user can Refresh.
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _navigationService.NavigateTo<SetupRequiredViewModel>();
@@ -181,21 +181,27 @@ namespace Daryva.MVVM.ViewModels
 
                 await _orgContext.RefreshAsync().ConfigureAwait(true);
 
-                if (_orgContext.RequiresOnboarding || _orgContext.RequiresProfile)
+                // Decision based on org count and current selection only. Do NOT treat CurrentOrgId == null as "no orgs exist".
+                if (_orgContext.Orgs.Count == 0)
                 {
                     _navigationService.NavigateTo<SetupRequiredViewModel>();
                     IsOnboardingMode = true;
                     CurrentOrganizationName = "(Select organization)";
                     return;
                 }
-
-                if (_orgContext.Orgs.Count == 0)
+                if (!_orgContext.CurrentOrgId.HasValue)
                 {
-                    NavigateToOnboarding();
+                    // Orgs exist but none selected (e.g. multiple orgs, user must choose). Show Choose Org.
+                    _navigationService.NavigateTo<SetupRequiredViewModel>();
+                    IsOnboardingMode = true;
+                    CurrentOrganizationName = "(Select organization)";
                     return;
                 }
+                if (_orgContext.RequiresProfile)
+                {
+                    // Profile setup can be done from dashboard; still enter.
+                }
 
-                // Current org already set by RefreshAsync (using per-account persisted key).
                 _ = RefreshCurrentOrganizationLabelAsync(force: true);
                 NavigateToDashboard();
                 _ = LoadAppStartPageAndNavigateAsync();

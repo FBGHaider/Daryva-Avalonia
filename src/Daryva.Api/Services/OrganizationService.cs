@@ -16,9 +16,11 @@ public interface IOrganizationService
     /// <summary>
     /// Create a new organization. Current user becomes the Owner.
     /// </summary>
+    /// <param name="callerEmail">Optional email from JWT/claims so the owner member shows the signed-in email; if null, resolved from profile.</param>
     Task<OrganizationResponse> CreateOrganizationAsync(
         string userId,
         CreateOrganizationRequest request,
+        string? callerEmail = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -131,6 +133,7 @@ public class OrganizationService : IOrganizationService
     public async Task<OrganizationResponse> CreateOrganizationAsync(
         string userId,
         CreateOrganizationRequest request,
+        string? callerEmail = null,
         CancellationToken cancellationToken = default)
     {
         var name = request.Name?.Trim();
@@ -146,8 +149,10 @@ public class OrganizationService : IOrganizationService
             CreatedAt = DateTime.UtcNow
         };
 
-        // Resolve current user's email so the owner row shows in members list
-        var ownerEmail = await ResolveUserEmailAsync(userId, cancellationToken);
+        // Use email from JWT/claims when provided so the owner shows the signed-in email; otherwise resolve from profile
+        var ownerEmail = !string.IsNullOrWhiteSpace(callerEmail)
+            ? callerEmail.Trim().ToLowerInvariant()
+            : await ResolveUserEmailAsync(userId, cancellationToken);
 
         // Add current user as Owner
         var member = new OrganizationMember
@@ -200,7 +205,7 @@ public class OrganizationService : IOrganizationService
                 ? suggestedName.Trim().Substring(0, 256)
                 : suggestedName.Trim();
 
-        await CreateOrganizationAsync(userId, new CreateOrganizationRequest { Name = name }, cancellationToken);
+        await CreateOrganizationAsync(userId, new CreateOrganizationRequest { Name = name }, callerEmail: null, cancellationToken);
         _logger.LogInformation("Auto-created default organization for user {UserId} (no Daryva orgs existed).", userId);
     }
 
@@ -341,7 +346,12 @@ public class OrganizationService : IOrganizationService
             .Where(m => m.OrganizationId == orgId)
             .ToListAsync(cancellationToken);
 
-        return members.Select(MapToResponse).ToList();
+        var userIds = members.Select(m => m.UserId).Distinct().ToList();
+        var profiles = await _dbContext.AppUserProfiles
+            .Where(p => userIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+        return members.Select(m => MapToResponseWithProfile(m, profiles.GetValueOrDefault(m.UserId))).ToList();
     }
 
     public async Task<CreateOrgInviteResponse> CreateInviteAsync(
@@ -577,11 +587,19 @@ public class OrganizationService : IOrganizationService
         {
             Id = member.Id,
             UserId = member.UserId,
-            Email = !string.IsNullOrWhiteSpace(member.Email) ? member.Email : profile?.Email,
+            Email = PreferProfileEmail(member.Email, profile?.Email),
             DisplayName = profile?.DisplayName,
             Role = member.Role,
             JoinedAt = member.JoinedAt
         };
+
+    /// <summary>Use profile email when member email is missing or is a placeholder (e.g. dev@local).</summary>
+    private static string? PreferProfileEmail(string? memberEmail, string? profileEmail)
+    {
+        if (!string.IsNullOrWhiteSpace(profileEmail) && (string.IsNullOrWhiteSpace(memberEmail) || memberEmail.EndsWith("@local", StringComparison.OrdinalIgnoreCase)))
+            return profileEmail;
+        return !string.IsNullOrWhiteSpace(memberEmail) ? memberEmail : profileEmail;
+    }
 
     private static bool CanManageJoin(string role) =>
         string.Equals(role, OrganizationMember.Roles.Owner, StringComparison.OrdinalIgnoreCase) ||

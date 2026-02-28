@@ -1,10 +1,11 @@
 using Daryva.Services.Api;
+using Daryva.Services.OrgContext;
 using Daryva.Services.Platform;
 
 namespace Daryva.Services.Auth;
 
 /// <summary>
-/// Clears local org list, current org, and API client org so each account only sees its own data after sign-in.
+/// Clears session, API client auth header, org context, and local files on sign-out so the next sign-in shows the correct account.
 /// </summary>
 public sealed class AccountDataClearer : IAccountDataClearer
 {
@@ -16,16 +17,28 @@ public sealed class AccountDataClearer : IAccountDataClearer
     private readonly IAppPaths _appPaths;
     private readonly IConfigurationService _configuration;
     private readonly IApiClient _apiClient;
+    private readonly IOrgContext _orgContext;
 
-    public AccountDataClearer(IAppPaths appPaths, IConfigurationService configuration, IApiClient apiClient)
+    public AccountDataClearer(IAppPaths appPaths, IConfigurationService configuration, IApiClient apiClient, IOrgContext orgContext)
     {
         _appPaths = appPaths ?? throw new ArgumentNullException(nameof(appPaths));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
+        _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
     }
 
     public Task ClearAsync(CancellationToken cancellationToken = default)
     {
+        try
+        {
+            _orgContext.ClearForSignOut();
+            _apiClient.ApplyAuthState();
+        }
+        catch
+        {
+            // Best effort
+        }
+
         var dir = _appPaths.AppData;
         if (string.IsNullOrEmpty(dir))
             return Task.CompletedTask;
@@ -46,7 +59,6 @@ public sealed class AccountDataClearer : IAccountDataClearer
                 File.WriteAllText(membersPath, "[]");
 
             _configuration.SetLocalValue(ApiCurrentOrgIdKey, string.Empty);
-            _apiClient.ClearCurrentOrgId();
         }
         catch
         {

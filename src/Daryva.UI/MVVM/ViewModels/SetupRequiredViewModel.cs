@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Daryva.MVVM.Commands;
 using Daryva.Services;
@@ -10,8 +11,9 @@ using Daryva.Services.OrgContext;
 namespace Daryva.MVVM.ViewModels;
 
 /// <summary>
-/// Shown when user is signed in but requires org or profile setup (GET /api/me flags).
-/// Offers "Create organisation", "Open setup in browser", "Refresh", and "Sign out".
+/// Shown when user is signed in but must create an org (0 orgs) or choose an org (multiple orgs).
+/// Create-only: Create organisation, Restore from code, Open in browser, Refresh, Sign out.
+/// Choose-org: Dropdown of organisations + Continue; or auto-continue if single org.
 /// </summary>
 public class SetupRequiredViewModel : BaseViewModel
 {
@@ -22,6 +24,7 @@ public class SetupRequiredViewModel : BaseViewModel
     private readonly IDialogService _dialogService;
     private readonly IAuthService _authService;
     private bool _isRefreshing;
+    private OrgSummary? _selectedOrg;
 
     public SetupRequiredViewModel(
         IOrgContext orgContext,
@@ -38,11 +41,28 @@ public class SetupRequiredViewModel : BaseViewModel
         _dialogService = dialogService;
         _authService = authService;
 
+        OrganisationsList = new ObservableCollection<OrgSummary>();
         OpenOnboardingInBrowserCommand = new RelayCommand(_ => OpenOnboardingInBrowser());
         RefreshCommand = new RelayCommand(async _ => await RefreshAsync());
         CreateOrganisationCommand = new RelayCommand(async _ => await CreateOrganisationAsync());
         RestoreFromCodeCommand = new RelayCommand(async _ => await RestoreFromCodeAsync());
+        ContinueWithSelectedOrgCommand = new RelayCommand(_ => ContinueWithSelectedOrg());
         SignOutCommand = new RelayCommand(async _ => await SignOutAsync());
+
+        SyncOrganisationsFromContext();
+        _ = AutoContinueIfSingleOrgAsync();
+    }
+
+    /// <summary>True when user has zero orgs: show Create org + Restore only.</summary>
+    public bool ShowCreateOnly => _orgContext.Orgs.Count == 0;
+    /// <summary>True when user has orgs but none selected: show Choose Org panel.</summary>
+    public bool ShowChooseOrg => _orgContext.Orgs.Count > 0;
+
+    public ObservableCollection<OrgSummary> OrganisationsList { get; }
+    public OrgSummary? SelectedOrg
+    {
+        get => _selectedOrg;
+        set => SetProperty(ref _selectedOrg, value);
     }
 
     public bool IsRefreshing
@@ -55,7 +75,33 @@ public class SetupRequiredViewModel : BaseViewModel
     public RelayCommand RefreshCommand { get; }
     public RelayCommand CreateOrganisationCommand { get; }
     public RelayCommand RestoreFromCodeCommand { get; }
+    public RelayCommand ContinueWithSelectedOrgCommand { get; }
     public RelayCommand SignOutCommand { get; }
+
+    private void SyncOrganisationsFromContext()
+    {
+        OrganisationsList.Clear();
+        foreach (var o in _orgContext.Orgs)
+            OrganisationsList.Add(o);
+        SelectedOrg = OrganisationsList.FirstOrDefault();
+        OnPropertyChanged(nameof(ShowCreateOnly));
+        OnPropertyChanged(nameof(ShowChooseOrg));
+    }
+
+    private async System.Threading.Tasks.Task AutoContinueIfSingleOrgAsync()
+    {
+        if (_orgContext.Orgs.Count != 1) return;
+        await _orgContext.SetCurrentOrgAsync(_orgContext.Orgs[0].Id).ConfigureAwait(true);
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            _navigationService.NavigateTo<DashboardViewModel>());
+    }
+
+    private void ContinueWithSelectedOrg()
+    {
+        if (SelectedOrg == null) return;
+        _orgContext.SetCurrentOrgAsync(SelectedOrg.Id);
+        _navigationService.NavigateTo<DashboardViewModel>();
+    }
 
     private void OpenOnboardingInBrowser()
     {
@@ -88,10 +134,13 @@ public class SetupRequiredViewModel : BaseViewModel
         try
         {
             await _orgContext.RefreshAsync().ConfigureAwait(true);
-            if (!_orgContext.RequiresOnboarding && !_orgContext.RequiresProfile)
+            SyncOrganisationsFromContext();
+            if (_orgContext.Orgs.Count > 0 && _orgContext.CurrentOrgId.HasValue)
             {
                 _navigationService.NavigateTo<DashboardViewModel>();
+                return;
             }
+            _ = AutoContinueIfSingleOrgAsync();
         }
         finally
         {
@@ -111,8 +160,10 @@ public class SetupRequiredViewModel : BaseViewModel
         IsRefreshing = true;
         try
         {
-            await _organizationApiService.CreateOrganizationAsync(name.Trim()).ConfigureAwait(false);
+            var created = await _organizationApiService.CreateOrganizationAsync(name.Trim()).ConfigureAwait(false);
             await _orgContext.RefreshAsync().ConfigureAwait(false);
+            // Explicitly set the new org as current so X-Org-Id is correct and "not a member" is avoided.
+            await _orgContext.SetCurrentOrgFromRecoveryAsync(created.Id, created.Name).ConfigureAwait(false);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 _navigationService.NavigateTo<DashboardViewModel>();

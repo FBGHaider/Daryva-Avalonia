@@ -378,6 +378,7 @@ namespace Daryva.MVVM.ViewModels
             try
             {
                 var org = await _orgService.CreateOrganisationAsync(name.Trim());
+                await _orgContext.SetCurrentOrgFromRecoveryAsync(org.Id, org.Name);
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Organisations.Add(org);
