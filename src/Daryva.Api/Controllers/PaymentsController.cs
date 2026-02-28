@@ -134,9 +134,14 @@ public class PaymentsController : ControllerBase
         var orgId = _tenantContext.CurrentOrgId.Value;
         try
         {
+            // Use same (tenant, house) group as rent ledger so total paid matches ledger and transactions
+            var groupIds = await _rentLedgerService.GetTenancyIdsInSameGroupAsync(tenancyId, cancellationToken);
+            if (groupIds == null || groupIds.Count == 0)
+                return NotFound(new { error = "Tenancy not found." });
+
             var total = await _dbContext.RentPayments
                 .Where(p => p.OrganizationId == orgId &&
-                            p.TenancyId == tenancyId &&
+                            groupIds.Contains(p.TenancyId) &&
                             p.DatePaid.Year == year &&
                             p.DatePaid.Month == month)
                 .SumAsync(p => p.AmountPaid, cancellationToken);
@@ -196,12 +201,18 @@ public class PaymentsController : ControllerBase
         if (tenancy == null)
             return NotFound(new { error = "Tenancy not found." });
 
-        var paid = await _dbContext.RentPayments
-            .Where(p => p.OrganizationId == orgId &&
-                        p.TenancyId == tenancyId &&
-                        p.DatePaid.Year == year &&
-                        p.DatePaid.Month == month)
-            .SumAsync(p => p.AmountPaid, cancellationToken);
+        // Use same (tenant, house) group as rent ledger so status matches ledger and transactions
+        var groupIds = await _rentLedgerService.GetTenancyIdsInSameGroupAsync(tenancyId, cancellationToken);
+        var paid = 0m;
+        if (groupIds != null && groupIds.Count > 0)
+        {
+            paid = await _dbContext.RentPayments
+                .Where(p => p.OrganizationId == orgId &&
+                            groupIds.Contains(p.TenancyId) &&
+                            p.DatePaid.Year == year &&
+                            p.DatePaid.Month == month)
+                .SumAsync(p => p.AmountPaid, cancellationToken);
+        }
 
         var due = tenancy.RentAmountMonthly;
         var status = paid >= due

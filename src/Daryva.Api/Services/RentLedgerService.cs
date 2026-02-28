@@ -8,6 +8,7 @@ namespace Daryva.Api.Services;
 /// <summary>
 /// Single source of truth for rent ledger entries (who has rent due in a period and how much).
 /// Used by the Rent & Payments tab and by house stats so house monthly rent matches the ledger.
+/// Rent totals and status use the same (tenant, house) grouping so they stay in sync with the ledger.
 /// </summary>
 public interface IRentLedgerService
 {
@@ -22,6 +23,12 @@ public interface IRentLedgerService
         string? statusFilter = null,
         string? searchTerm = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns all tenancy IDs that share the same (tenant, house) as the given tenancy.
+    /// Used so rent total/status for a period sum payments across the same group as the ledger.
+    /// </summary>
+    Task<IReadOnlyList<Guid>?> GetTenancyIdsInSameGroupAsync(Guid tenancyId, CancellationToken cancellationToken = default);
 }
 
 public class RentLedgerService : IRentLedgerService
@@ -186,6 +193,26 @@ public class RentLedgerService : IRentLedgerService
         }
 
         return result.OrderBy(r => r.HouseAddress).ThenBy(r => r.TenantName).ToList();
+    }
+
+    public async Task<IReadOnlyList<Guid>?> GetTenancyIdsInSameGroupAsync(Guid tenancyId, CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return null;
+
+        var orgId = _tenantContext.CurrentOrgId.Value;
+        var tenancy = await _dbContext.Tenancies
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == tenancyId && t.OrganizationId == orgId, cancellationToken);
+        if (tenancy == null)
+            return null;
+
+        var ids = await _dbContext.Tenancies
+            .AsNoTracking()
+            .Where(t => t.OrganizationId == orgId && t.TenantId == tenancy.TenantId && t.HouseId == tenancy.HouseId)
+            .Select(t => t.Id)
+            .ToListAsync(cancellationToken);
+        return ids;
     }
 
     private static bool MatchesStatusFilter(string? statusFilter, string status)
