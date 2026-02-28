@@ -115,13 +115,16 @@ public class OrganizationService : IOrganizationService
         CreateOrganizationRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
+        var name = request.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Organization name cannot be empty.", nameof(request.Name));
+        if (name.Length > 256)
+            throw new ArgumentException("Organization name must be 256 characters or less.", nameof(request.Name));
 
         var org = new Organization
         {
             Id = Guid.NewGuid(),
-            Name = request.Name.Trim(),
+            Name = name,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -331,9 +334,9 @@ public class OrganizationService : IOrganizationService
         if (invite == null || invite.RevokedAt != null || invite.UsedAt != null || invite.ExpiresAt <= DateTime.UtcNow)
             throw new InvalidOperationException("Invite is invalid or expired.");
 
-        var appUser = await ResolveAppUserAsync(userId, cancellationToken);
+        var userEmail = await ResolveUserEmailAsync(userId, cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(invite.Email) && !string.Equals(invite.Email, appUser.Email, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(invite.Email) && !string.Equals(invite.Email, userEmail, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Invite email does not match current user.");
 
         var existingMembership = await _dbContext.OrganizationMembers
@@ -346,7 +349,7 @@ public class OrganizationService : IOrganizationService
                 Id = Guid.NewGuid(),
                 OrganizationId = invite.OrganizationId,
                 UserId = userId,
-                Email = appUser.Email,
+                Email = userEmail,
                 Role = invite.Role,
                 JoinedAt = DateTime.UtcNow
             };
@@ -451,14 +454,14 @@ public class OrganizationService : IOrganizationService
             };
         }
 
-        var appUser = await ResolveAppUserAsync(userId, cancellationToken);
+        var userEmail = await ResolveUserEmailAsync(userId, cancellationToken);
 
         var member = new OrganizationMember
         {
             Id = Guid.NewGuid(),
             OrganizationId = joinCode.OrganizationId,
             UserId = userId,
-            Email = appUser.Email,
+            Email = userEmail,
             Role = joinCode.Role,
             JoinedAt = DateTime.UtcNow
         };
@@ -498,16 +501,26 @@ public class OrganizationService : IOrganizationService
         string.Equals(role, OrganizationMember.Roles.Owner, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(role, OrganizationMember.Roles.Admin, StringComparison.OrdinalIgnoreCase);
 
-    private async Task<AppUser> ResolveAppUserAsync(string userId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Resolve current user's email from AppUser (local auth) or AppUserProfile (OIDC/Dev).
+    /// </summary>
+    private async Task<string> ResolveUserEmailAsync(string userId, CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(userId, out var parsedUserId))
+        if (string.IsNullOrWhiteSpace(userId))
             throw new InvalidOperationException("User context is invalid.");
 
-        var appUser = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.Id == parsedUserId, cancellationToken);
-        if (appUser == null)
-            throw new InvalidOperationException("User account not found.");
+        if (Guid.TryParse(userId, out var parsedUserId))
+        {
+            var appUser = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.Id == parsedUserId, cancellationToken);
+            if (appUser != null)
+                return appUser.Email;
+        }
 
-        return appUser;
+        var profile = await _dbContext.AppUserProfiles.FindAsync(new object[] { userId }, cancellationToken);
+        if (profile != null)
+            return profile.Email;
+
+        throw new InvalidOperationException("User account not found.");
     }
 
     private static string GenerateSecureToken()
