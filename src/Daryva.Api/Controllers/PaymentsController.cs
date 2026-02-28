@@ -481,11 +481,13 @@ public class PaymentsController : ControllerBase
             .Distinct()
             .ToListAsync(cancellationToken);
 
+        // Only show tenancies that have actually ended with a real leave date (exclude default/sentinel like 01/01/0001)
+        var minValidLeaveYear = 2000;
         var endedTenancies = await _dbContext.Tenancies
             .AsNoTracking()
             .Include(t => t.Tenant)
             .Include(t => t.House)
-            .Where(t => t.OrganizationId == orgId && t.MoveOutDate.HasValue && t.DepositAmount > 0)
+            .Where(t => t.OrganizationId == orgId && t.MoveOutDate.HasValue && t.MoveOutDate.Value.Year >= minValidLeaveYear && t.DepositAmount > 0)
             .Where(t => !endedTenancyIdsWithReturn.Contains(t.Id))
             .ToListAsync(cancellationToken);
 
@@ -521,24 +523,47 @@ public class PaymentsController : ControllerBase
 
         var orgId = _tenantContext.CurrentOrgId.Value;
 
+        if (request.AmountReturned < 0)
+            return BadRequest(new { error = "Amount returned cannot be negative." });
+
+        if (request.ReturnedDate.Year < 2000)
+            return BadRequest(new { error = "Returned date must be a valid date (year >= 2000)." });
+
         var tenancy = await _dbContext.Tenancies
+            .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == request.TenancyId && t.OrganizationId == orgId, cancellationToken);
 
         if (tenancy == null)
             return NotFound(new { error = "Tenancy not found." });
+
+        var alreadyReturned = await _dbContext.DepositReturns
+            .AnyAsync(r => r.TenancyId == request.TenancyId && r.OrganizationId == orgId, cancellationToken);
+        if (alreadyReturned)
+            return Conflict(new { error = "A deposit return has already been recorded for this tenancy." });
+
+        var returnedDateUtc = request.ReturnedDate.Kind == DateTimeKind.Utc
+            ? request.ReturnedDate
+            : DateTime.SpecifyKind(request.ReturnedDate.Date, DateTimeKind.Utc);
 
         var depositReturn = new DepositReturn
         {
             Id = Guid.NewGuid(),
             OrganizationId = orgId,
             TenancyId = request.TenancyId,
-            ReturnedDate = request.ReturnedDate,
+            ReturnedDate = returnedDateUtc,
             AmountReturned = request.AmountReturned,
             Notes = request.Notes
         };
 
         _dbContext.DepositReturns.Add(depositReturn);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to save deposit return.", detail = ex.Message });
+        }
 
         return NoContent();
     }

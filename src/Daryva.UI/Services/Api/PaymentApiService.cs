@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -320,7 +321,11 @@ public class PaymentApiService : IPaymentApiService
     {
         var body = new { TenancyId = tenancyId, ReturnedDate = returnedDate, AmountReturned = amountReturned, Notes = notes };
         var response = await _apiClient.HttpClient.PostAsJsonAsync("api/payments/deposit-returned", body, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(ApiErrorFormatter.Format("record deposit returned", response.StatusCode, errorBody));
+        }
     }
 
     public async Task DeleteAllTransactionsAsync(CancellationToken cancellationToken = default)
