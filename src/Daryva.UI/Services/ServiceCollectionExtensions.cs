@@ -9,6 +9,7 @@ using Daryva.Services.Update;
 using Daryva.Services.Api;
 using Daryva.Services.Auth;
 using Daryva.Services.Migration;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.Services
 {
@@ -38,6 +39,8 @@ namespace Daryva.Services
             services.AddSingleton<IApiClient, ApiClient>();
             services.AddScoped<IAuthApiService, AuthApiService>();
             services.AddScoped<IOrganizationApiService, OrganizationApiService>();
+            services.AddScoped<IMeApiService, MeApiService>();
+            services.AddSingleton<IOrgContext, OrgContext.OrgContext>();
             services.AddScoped<IHouseApiService, HouseApiService>();
             services.AddScoped<ITenantApiService, TenantApiService>();
             services.AddScoped<ITenancyApiService, TenancyApiService>();
@@ -158,6 +161,7 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.AccountViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.OrganisationViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.OnboardingViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.SetupRequiredViewModel>();
 
             // Account section ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.AccountProfileSectionViewModel>();

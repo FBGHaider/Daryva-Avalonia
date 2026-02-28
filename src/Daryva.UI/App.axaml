@@ -28,6 +28,9 @@
         <DataTemplate DataType="viewModels:OnboardingViewModel">
             <views:OnboardingView />
         </DataTemplate>
+        <DataTemplate DataType="viewModels:SetupRequiredViewModel">
+            <views:SetupRequiredView />
+        </DataTemplate>
         <DataTemplate DataType="viewModels:HousesViewModel">
             <views:HousesView />
         </DataTemplate>

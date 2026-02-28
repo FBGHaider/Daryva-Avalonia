@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+             x:Class="Daryva.MVVM.Views.SetupRequiredView"
+             x:CompileBindings="False">
+    <UserControl.Resources>
+        <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+    </UserControl.Resources>
+    <Border Padding="24" Background="{DynamicResource PrimaryBackgroundBrush}">
+        <StackPanel Spacing="20" MaxWidth="480" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Image Source="/Assets/Logo/Daryva_icon.ico"
+                   Width="64"
+                   Height="64"
+                   HorizontalAlignment="Center"
+                   Stretch="Uniform"/>
+            <TextBlock Text="Complete your setup"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PrimaryTextBrush}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="You need to create an organisation or complete your profile in the browser. Then click Refresh to continue."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"/>
+            <StackPanel Spacing="12" HorizontalAlignment="Center">
+                <Button Content="Open setup in browser"
+                        Command="{Binding OpenOnboardingInBrowserCommand}"
+                        HorizontalAlignment="Center"
+                        MinWidth="200"/>
+                <Button Content="Refresh"
+                        Command="{Binding RefreshCommand}"
+                        IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"
+                        MinWidth="120"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

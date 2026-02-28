@@ -4,6 +4,7 @@ using Daryva.Services;
 using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Navigation;
+using Daryva.Services.OrgContext;
 using Avalonia.Controls;
 
 namespace Daryva.MVVM.ViewModels
@@ -20,6 +21,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IOrganizationApiService _organizationApiService;
         private readonly IOrganisationService? _organisationService;
         private readonly IAuthSessionService _authSessionService;
+        private readonly IOrgContext _orgContext;
         private BaseViewModel? _currentViewModel;
         private NavigationItem? _selectedNavigationItem;
         private EventHandler<BaseViewModel?>? _navigationHandler;
@@ -35,6 +37,7 @@ namespace Daryva.MVVM.ViewModels
             IApiClient apiClient,
             IOrganizationApiService organizationApiService,
             IAuthSessionService authSessionService,
+            IOrgContext orgContext,
             IOrganisationService? organisationService = null)
         {
             _navigationService = navigationService;
@@ -43,6 +46,7 @@ namespace Daryva.MVVM.ViewModels
             _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
             _organizationApiService = organizationApiService ?? throw new ArgumentNullException(nameof(organizationApiService));
             _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
             _organisationService = organisationService;
 
             // Initialize navigation items
@@ -104,47 +108,42 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                // Try to load organizations and auto-select
-                var orgs = await _organizationApiService.GetUserOrganizationsAsync();
+                await _orgContext.RefreshAsync().ConfigureAwait(true);
 
-                var preferredOrgRaw = _configurationService.GetValue("ApiCurrentOrgId");
-                Guid? preferredOrgId = Guid.TryParse(preferredOrgRaw, out var parsedOrgId) ? parsedOrgId : null;
-                var preferredOrg = preferredOrgId.HasValue
-                    ? orgs.FirstOrDefault(o => o.Id == preferredOrgId.Value)
-                    : null;
-                
-                if (preferredOrg != null)
+                if (_orgContext.RequiresOnboarding || _orgContext.RequiresProfile)
                 {
-                    _apiClient.SetCurrentOrgId(preferredOrg.Id);
-                    _ = RefreshCurrentOrganizationLabelAsync(force: true);
-                    NavigateToDashboard();
-                    _ = LoadAppStartPageAndNavigateAsync();
+                    _navigationService.NavigateTo<SetupRequiredViewModel>();
+                    IsOnboardingMode = true;
+                    CurrentOrganizationName = "(Select organization)";
+                    return;
                 }
-                else if (orgs.Count == 1)
+
+                var orgs = _orgContext.Orgs;
+                if (orgs.Count == 0)
                 {
-                    // Auto-select single organization
-                    _apiClient.SetCurrentOrgId(orgs[0].Id);
-                    _ = RefreshCurrentOrganizationLabelAsync(force: true);
-                    NavigateToDashboard();
-                    _ = LoadAppStartPageAndNavigateAsync();
-                }
-                else if (orgs.Count > 1)
-                {
-                    // Multiple orgs - default to first; user can switch from the shell org switch action
-                    _apiClient.SetCurrentOrgId(orgs[0].Id);
-                    _ = RefreshCurrentOrganizationLabelAsync(force: true);
-                    NavigateToDashboard();
-                    _ = LoadAppStartPageAndNavigateAsync();
-                }
-                else
-                {
-                    // No organizations - onboarding provides create/join flow
                     NavigateToOnboarding();
+                    return;
                 }
+
+                var preferredOrgId = _configurationService.GetValue("ApiCurrentOrgId");
+                Guid? preferredGuid = Guid.TryParse(preferredOrgId, out var parsed) ? parsed : null;
+                var preferred = preferredGuid.HasValue ? orgs.FirstOrDefault(o => o.Id == preferredGuid.Value) : null;
+
+                if (preferred != null)
+                {
+                    await _orgContext.SetCurrentOrgAsync(preferred.Id).ConfigureAwait(true);
+                }
+                else if (orgs.Count >= 1)
+                {
+                    await _orgContext.SetCurrentOrgAsync(orgs[0].Id).ConfigureAwait(true);
+                }
+
+                _ = RefreshCurrentOrganizationLabelAsync(force: true);
+                NavigateToDashboard();
+                _ = LoadAppStartPageAndNavigateAsync();
             }
             catch
             {
-                // Invalid token/session or API error -> onboarding
                 NavigateToOnboarding();
             }
         }
