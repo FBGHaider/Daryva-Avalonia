@@ -66,6 +66,11 @@
                         MinWidth="200"/>
             </StackPanel>
 
+            <TextBlock Text="{Binding SignedInWithText}"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="13"
+                       HorizontalAlignment="Center"/>
+
             <StackPanel Spacing="12" HorizontalAlignment="Center">
                 <Button Content="Open setup in browser"
                         Command="{Binding OpenOnboardingInBrowserCommand}"

@@ -23,6 +23,7 @@ public class SetupRequiredViewModel : BaseViewModel
     private readonly IOrganizationApiService _organizationApiService;
     private readonly IDialogService _dialogService;
     private readonly IAuthService _authService;
+    private readonly IAuthSessionService _authSession;
     private bool _isRefreshing;
     private OrgSummary? _selectedOrg;
 
@@ -32,7 +33,8 @@ public class SetupRequiredViewModel : BaseViewModel
         INavigationService navigationService,
         IOrganizationApiService organizationApiService,
         IDialogService dialogService,
-        IAuthService authService)
+        IAuthService authService,
+        IAuthSessionService authSession)
     {
         _orgContext = orgContext;
         _configuration = configuration;
@@ -40,6 +42,7 @@ public class SetupRequiredViewModel : BaseViewModel
         _organizationApiService = organizationApiService;
         _dialogService = dialogService;
         _authService = authService;
+        _authSession = authSession;
 
         OrganisationsList = new ObservableCollection<OrgSummary>();
         OpenOnboardingInBrowserCommand = new RelayCommand(_ => OpenOnboardingInBrowser());
@@ -57,6 +60,12 @@ public class SetupRequiredViewModel : BaseViewModel
     public bool ShowCreateOnly => _orgContext.Orgs.Count == 0;
     /// <summary>True when user has orgs but none selected: show Choose Org panel.</summary>
     public bool ShowChooseOrg => _orgContext.Orgs.Count > 0;
+
+    /// <summary>e.g. "Signed in with user@example.com" for display on the setup screen.</summary>
+    public string SignedInWithText =>
+        string.IsNullOrWhiteSpace(_authSession.Email)
+            ? "Signed in"
+            : $"Signed in with {_authSession.Email.Trim()}";
 
     public ObservableCollection<OrgSummary> OrganisationsList { get; }
     public OrgSummary? SelectedOrg
