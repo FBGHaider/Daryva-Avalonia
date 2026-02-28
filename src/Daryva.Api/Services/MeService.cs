@@ -3,6 +3,7 @@ using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Daryva.Api.Services;
 
@@ -33,12 +34,14 @@ public class MeService : IMeService
     private readonly AppDbContext _db;
     private readonly IOrganizationService _orgService;
     private readonly ILogger<MeService> _logger;
+    private readonly string _devUserId;
 
-    public MeService(AppDbContext db, IOrganizationService orgService, ILogger<MeService> logger)
+    public MeService(AppDbContext db, IOrganizationService orgService, ILogger<MeService> logger, IConfiguration configuration)
     {
         _db = db;
         _orgService = orgService;
         _logger = logger;
+        _devUserId = configuration.GetValue<string>("DevAuth:UserId") ?? "dev-user-1";
     }
 
     public async Task EnsureUserProfileAsync(string sub, string? email, CancellationToken cancellationToken = default)
@@ -83,7 +86,24 @@ public class MeService : IMeService
             {
                 m.Email = normalizedEmail;
             }
-            if (membersWithNullEmail.Count > 0)
+
+            // Migrate dev placeholder to real identity: org members created as dev-user-1 / dev@local
+            // become this user so the team list shows the signed-in email.
+            var devPlaceholderMembers = new List<OrganizationMember>();
+            if (!string.Equals(sub, _devUserId, StringComparison.OrdinalIgnoreCase))
+            {
+                devPlaceholderMembers = await _db.OrganizationMembers
+                    .Where(m => m.UserId == _devUserId && m.Email != null && m.Email.EndsWith("@local", StringComparison.OrdinalIgnoreCase))
+                    .ToListAsync(cancellationToken);
+                foreach (var m in devPlaceholderMembers)
+                {
+                    m.UserId = sub;
+                    m.Email = normalizedEmail;
+                    _logger.LogInformation("Migrated org member from dev placeholder to user {Sub} in org {OrgId}", sub, m.OrganizationId);
+                }
+            }
+
+            if (membersWithNullEmail.Count > 0 || devPlaceholderMembers.Count > 0)
                 await _db.SaveChangesAsync(cancellationToken);
         }
     }

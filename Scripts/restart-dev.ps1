@@ -5,7 +5,8 @@ param(
     [switch]$ApiOnly,
     [bool]$ShowApiTerminal = $true,
     [switch]$ShowTerminals,
-    [switch]$SkipMigrations
+    [switch]$SkipMigrations,
+    [switch]$UseLocalApi  # If set, UI ApiBaseUrl is set to http://localhost:ApiPort; otherwise left unchanged (e.g. https://api.daryva.com)
 )
 
 $ErrorActionPreference = "Stop"
@@ -246,6 +247,54 @@ function Show-LogTail {
     }
 }
 
+function Set-UiApiBaseUrl {
+    param(
+        [string]$UiProjectDir,
+        [int]$ApiPort
+    )
+
+    $apiBaseUrl = "http://localhost:$ApiPort"
+    $projectLocalConfig = Join-Path $UiProjectDir "app.config.local.json"
+    $exampleConfig = Join-Path $UiProjectDir "app.config.local.example.json"
+    $outputLocalConfig = Join-Path $UiProjectDir "bin\Debug\net8.0\app.config.local.json"
+
+    $configPath = $projectLocalConfig
+    if (-not (Test-Path $configPath)) {
+        if (Test-Path $exampleConfig) {
+            Copy-Item -Path $exampleConfig -Destination $configPath -Force
+            Write-Host "Created UI config from example at $configPath" -ForegroundColor DarkGray
+        }
+        else {
+            Write-Host "No app.config.local.json or example found; UI will use default ApiBaseUrl." -ForegroundColor Yellow
+            return
+        }
+    }
+
+    try {
+        $json = Get-Content -Raw -Path $configPath -Encoding UTF8
+        $config = $json | ConvertFrom-Json
+        if (-not $config.PSObject.Properties["AppSettings"]) {
+            $config | Add-Member -NotePropertyName "AppSettings" -NotePropertyValue (New-Object PSObject) -Force
+        }
+        $config.AppSettings.ApiBaseUrl = $apiBaseUrl
+        $config | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath -Encoding UTF8 -NoNewline
+        Write-Host "UI ApiBaseUrl set to $apiBaseUrl" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Could not update UI ApiBaseUrl: $($_.Exception.Message)" -ForegroundColor Yellow
+        return
+    }
+
+    if (Test-Path $outputLocalConfig) {
+        try {
+            Copy-Item -Path $configPath -Destination $outputLocalConfig -Force
+        }
+        catch {
+            # Non-fatal
+        }
+    }
+}
+
 function Update-ApiDatabase {
     param(
         [string]$RepoRoot,
@@ -336,6 +385,11 @@ if ($launchWithVisibleApiTerminal) {
 else {
     $apiProcess = Start-Process -FilePath "dotnet" -ArgumentList @("run", "--project", $apiProjectFile) -WorkingDirectory $apiProjectDir -PassThru -RedirectStandardOutput $apiStdOutLog -RedirectStandardError $apiStdErrLog
     Write-Host "API started (PID $($apiProcess.Id))" -ForegroundColor DarkCyan
+}
+
+# When using local API, point UI at it; otherwise leave UI config (e.g. VPS) unchanged.
+if ($UseLocalApi) {
+    Set-UiApiBaseUrl -UiProjectDir $uiProjectDir -ApiPort $ApiPort
 }
 
 $apiReady = Wait-ForApi -Port $ApiPort -TimeoutSeconds $ApiStartupTimeoutSeconds -ApiProcess $apiProcess -ApiStdOutLog $apiStdOutLog -ApiStdErrLog $apiStdErrLog

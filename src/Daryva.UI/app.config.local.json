@@ -1,13 +1,13 @@
 {
-  "AppSettings": {
-    "UpdateFeedUrl": "https://github.com/fbg-engineering/Daryva-Updates",
-    "ApiBaseUrl": "https://api.daryva.com",
-    "Oidc:Authority": "https://merry-marmoset-71.clerk.accounts.dev",
-    "Oidc:ClientId": "qR4eijSepugdOw7g",
-    "AppOnboardingUrl": "https://app.daryva.com/onboarding",
-    "Oidc:DiscoveryUrl": "https://merry-marmoset-71.clerk.accounts.dev/.well-known/openid-configuration",
-    "Oidc:AuthorizeUrl": "https://merry-marmoset-71.clerk.accounts.dev/oauth/authorize",
-    "Oidc:TokenUrl": "https://merry-marmoset-71.clerk.accounts.dev/oauth/token",
-    "Oidc:UserInfoUrl": "https://merry-marmoset-71.clerk.accounts.dev/oauth/userinfo"
-  }
+    "AppSettings":  {
+                        "UpdateFeedUrl":  "https://github.com/fbg-engineering/Daryva-Updates",
+                        "ApiBaseUrl":  "https://api.daryva.com",
+                        "Oidc:Authority":  "https://merry-marmoset-71.clerk.accounts.dev",
+                        "Oidc:ClientId":  "qR4eijSepugdOw7g",
+                        "AppOnboardingUrl":  "https://app.daryva.com/onboarding",
+                        "Oidc:DiscoveryUrl":  "https://merry-marmoset-71.clerk.accounts.dev/.well-known/openid-configuration",
+                        "Oidc:AuthorizeUrl":  "https://merry-marmoset-71.clerk.accounts.dev/oauth/authorize",
+                        "Oidc:TokenUrl":  "https://merry-marmoset-71.clerk.accounts.dev/oauth/token",
+                        "Oidc:UserInfoUrl":  "https://merry-marmoset-71.clerk.accounts.dev/oauth/userinfo"
+                    }
 }
