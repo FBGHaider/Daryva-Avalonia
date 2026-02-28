@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
 using Daryva.Api.Services;
@@ -40,7 +39,7 @@ public class MeController : ControllerBase
         if (string.IsNullOrEmpty(userId) || userId == "unknown-user")
             return Unauthorized(new { error = "Not authenticated." });
 
-        var email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email");
+        var email = ClaimsHelper.GetEmailFromClaims(User);
         await _meService.EnsureUserProfileAsync(userId, email, cancellationToken);
 
         var me = await _meService.GetMeAsync(userId, cancellationToken);

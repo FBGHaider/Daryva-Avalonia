@@ -583,15 +583,21 @@ public class OrganizationService : IOrganizationService
         };
 
     private static OrganizationMemberResponse MapToResponseWithProfile(OrganizationMember member, AppUserProfile? profile)
-        => new()
+    {
+        var email = PreferProfileEmail(member.Email, profile?.Email);
+        var displayName = profile?.DisplayName;
+        var displayEmail = !string.IsNullOrWhiteSpace(email) ? email : null;
+        var displayDisplayName = !string.IsNullOrWhiteSpace(displayName) ? displayName : displayEmail;
+        return new OrganizationMemberResponse
         {
             Id = member.Id,
             UserId = member.UserId,
-            Email = PreferProfileEmail(member.Email, profile?.Email),
-            DisplayName = profile?.DisplayName,
+            Email = displayEmail ?? "Signed-in user",
+            DisplayName = displayDisplayName,
             Role = member.Role,
             JoinedAt = member.JoinedAt
         };
+    }
 
     /// <summary>Use profile email when member email is missing or is a placeholder (e.g. dev@local).</summary>
     private static string? PreferProfileEmail(string? memberEmail, string? profileEmail)

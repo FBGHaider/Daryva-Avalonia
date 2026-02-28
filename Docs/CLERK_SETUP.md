@@ -83,8 +83,9 @@ Example:
 
 **Goal:** The API accepts and validates JWTs issued by Clerk.
 
-1. Edit `src/Daryva.Api/appsettings.Development.json` (and production config when you deploy):
-2. Under **Jwt** set:
+1. **Clerk JWT template:** Ensure your Clerk session token includes the **email** claim (e.g. add a claim `email` with value `{{user.primary_email_address}}` in **Clerk Dashboard → JWT Templates**). This is used so the organisation owner and team members show your email in the desktop app.
+2. Edit `src/Daryva.Api/appsettings.Development.json` (and production config when you deploy).
+3. Under **Jwt** set:
    - **Authority** = same Clerk issuer URL as in the desktop app (e.g. `https://xxx.clerk.accounts.dev`).
    - **Audience** = the audience your Clerk JWTs use (often your Clerk application identifier or a custom value; check Clerk JWT template or docs). If Clerk does not set a specific audience, you may need to relax or adjust audience validation in code.
 3. Leave **SigningKey** empty when using **Authority** (the API will use Clerk’s OIDC discovery and signing keys).

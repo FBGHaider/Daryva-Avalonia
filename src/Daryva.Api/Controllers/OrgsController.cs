@@ -53,7 +53,7 @@ public class OrgsController : ControllerBase
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var callerEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email");
+            var callerEmail = ClaimsHelper.GetEmailFromClaims(User);
             var org = await _orgService.CreateOrganizationAsync(
                 _tenantContext.UserId,
                 request,

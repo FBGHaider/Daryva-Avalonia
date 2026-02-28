@@ -15,7 +15,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: ${API_CONNECTION_STRING:?set_in_server_env}
-      Jwt__Authority: ""
+      Jwt__Authority: ${JWT_AUTHORITY:-https://merry-marmoset-71.clerk.accounts.dev}
       Jwt__Audience: daryva-api
       Jwt__Issuer: daryva-api
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?set_in_server_env}
