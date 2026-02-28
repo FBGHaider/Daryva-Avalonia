@@ -24,3 +24,18 @@ public class MeResponseDto
     public bool RequiresOrgSetup { get; set; }
     public bool RequiresProfileSetup { get; set; }
 }
+
+/// <summary>
+/// PUT /api/me request: allowed profile fields only (DisplayName, Phone, TimeZoneId).
+/// </summary>
+public class UpdateMeRequest
+{
+    /// <summary>Full name or display name. Max 256 characters.</summary>
+    public string? DisplayName { get; set; }
+
+    /// <summary>Phone number (optional). Basic validation: digits, +, spaces, max 50.</summary>
+    public string? Phone { get; set; }
+
+    /// <summary>IANA or Windows time zone id (e.g. "GMT Standard Time"). Max 128 characters.</summary>
+    public string? TimeZoneId { get; set; }
+}

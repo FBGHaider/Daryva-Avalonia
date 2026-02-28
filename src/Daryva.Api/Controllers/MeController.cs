@@ -49,4 +49,34 @@ public class MeController : ControllerBase
 
         return Ok(me);
     }
+
+    /// <summary>
+    /// Update current user profile (DisplayName, Phone, TimeZoneId).
+    /// Only provided fields are updated; validation applied per field.
+    /// </summary>
+    [HttpPut]
+    [ProducesResponseType(typeof(MeUserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<MeUserDto>> UpdateMe([FromBody] UpdateMeRequest request, CancellationToken cancellationToken = default)
+    {
+        var userId = _tenantContext.UserId;
+        if (string.IsNullOrEmpty(userId) || userId == "unknown-user")
+            return Unauthorized(new { error = "Not authenticated." });
+
+        if (request == null)
+            return BadRequest(new { error = "Request body is required." });
+
+        try
+        {
+            var updated = await _meService.UpdateProfileAsync(userId, request, cancellationToken);
+            if (updated == null)
+                return Unauthorized(new { error = "User profile not found." });
+            return Ok(updated);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }

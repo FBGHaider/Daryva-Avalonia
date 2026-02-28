@@ -21,6 +21,11 @@ public interface IMeService
     /// Get full /api/me response: user, organisations, requiresOrgSetup, requiresProfileSetup.
     /// </summary>
     Task<MeResponseDto?> GetMeAsync(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Update current user profile (DisplayName, Phone, TimeZoneId). Validates and persists.
+    /// </summary>
+    Task<MeUserDto?> UpdateProfileAsync(string userId, UpdateMeRequest request, CancellationToken cancellationToken = default);
 }
 
 public class MeService : IMeService
@@ -96,5 +101,57 @@ public class MeService : IMeService
             RequiresOrgSetup = requiresOrgSetup,
             RequiresProfileSetup = requiresProfileSetup
         };
+    }
+
+    public async Task<MeUserDto?> UpdateProfileAsync(string userId, UpdateMeRequest request, CancellationToken cancellationToken = default)
+    {
+        var profile = await _db.AppUserProfiles.FindAsync(new object[] { userId }, cancellationToken);
+        if (profile == null)
+            return null;
+
+        if (request.DisplayName != null)
+        {
+            var name = request.DisplayName.Trim();
+            if (name.Length > 256)
+                throw new ArgumentException("Display name must be 256 characters or less.", nameof(request.DisplayName));
+            profile.DisplayName = string.IsNullOrWhiteSpace(name) ? null : name;
+        }
+
+        if (request.Phone != null)
+        {
+            var phone = request.Phone.Trim();
+            if (phone.Length > 50)
+                throw new ArgumentException("Phone must be 50 characters or less.", nameof(request.Phone));
+            if (!string.IsNullOrEmpty(phone) && !IsValidPhone(phone))
+                throw new ArgumentException("Phone contains invalid characters. Use digits, +, spaces, hyphens, parentheses only.", nameof(request.Phone));
+            profile.Phone = string.IsNullOrWhiteSpace(phone) ? null : phone;
+        }
+
+        if (request.TimeZoneId != null)
+        {
+            var tz = request.TimeZoneId.Trim();
+            if (tz.Length > 128)
+                throw new ArgumentException("Time zone id must be 128 characters or less.", nameof(request.TimeZoneId));
+            profile.TimeZoneId = string.IsNullOrWhiteSpace(tz) ? null : tz;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Updated profile for user {UserId}", userId);
+
+        return new MeUserDto
+        {
+            Id = profile.Id,
+            Email = profile.Email,
+            DisplayName = profile.DisplayName,
+            Phone = profile.Phone,
+            TimeZoneId = profile.TimeZoneId,
+            CreatedAt = profile.CreatedAt,
+            LastLoginAt = profile.LastLoginAt
+        };
+    }
+
+    private static bool IsValidPhone(string value)
+    {
+        return value.All(c => char.IsDigit(c) || c == '+' || char.IsWhiteSpace(c) || c == '-' || c == '(' || c == ')' || c == '.');
     }
 }
