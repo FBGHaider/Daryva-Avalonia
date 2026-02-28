@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using Daryva.MVVM.Commands;
 using Daryva.Services;
+using Daryva.Services.Api;
+using Daryva.Services.Auth;
+using Daryva.Services.Dialog;
 using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
 
@@ -8,23 +11,37 @@ namespace Daryva.MVVM.ViewModels;
 
 /// <summary>
 /// Shown when user is signed in but requires org or profile setup (GET /api/me flags).
-/// Offers "Open setup in browser" and "Refresh".
+/// Offers "Create organisation", "Open setup in browser", "Refresh", and "Sign out".
 /// </summary>
 public class SetupRequiredViewModel : BaseViewModel
 {
     private readonly IOrgContext _orgContext;
     private readonly IConfigurationService _configuration;
     private readonly INavigationService _navigationService;
+    private readonly IOrganizationApiService _organizationApiService;
+    private readonly IDialogService _dialogService;
+    private readonly IAuthService _authService;
     private bool _isRefreshing;
 
-    public SetupRequiredViewModel(IOrgContext orgContext, IConfigurationService configuration, INavigationService navigationService)
+    public SetupRequiredViewModel(
+        IOrgContext orgContext,
+        IConfigurationService configuration,
+        INavigationService navigationService,
+        IOrganizationApiService organizationApiService,
+        IDialogService dialogService,
+        IAuthService authService)
     {
         _orgContext = orgContext;
         _configuration = configuration;
         _navigationService = navigationService;
+        _organizationApiService = organizationApiService;
+        _dialogService = dialogService;
+        _authService = authService;
 
         OpenOnboardingInBrowserCommand = new RelayCommand(_ => OpenOnboardingInBrowser());
         RefreshCommand = new RelayCommand(async _ => await RefreshAsync());
+        CreateOrganisationCommand = new RelayCommand(async _ => await CreateOrganisationAsync());
+        SignOutCommand = new RelayCommand(async _ => await SignOutAsync());
     }
 
     public bool IsRefreshing
@@ -35,6 +52,8 @@ public class SetupRequiredViewModel : BaseViewModel
 
     public RelayCommand OpenOnboardingInBrowserCommand { get; }
     public RelayCommand RefreshCommand { get; }
+    public RelayCommand CreateOrganisationCommand { get; }
+    public RelayCommand SignOutCommand { get; }
 
     private void OpenOnboardingInBrowser()
     {
@@ -44,7 +63,6 @@ public class SetupRequiredViewModel : BaseViewModel
         {
             if (OperatingSystem.IsWindows())
             {
-                url = url.Replace("&", "^&");
                 Process.Start(new ProcessStartInfo("cmd", $"/c start \"\" \"{url}\"") { CreateNoWindow = true });
             }
             else if (OperatingSystem.IsMacOS())
@@ -77,5 +95,46 @@ public class SetupRequiredViewModel : BaseViewModel
         {
             IsRefreshing = false;
         }
+    }
+
+    private async System.Threading.Tasks.Task CreateOrganisationAsync()
+    {
+        var name = await _dialogService.ShowInputDialogAsync(
+            "Enter a name for your organisation:",
+            "Create organisation",
+            "My Organisation").ConfigureAwait(true);
+        if (string.IsNullOrWhiteSpace(name))
+            return;
+
+        IsRefreshing = true;
+        try
+        {
+            await _organizationApiService.CreateOrganizationAsync(name.Trim()).ConfigureAwait(false);
+            await _orgContext.RefreshAsync().ConfigureAwait(false);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _navigationService.NavigateTo<DashboardViewModel>();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            _dialogService.ShowMessage(
+                "The request took too long. Check that the API is running and your API URL is correct (see Settings).",
+                "Create organisation");
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowMessage($"Could not create organisation: {ex.Message}", "Error");
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
+
+    private async System.Threading.Tasks.Task SignOutAsync()
+    {
+        await _authService.SignOutAsync().ConfigureAwait(true);
+        // MainViewModel subscribes to StateChanged and will navigate to SignInView
     }
 }

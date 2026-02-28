@@ -23,7 +23,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
-        private readonly IOrgContext _orgContext;
+        private readonly IOrgContext _orgContext = null!;
 
         private string _selectedTab = "Summary"; // "Summary" (first) or "List"
         private int _selectedTabIndex = 0;
@@ -115,6 +115,7 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
+            if (_orgContext == null) return;
             Dispatcher.UIThread.Post(() => _ = LoadInitialDataAsync());
         }
 

@@ -37,7 +37,7 @@ public class ApiClient : IApiClient
         _httpClient = new HttpClient(authHandler)
         {
             BaseAddress = new Uri(baseAddress),
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = TimeSpan.FromSeconds(60)
         };
 
         _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");

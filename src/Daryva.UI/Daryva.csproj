@@ -12,7 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="app.config.local.example.json">
+    <None Include="app.config.local.example.json" Condition="Exists('app.config.local.example.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="app.config.local.json" Condition="Exists('app.config.local.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="App.config">

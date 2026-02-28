@@ -12,14 +12,14 @@ namespace Daryva.Services
     public class ConfigurationService : IConfigurationService
     {
         private const string DefaultConnectionStringName = "DefaultConnection";
-        private static readonly string ConfigPath = Path.Combine(
+        private static readonly string AppDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Daryva",
-            "app.config.json");
-        private static readonly string LocalConfigPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Daryva",
-            "app.config.local.json");
+            "Daryva");
+        private static readonly string ConfigPath = Path.Combine(AppDataFolder, "app.config.json");
+        private static readonly string LocalConfigPath = Path.Combine(AppDataFolder, "app.config.local.json");
+        /// <summary>Config next to the executable (e.g. bin/Debug when running from IDE). Checked first so project app.config.local.json is used.</summary>
+        private static readonly string BaseDirConfigPath = Path.Combine(AppContext.BaseDirectory, "app.config.json");
+        private static readonly string BaseDirLocalConfigPath = Path.Combine(AppContext.BaseDirectory, "app.config.local.json");
         
         private static Dictionary<string, string>? _settings;
         private static Dictionary<string, string>? _localSettings;
@@ -39,21 +39,17 @@ namespace Daryva.Services
             _localSettings = new Dictionary<string, string>();
             _localConnectionString = null;
 
-            // Load app.config.json (if exists)
-            if (File.Exists(ConfigPath))
+            // Load app.config.json: try next to exe first, then AppData
+            var configPathToUse = File.Exists(BaseDirConfigPath) ? BaseDirConfigPath : ConfigPath;
+            if (File.Exists(configPathToUse))
             {
                 try
                 {
-                    var json = File.ReadAllText(ConfigPath);
+                    var json = File.ReadAllText(configPathToUse);
                     var config = JsonSerializer.Deserialize<ConfigFile>(json);
                     if (config?.AppSettings != null)
                     {
                         _settings = config.AppSettings;
-                    }
-                    if (config?.ConnectionStrings != null && 
-                        config.ConnectionStrings.TryGetValue(DefaultConnectionStringName, out var cs))
-                    {
-                        // Store default connection string if not overridden by local
                     }
                 }
                 catch
@@ -62,18 +58,19 @@ namespace Daryva.Services
                 }
             }
 
-            // Load app.config.local.json (if exists) - takes precedence
-            if (File.Exists(LocalConfigPath))
+            // Load app.config.local.json: try next to exe first (so project file is used when running from IDE), then AppData
+            var localConfigPathToUse = File.Exists(BaseDirLocalConfigPath) ? BaseDirLocalConfigPath : LocalConfigPath;
+            if (File.Exists(localConfigPathToUse))
             {
                 try
                 {
-                    var json = File.ReadAllText(LocalConfigPath);
+                    var json = File.ReadAllText(localConfigPathToUse);
                     var config = JsonSerializer.Deserialize<ConfigFile>(json);
                     if (config?.AppSettings != null)
                     {
                         _localSettings = config.AppSettings;
                     }
-                    if (config?.ConnectionStrings != null && 
+                    if (config?.ConnectionStrings != null &&
                         config.ConnectionStrings.TryGetValue(DefaultConnectionStringName, out var cs))
                     {
                         _localConnectionString = cs;

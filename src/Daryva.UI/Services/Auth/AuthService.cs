@@ -49,7 +49,10 @@ public sealed class AuthService : IAuthService
             await _tokenStore.ClearAsync(cancellationToken).ConfigureAwait(false);
             _authSession.ClearSession();
             RaiseStateChanged(false);
-            throw new InvalidOperationException(result.Error ?? "Sign-in failed.");
+            var msg = result.Error ?? "Sign-in failed.";
+            if (!string.IsNullOrWhiteSpace(result.ErrorDescription))
+                msg += " " + result.ErrorDescription;
+            throw new InvalidOperationException(msg);
         }
 
         var expiresAtUtc = result.AccessTokenExpiration.UtcDateTime;
@@ -150,9 +153,12 @@ public sealed class AuthService : IAuthService
         {
             Authority = authority.TrimEnd('/') + "/",
             ClientId = clientId,
+            ClientSecret = null, // Public client (PKCE only)
             RedirectUri = redirectUri,
             Scope = "openid profile email offline_access",
-            Browser = new LoopbackBrowser()
+            Browser = new LoopbackBrowser(),
+            // Clerk public clients must use auth method "none": no Authorization header, no client_secret in body.
+            BackchannelHandler = new ClerkNoSecretBackchannelHandler()
         };
         _oidcClient = new OidcClient(options);
         return _oidcClient;

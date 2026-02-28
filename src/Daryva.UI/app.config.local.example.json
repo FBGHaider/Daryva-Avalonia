@@ -1,1 +1,13 @@
-{"AppSettings":{"UpdateFeedUrl":"https://github.com/fbg-engineering/Daryva-Updates","ApiBaseUrl":"http://localhost:5000","Oidc:Authority":"https://your-tenant.clerk.accounts.dev","Oidc:ClientId":"your-client-id","AppOnboardingUrl":"https://app.daryva.com/onboarding"}}
+{
+  "AppSettings": {
+    "UpdateFeedUrl": "https://github.com/fbg-engineering/Daryva-Updates",
+    "ApiBaseUrl": "http://localhost:5000",
+    "Oidc:Authority": "https://your-tenant.clerk.accounts.dev",
+    "Oidc:ClientId": "your-oauth-application-client-id",
+    "AppOnboardingUrl": "https://app.daryva.com/onboarding",
+    "Oidc:DiscoveryUrl": "https://your-tenant.clerk.accounts.dev/.well-known/openid-configuration",
+    "Oidc:AuthorizeUrl": "https://your-tenant.clerk.accounts.dev/oauth/authorize",
+    "Oidc:TokenUrl": "https://your-tenant.clerk.accounts.dev/oauth/token",
+    "Oidc:UserInfoUrl": "https://your-tenant.clerk.accounts.dev/oauth/userinfo"
+  }
+}

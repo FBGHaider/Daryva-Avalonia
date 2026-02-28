@@ -21,12 +21,17 @@
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryTextBrush}"
                        HorizontalAlignment="Center"/>
-            <TextBlock Text="You need to create an organisation or complete your profile in the browser. Then click Refresh to continue."
+            <TextBlock Text="This account has no organisation yet. Create one below to get started. Organisations are tied to your sign-in account — an org from a different login won't appear here."
                        Foreground="{DynamicResource SecondaryTextBrush}"
                        TextWrapping="Wrap"
                        TextAlignment="Center"
                        HorizontalAlignment="Center"/>
             <StackPanel Spacing="12" HorizontalAlignment="Center">
+                <Button Content="Create organisation"
+                        Command="{Binding CreateOrganisationCommand}"
+                        IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"
+                        MinWidth="200"/>
                 <Button Content="Open setup in browser"
                         Command="{Binding OpenOnboardingInBrowserCommand}"
                         HorizontalAlignment="Center"
@@ -36,6 +41,13 @@
                         IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
                         HorizontalAlignment="Center"
                         MinWidth="120"/>
+                <Button Content="Sign out"
+                        Command="{Binding SignOutCommand}"
+                        IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"
+                        MinWidth="120"
+                        Background="{DynamicResource Surface2Brush}"
+                        Foreground="{DynamicResource StatusDangerBrush}"/>
             </StackPanel>
         </StackPanel>
     </Border>

@@ -1,5 +1,8 @@
+using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.Services.Auth;
+using Daryva.Services.Dialog;
+using Daryva.Services.Navigation;
 
 namespace Daryva.MVVM.ViewModels;
 
@@ -9,12 +12,16 @@ namespace Daryva.MVVM.ViewModels;
 public class SignInViewModel : BaseViewModel
 {
     private readonly IAuthService _authService;
+    private readonly INavigationService _navigationService;
+    private readonly IDialogService _dialogService;
     private bool _isBusy;
     private string _errorMessage = string.Empty;
 
-    public SignInViewModel(IAuthService authService)
+    public SignInViewModel(IAuthService authService, INavigationService navigationService, IDialogService dialogService)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         SignInCommand = new RelayCommand(async _ => await SignInAsync());
     }
 
@@ -47,10 +54,16 @@ public class SignInViewModel : BaseViewModel
         try
         {
             await _authService.SignInAsync().ConfigureAwait(true);
+            // Ensure we're on UI thread and leave sign-in screen; MainViewModel may also run post-sign-in logic via StateChanged.
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _navigationService.NavigateTo<SetupRequiredViewModel>();
+            });
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
+            _dialogService.ShowMessage($"Sign-in failed: {ex.Message}", "Sign-in error");
         }
         finally
         {

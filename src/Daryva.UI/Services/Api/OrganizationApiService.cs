@@ -52,6 +52,11 @@ public class OrganizationApiService : IOrganizationApiService
             var org = JsonSerializer.Deserialize<OrganizationDto>(responseContent, JsonOptions);
             return org ?? throw new InvalidOperationException("Failed to create organization");
         }
+        catch (OperationCanceledException ex)
+        {
+            throw new InvalidOperationException(
+                "The request took too long. Check that the API is running and your API URL is correct (see Settings).", ex);
+        }
         catch (HttpRequestException ex)
         {
             throw new InvalidOperationException($"Failed to create organization: {ex.Message}", ex);

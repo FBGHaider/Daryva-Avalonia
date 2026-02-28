@@ -33,7 +33,8 @@ namespace Daryva.MVVM.ViewModels
             IHouseService houseService,
             IDialogService dialogService,
             IServiceProvider serviceProvider,
-            ISettingsService settingsService)
+            ISettingsService settingsService,
+            IOrgContext orgContext)
         {
             _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
             _tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
@@ -41,6 +42,7 @@ namespace Daryva.MVVM.ViewModels
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
 
             Documents = new ObservableCollection<Document>();
 
@@ -51,12 +53,23 @@ namespace Daryva.MVVM.ViewModels
             DeleteDocumentCommand = new RelayCommand(async p => await DeleteDocumentAsync(p as Document), p => p is Document);
             ClearFiltersCommand = new RelayCommand(_ => SearchTerm = string.Empty);
 
-            LoadDocumentsCommand.Execute(null);
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
+            if (_orgContext.CurrentOrgId.HasValue)
+                LoadDocumentsCommand.Execute(null);
         }
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Dispatcher.UIThread.Post(() => LoadDocumentsCommand.Execute(null));
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_orgContext.CurrentOrgId.HasValue)
+                    LoadDocumentsCommand.Execute(null);
+                else
+                {
+                    _allDocuments.Clear();
+                    ApplySearch();
+                }
+            });
         }
 
         public ICommand LoadDocumentsCommand { get; }
@@ -122,6 +135,15 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task LoadDocumentsAsync()
         {
+            if (!_orgContext.CurrentOrgId.HasValue)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _allDocuments.Clear();
+                    ApplySearch();
+                });
+                return;
+            }
             try
             {
                 var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";

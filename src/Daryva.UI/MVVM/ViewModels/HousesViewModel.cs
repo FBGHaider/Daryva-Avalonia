@@ -37,7 +37,8 @@ namespace Daryva.MVVM.ViewModels
             IServiceProvider serviceProvider,
             IHouseReportExportService houseReportExportService,
             ISettingsService settingsService,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IOrgContext orgContext)
         {
             _houseService = houseService;
             _dialogService = dialogService;
@@ -45,6 +46,7 @@ namespace Daryva.MVVM.ViewModels
             _houseReportExportService = houseReportExportService ?? throw new ArgumentNullException(nameof(houseReportExportService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
             Houses = new ObservableCollection<House>();
             Houses.CollectionChanged += OnHousesCollectionChanged;
 
@@ -66,13 +68,14 @@ namespace Daryva.MVVM.ViewModels
             DeleteHouseCommand = new RelayCommand<House>(house => _ = DeleteHouseAsync(house), house => house != null && CanDeleteHouse(house));
 
             ClearSelectionCommand = new RelayCommand(_ => SelectedHouse = null, _ => SelectedHouse != null);
-            OpenSelectedHouseCommand = new RelayCommand(_ => OpenHouseAsync(SelectedHouse), _ => SelectedHouse != null);
+            OpenSelectedHouseCommand = new RelayCommand(_ => _ = OpenHouseAsync(SelectedHouse), _ => SelectedHouse != null);
 
             LoadHousesCommand.Execute(null);
         }
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
+            if (_orgContext == null) return;
             Dispatcher.UIThread.Post(() => LoadHousesCommand.Execute(null));
         }
 
@@ -501,6 +504,7 @@ namespace Daryva.MVVM.ViewModels
             if (house == null) return;
             SelectedHouse = house;
             // Phase 4: navigate to HouseDetailsView with house.HouseId
+            await Task.CompletedTask;
         }
 
         private async Task EditHouseAsync(House? house)

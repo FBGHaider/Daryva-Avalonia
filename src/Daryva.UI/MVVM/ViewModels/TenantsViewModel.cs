@@ -29,7 +29,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly INavigationService _navigationService;
         private readonly ITenancyRepository _tenancyRepository;
         private readonly IPaymentService _paymentService;
-        private readonly IOrgContext _orgContext;
+        private readonly IOrgContext _orgContext = null!;
         private string _searchTerm = string.Empty;
         private Tenant? _selectedTenant;
         private bool _showArchivedOnly = false;
@@ -68,6 +68,7 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
+            if (_orgContext == null) return;
             Avalonia.Threading.Dispatcher.UIThread.Post(() => LoadTenantsCommand.Execute(null));
         }
 

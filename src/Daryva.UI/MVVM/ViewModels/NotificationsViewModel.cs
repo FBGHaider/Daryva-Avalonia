@@ -21,7 +21,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IEmailSender _emailSender;
         private readonly IQueueProcessedNotifier _queueProcessedNotifier;
         private readonly ISettingsService _settingsService;
-        private readonly IOrgContext _orgContext;
+        private readonly IOrgContext _orgContext = null!;
 
         private int _selectedTabIndex;
         private string _targetType = "Single";
@@ -129,6 +129,7 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
+            if (_orgContext == null) return;
             Dispatcher.UIThread.Post(() =>
             {
                 LoadHousesCommand.Execute(null);

@@ -99,6 +99,7 @@ namespace Daryva.MVVM.ViewModels
             // Initialize collapse command
             ToggleNavigationCommand = new MVVM.Commands.RelayCommand(_ => IsNavigationCollapsed = !IsNavigationCollapsed);
             SwitchOrganizationCommand = new MVVM.Commands.RelayCommand(_ => NavigateToOnboarding());
+            SignOutCommand = new MVVM.Commands.RelayCommand(async _ => await _authService.SignOutAsync().ConfigureAwait(true));
 
             // Initialize organization context before navigating
             _ = InitializeOrganizationContextAsync();
@@ -155,10 +156,12 @@ namespace Daryva.MVVM.ViewModels
             }
             catch
             {
+                // Token exchange succeeded but loading org/me failed (e.g. API down). Stay signed in and show setup so user can Refresh.
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _navigationService.NavigateTo<SignInViewModel>();
+                    _navigationService.NavigateTo<SetupRequiredViewModel>();
                     IsOnboardingMode = true;
+                    CurrentOrganizationName = "(Select organization)";
                 });
             }
         }
@@ -337,6 +340,11 @@ namespace Daryva.MVVM.ViewModels
         /// Gets the command to switch organization.
         /// </summary>
         public MVVM.Commands.RelayCommand SwitchOrganizationCommand { get; }
+
+        /// <summary>
+        /// Gets the command to sign out.
+        /// </summary>
+        public MVVM.Commands.RelayCommand SignOutCommand { get; }
 
         /// <summary>
         /// Gets or sets the current ViewModel displayed in the content area.

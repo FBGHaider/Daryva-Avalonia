@@ -27,7 +27,19 @@ public sealed class LoopbackBrowser : IBrowser
 
             var context = await listener.GetContextAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
             var query = context.Request.Url?.Query ?? string.Empty;
-            var responseHtml = "<html><body>Sign-in complete. You can close this window.</body></html>";
+            var queryTrimmed = query.TrimStart('?');
+            var hasError = queryTrimmed.Contains("error=", StringComparison.OrdinalIgnoreCase);
+            string responseHtml;
+            if (hasError)
+            {
+                var (error, desc) = GetQueryValue(queryTrimmed, "error", "error_description");
+                var descEscaped = string.IsNullOrEmpty(desc) ? "" : desc.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
+                responseHtml = $"<html><body><p>Sign-in failed.</p><p><b>{error}</b></p><p>{descEscaped}</p><p>You can close this window and fix the issue in Clerk (see Scopes).</p></body></html>";
+            }
+            else
+            {
+                responseHtml = "<html><body>Sign-in complete. You can close this window.</body></html>";
+            }
             var buffer = System.Text.Encoding.UTF8.GetBytes(responseHtml);
             context.Response.ContentLength64 = buffer.Length;
             context.Response.ContentType = "text/html";
@@ -43,10 +55,21 @@ public sealed class LoopbackBrowser : IBrowser
                 };
             }
 
+            if (hasError)
+            {
+                var (err, errDesc) = GetQueryValue(queryTrimmed, "error", "error_description");
+                return new BrowserResult
+                {
+                    ResultType = BrowserResultType.HttpError,
+                    Error = string.IsNullOrWhiteSpace(errDesc) ? err : $"{err}: {errDesc}",
+                    Response = queryTrimmed
+                };
+            }
+
             return new BrowserResult
             {
                 ResultType = BrowserResultType.Success,
-                Response = query.TrimStart('?')
+                Response = queryTrimmed
             };
         }
         catch (OperationCanceledException)
@@ -59,11 +82,27 @@ public sealed class LoopbackBrowser : IBrowser
         }
     }
 
+    private static (string value1, string value2) GetQueryValue(string query, string key1, string key2)
+    {
+        string v1 = "", v2 = "";
+        foreach (var part in query.Split('&'))
+        {
+            var eq = part.IndexOf('=');
+            if (eq <= 0) continue;
+            var k = Uri.UnescapeDataString(part[..eq].Trim());
+            var v = Uri.UnescapeDataString(part[(eq + 1)..].Trim());
+            if (string.Equals(k, key1, StringComparison.OrdinalIgnoreCase)) v1 = v;
+            if (string.Equals(k, key2, StringComparison.OrdinalIgnoreCase)) v2 = v;
+        }
+        return (v1, v2);
+    }
+
     private static void OpenBrowser(string url)
     {
         if (OperatingSystem.IsWindows())
         {
-            url = url.Replace("&", "^&");
+            // URL is passed as a single quoted argument; do not escape & (that was appending ^ to
+            // param values, e.g. client_id=qR4eijSepugdOw7g^ and breaking Clerk).
             Process.Start(new ProcessStartInfo("cmd", $"/c start \"\" \"{url}\"") { CreateNoWindow = true });
         }
         else if (OperatingSystem.IsMacOS())
