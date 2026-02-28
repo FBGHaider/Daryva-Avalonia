@@ -35,6 +35,7 @@ namespace Daryva.Services
             // API Client Services
             services.AddSingleton<IAuthSessionService, AuthSessionService>();
             services.AddSingleton<ITokenStore, TokenStore>();
+            services.AddSingleton<IAccountDataClearer, AccountDataClearer>();
             services.AddSingleton<IAuthService, AuthService>();
             services.AddSingleton<IApiClient, ApiClient>();
             services.AddScoped<IAuthApiService, AuthApiService>();
@@ -108,7 +109,9 @@ namespace Daryva.Services
             services.AddScoped<IUserPreferencesService>(sp => sp.GetRequiredService<UserPreferencesService>());
 
             services.AddScoped<OrganisationMemberService>();
-            services.AddScoped<IOrganisationMemberService>(sp => sp.GetRequiredService<OrganisationMemberService>());
+            services.AddScoped<IOrganisationMemberService>(sp => new OrganisationMemberApiDecorator(
+                sp.GetRequiredService<IOrganizationApiService>(),
+                sp.GetRequiredService<OrganisationMemberService>()));
             services.AddScoped<OrganisationService>();
             services.AddScoped<IOrganisationService>(sp => sp.GetRequiredService<OrganisationService>());
 

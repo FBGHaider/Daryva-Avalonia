@@ -16,6 +16,11 @@ public interface IOrgContext
     Task SetCurrentOrgAsync(Guid orgId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets the current org by id and name (e.g. after restore from recovery code). Adds the org to the list if not present.
+    /// </summary>
+    Task SetCurrentOrgFromRecoveryAsync(Guid orgId, string name, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Raised when the current org changes (e.g. after SetCurrentOrgAsync). Subscribe to trigger app-wide data refresh.
     /// </summary>
     event EventHandler<CurrentOrgChangedEventArgs>? CurrentOrgChanged;

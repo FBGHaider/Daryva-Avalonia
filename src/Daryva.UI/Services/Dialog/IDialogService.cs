@@ -68,5 +68,10 @@ namespace Daryva.Services.Dialog
         /// The dialog closes automatically when the action completes.
         /// </summary>
         Task RunWithProgressAsync(string title, string message, Func<Task> action);
+
+        /// <summary>
+        /// Copies text to the clipboard. Returns true if successful.
+        /// </summary>
+        Task<bool> CopyToClipboardAsync(string text);
     }
 }

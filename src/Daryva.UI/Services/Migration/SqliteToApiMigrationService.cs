@@ -207,6 +207,10 @@ public class SqliteToApiMigrationService : IMigrationService
                         continue; // Skip if no houses available
                     }
 
+                    // Use previous tenancy's rent when available so we don't assign wrong default (e.g. 500)
+                    var rentFromLast = lastTenancy?.RentAmountMonthly ?? 500m;
+                    var depositFromLast = lastTenancy?.DepositAmount ?? 0m;
+
                     // Create a new active tenancy for this tenant
                     var newTenancy = new MVVM.Models.Tenancy
                     {
@@ -217,8 +221,8 @@ public class SqliteToApiMigrationService : IMigrationService
                         MoveOutDate = null,
                         RentStartMonth = tenant.CreatedAt.Month,
                         RentStartYear = tenant.CreatedAt.Year,
-                        RentAmountMonthly = 500m, // Default rent amount
-                        DepositAmount = 0m,
+                        RentAmountMonthly = rentFromLast > 0 ? rentFromLast : 500m,
+                        DepositAmount = depositFromLast,
                         PaymentDueDay = 1,
                         Status = "Active",
                         Notes = "Auto-created from tenant CurrentHouseId field during migration"

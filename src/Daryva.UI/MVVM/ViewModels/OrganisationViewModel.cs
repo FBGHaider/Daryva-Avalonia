@@ -17,6 +17,8 @@ namespace Daryva.MVVM.ViewModels
     {
         private readonly IOrganisationService _orgService;
         private readonly IOrgContext _orgContext;
+        private readonly IOrganizationApiService _organizationApiService;
+        private readonly ITenancyApiService _tenancyApiService;
         private readonly IOrganisationMemberService _memberService;
         private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
@@ -37,6 +39,7 @@ namespace Daryva.MVVM.ViewModels
         public OrganisationViewModel(
             IOrganisationService orgService,
             IOrgContext orgContext,
+            IOrganizationApiService organizationApiService,
             IOrganisationMemberService memberService,
             IHouseService houseService,
             IDialogService dialogService,
@@ -44,6 +47,7 @@ namespace Daryva.MVVM.ViewModels
         {
             _orgService = orgService ?? throw new ArgumentNullException(nameof(orgService));
             _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
+            _organizationApiService = organizationApiService ?? throw new ArgumentNullException(nameof(organizationApiService));
             _memberService = memberService ?? throw new ArgumentNullException(nameof(memberService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -58,9 +62,15 @@ namespace Daryva.MVVM.ViewModels
             SwitchOrgCommand = new RelayCommand(async _ => await SwitchOrgAsync(), _ => SelectedOrganisation != null && SelectedOrganisation.Id != CurrentOrganisation?.Id);
             CreateOrgCommand = new RelayCommand(async _ => await CreateOrgAsync());
             RenameOrgCommand = new RelayCommand(async _ => await RenameOrgAsync(), _ => CanRenameOrg);
+            RemoveOrgCommand = new RelayCommand(async _ => await RemoveOrgAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
             InviteMemberCommand = new RelayCommand(async _ => await InviteMemberAsync(), _ => CanInvite && !string.IsNullOrWhiteSpace(InviteEmail));
             ChangeRoleCommand = new RelayCommand<MemberVm>(async m => await ChangeRoleAsync(m), m => CanChangeRoleFor(m));
             RemoveMemberCommand = new RelayCommand<MemberVm>(async m => await RemoveMemberAsync(m), m => CanRemoveMember(m));
+            CopyRecoveryCodeCommand = new RelayCommand(async _ => await CopyRecoveryCodeAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
+            RestoreOrgCommand = new RelayCommand(async _ => await RestoreOrgByIdAsync());
+            RestoreFromBackupCommand = new RelayCommand(async _ => await RestoreFromBackupAsync(), _ => CurrentOrganisation != null);
+            ExportForRentRepairCommand = new RelayCommand(async _ => await ExportForRentRepairAsync(), _ => CurrentOrganisation != null);
+            RepairRentFromFileCommand = new RelayCommand(async _ => await RepairRentFromFileAsync(), _ => CurrentOrganisation != null);
 
             _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
 
@@ -89,9 +99,14 @@ namespace Daryva.MVVM.ViewModels
                     OnPropertyChanged(nameof(CurrentOrganisationName));
                     OnPropertyChanged(nameof(CanRenameOrg));
                     OnPropertyChanged(nameof(CanInvite));
+                    OnPropertyChanged(nameof(RecoveryCode));
+                    OnPropertyChanged(nameof(RecoveryCodeOrgName));
                     ((RelayCommand)SwitchOrgCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RenameOrgCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)RemoveOrgCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)InviteMemberCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)CopyRecoveryCodeCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)RestoreFromBackupCommand).RaiseCanExecuteChanged();
                 }
             }
         }
@@ -102,11 +117,21 @@ namespace Daryva.MVVM.ViewModels
             set
             {
                 if (SetProperty(ref _selectedOrganisation, value))
+                {
+                    OnPropertyChanged(nameof(RecoveryCode));
+                    OnPropertyChanged(nameof(RecoveryCodeOrgName));
                     ((RelayCommand)SwitchOrgCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)CopyRecoveryCodeCommand).RaiseCanExecuteChanged();
+                }
             }
         }
 
         public string CurrentOrganisationName => CurrentOrganisation?.Name ?? "(No organisation)";
+
+        /// <summary>Organisation ID to save as recovery code. Store it safely so you can restore this org later.</summary>
+        public string RecoveryCode => (SelectedOrganisation ?? CurrentOrganisation)?.Id.ToString() ?? string.Empty;
+        /// <summary>Name of the org this recovery code belongs to (for display).</summary>
+        public string RecoveryCodeOrgName => (SelectedOrganisation ?? CurrentOrganisation)?.Name ?? string.Empty;
 
         public string MemberSearchText
         {
@@ -172,7 +197,7 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        public bool CanRenameOrg => CurrentUserRole == OrgRole.Owner;
+        public bool CanRenameOrg => CurrentOrganisation != null && (CurrentUserRole == OrgRole.Owner || CurrentUserRole == null);
         public bool CanInvite => CurrentUserRole == OrgRole.Owner || CurrentUserRole == OrgRole.Admin;
         public bool IsMembersListEmpty => Members.Count == 0;
         public bool CanChangeRoleFor(MemberVm? m) => CurrentUserRole == OrgRole.Owner && m != null && m.Role != OrgRole.Owner && m.Member.Id != default;
@@ -183,9 +208,15 @@ namespace Daryva.MVVM.ViewModels
         public ICommand SwitchOrgCommand { get; }
         public ICommand CreateOrgCommand { get; }
         public ICommand RenameOrgCommand { get; }
+        public ICommand RemoveOrgCommand { get; }
         public ICommand InviteMemberCommand { get; }
         public ICommand ChangeRoleCommand { get; }
         public ICommand RemoveMemberCommand { get; }
+        public ICommand CopyRecoveryCodeCommand { get; }
+        public ICommand RestoreOrgCommand { get; }
+        public ICommand RestoreFromBackupCommand { get; }
+        public ICommand ExportForRentRepairCommand { get; }
+        public ICommand RepairRentFromFileCommand { get; }
 
         private void DebounceMemberSearch()
         {
@@ -404,6 +435,37 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
+        private async Task RemoveOrgAsync()
+        {
+            var org = SelectedOrganisation ?? CurrentOrganisation;
+            if (org == null) return;
+            var confirmed = await _dialogService.ShowConfirmationAsync(
+                $"Permanently remove organisation \"{org.Name}\"? This cannot be undone. All data (houses, tenants, etc.) will be deleted from the server. Your recovery code will not bring it back.",
+                "Remove organisation");
+            if (!confirmed) return;
+            if (IsBusy) return;
+            IsBusy = true;
+            var name = org.Name;
+            try
+            {
+                await _organizationApiService.DeleteOrganizationAsync(org.Id);
+                await _orgService.RemoveOrganisationFromLocalAsync(org.Id).ConfigureAwait(false);
+                await _orgContext.RefreshAsync().ConfigureAwait(false);
+                await LoadAsync();
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowMessage($"Organisation \"{name}\" has been removed.", "Removed"));
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowMessage($"Could not remove organisation: {ex.Message}", "Error"));
+            }
+            finally
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => IsBusy = false);
+            }
+        }
+
         private async Task InviteMemberAsync()
         {
             if (CurrentOrganisation == null || !CanInvite) return;
@@ -503,6 +565,190 @@ namespace Daryva.MVVM.ViewModels
             finally
             {
                 await Dispatcher.UIThread.InvokeAsync(() => IsBusy = false);
+            }
+        }
+
+        private async Task CopyRecoveryCodeAsync()
+        {
+            var code = RecoveryCode;
+            if (string.IsNullOrEmpty(code)) return;
+            var copied = await _dialogService.CopyToClipboardAsync(code);
+            var orgName = RecoveryCodeOrgName;
+            if (copied)
+                _dialogService.ShowMessage($"Recovery code for \"{orgName}\" copied to clipboard. Store it somewhere safe (e.g. a password manager or notes) so you can restore this organisation later.", "Recovery code copied");
+            else
+                _dialogService.ShowMessage("Could not copy to clipboard. You can select and copy the code above manually.", "Copy failed");
+        }
+
+        private async Task RestoreOrgByIdAsync()
+        {
+            var input = await _dialogService.ShowInputDialogAsync(
+                "Paste your organisation recovery code (the long ID you saved earlier):",
+                "Restore organisation",
+                "");
+            var raw = input?.Trim() ?? "";
+            if (string.IsNullOrEmpty(raw))
+                return;
+            if (!Guid.TryParse(raw, out var orgId) || orgId == Guid.Empty)
+            {
+                _dialogService.ShowMessage("That doesn't look like a valid recovery code. It should be a long ID like: 12345678-1234-1234-1234-123456789abc", "Invalid code");
+                return;
+            }
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                var org = await _organizationApiService.GetOrganizationAsync(orgId);
+                await _orgContext.SetCurrentOrgFromRecoveryAsync(orgId, org.Name);
+                await LoadAsync();
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowMessage($"Switched to organisation \"{org.Name}\". Your data for this org is intact.", "Organisation restored"));
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    var msg = ex.Message.Contains("403", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("not a member", StringComparison.OrdinalIgnoreCase)
+                        ? "You are not a member of that organisation, or the code is wrong. Check you're signed in with the right account and that the code matches the org you want."
+                        : ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("Not Found", StringComparison.OrdinalIgnoreCase)
+                        ? "That organisation was not found. It may have been permanently deleted (e.g. via Remove organisation), or you are not a member. Deleted organisations and their data cannot be recovered."
+                        : ex.Message;
+                    _dialogService.ShowMessage(msg, "Could not restore");
+                });
+            }
+            finally
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => IsBusy = false);
+            }
+        }
+
+        private async Task RestoreFromBackupAsync()
+        {
+            if (CurrentOrganisation == null) return;
+            var filePath = await _dialogService.ShowOpenFileDialogAsync("Backup file|*.json", "Select backup file");
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                return;
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                var json = await File.ReadAllTextAsync(filePath);
+                var result = await _organizationApiService.ImportBackupAsync(json);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (result.Success)
+                    {
+                        var msg = result.Message;
+                        if (result.Stats != null)
+                            msg += $"\n\nHouses: {result.Stats.HousesImported}, Tenants: {result.Stats.TenantsImported}, Tenancies: {result.Stats.TenanciesImported}, Expenses: {result.Stats.ExpensesImported}, Rent payments: {result.Stats.RentPaymentsImported}, Deposit payments: {result.Stats.DepositPaymentsImported}.";
+                        _dialogService.ShowMessage(msg, "Backup restored");
+                        _ = LoadAsync();
+                    }
+                    else
+                    {
+                        var err = result.Errors != null && result.Errors.Count > 0
+                            ? string.Join("\n", result.Errors.Take(10)) + (result.Errors.Count > 10 ? "\n..." : "")
+                            : result.Message;
+                        _dialogService.ShowMessage(err, "Restore failed");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowMessage(ex.Message, "Could not restore backup"));
+            }
+            finally
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    IsBusy = false;
+                    ((RelayCommand)RestoreFromBackupCommand).RaiseCanExecuteChanged();
+                });
+            }
+        }
+
+        private async Task ExportForRentRepairAsync()
+        {
+            if (CurrentOrganisation == null) return;
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                var list = await _tenancyApiService.GetExportForRentRepairAsync();
+                var json = System.Text.Json.JsonSerializer.Serialize(list, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                var filePath = await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowSaveFileDialog("rent-repair.json", "JSON files|*.json|All Files|*.*", "Save rent repair file"));
+                if (!string.IsNullOrEmpty(filePath))
+                {
+                    await File.WriteAllTextAsync(filePath, json);
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                        _dialogService.ShowMessage($"Exported {list.Count} tenancies to:\n{filePath}\n\nEdit the rentAmountMonthly (and optionally depositAmount) values, then use \"Repair rent from file…\" to apply.", "Export for rent repair"));
+                }
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowMessage(ex.Message, "Export failed"));
+            }
+            finally
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    IsBusy = false;
+                    ((RelayCommand)ExportForRentRepairCommand).RaiseCanExecuteChanged();
+                });
+            }
+        }
+
+        private async Task RepairRentFromFileAsync()
+        {
+            if (CurrentOrganisation == null) return;
+            var filePath = await _dialogService.ShowOpenFileDialogAsync("Rent repair file|*.json", "Select rent repair file");
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                return;
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                var json = await File.ReadAllTextAsync(filePath);
+                var list = System.Text.Json.JsonSerializer.Deserialize<List<RentRepairExportItemDto>>(json,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (list == null || list.Count == 0)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                        _dialogService.ShowMessage("File is empty or invalid. Use \"Export for rent repair\" first, edit the rent values, then try again.", "Repair rent"));
+                    return;
+                }
+                var updates = list.Select(x => new RentRepairUpdateItemDto
+                {
+                    TenancyId = x.TenancyId,
+                    RentAmountMonthly = x.RentAmountMonthly,
+                    DepositAmount = x.DepositAmount
+                }).ToList();
+                var result = await _tenancyApiService.RepairRentAsync(updates);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    var msg = $"Updated {result.UpdatedCount} tenancy rent/deposit values.";
+                    if (result.Errors != null && result.Errors.Count > 0)
+                        msg += "\n\nIssues:\n" + string.Join("\n", result.Errors.Take(15)) + (result.Errors.Count > 15 ? "\n..." : "");
+                    _dialogService.ShowMessage(msg, "Rent repair");
+                    if (result.UpdatedCount > 0)
+                        _ = LoadAsync();
+                });
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowMessage(ex.Message, "Repair rent failed"));
+            }
+            finally
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    IsBusy = false;
+                    ((RelayCommand)RepairRentFromFileCommand).RaiseCanExecuteChanged();
+                });
             }
         }
     }

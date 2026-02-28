@@ -97,6 +97,23 @@ public class TenancyApiService : ITenancyApiService
         await EnsureSuccessAsync(response, "delete ended tenancies by house", cancellationToken);
     }
 
+    public async Task<IReadOnlyList<RentRepairExportItemDto>> GetExportForRentRepairAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.GetAsync("api/tenancies/export-for-rent-repair", cancellationToken);
+        await EnsureSuccessAsync(response, "export for rent repair", cancellationToken);
+        var list = await response.Content.ReadFromJsonAsync<List<RentRepairExportItemDto>>(_jsonOptions, cancellationToken);
+        return list ?? new List<RentRepairExportItemDto>();
+    }
+
+    public async Task<RentRepairResultDto> RepairRentAsync(IReadOnlyList<RentRepairUpdateItemDto> updates, CancellationToken cancellationToken = default)
+    {
+        var request = new { Updates = updates };
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/tenancies/repair-rent", request, _jsonOptions, cancellationToken);
+        await EnsureSuccessAsync(response, "repair rent", cancellationToken);
+        var result = await response.Content.ReadFromJsonAsync<RentRepairResultDto>(_jsonOptions, cancellationToken);
+        return result ?? new RentRepairResultDto();
+    }
+
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, string action, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode) return;

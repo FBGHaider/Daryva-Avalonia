@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Daryva.Services.Api;
+using Microsoft.Extensions.DependencyInjection;
+using Duende.IdentityModel.Client;
 using Duende.IdentityModel.OidcClient;
 using Duende.IdentityModel.OidcClient.Browser;
 
@@ -14,6 +16,7 @@ public sealed class AuthService : IAuthService
     private readonly ITokenStore _tokenStore;
     private readonly IAuthSessionService _authSession;
     private readonly IConfigurationService _configuration;
+    private readonly IServiceProvider _serviceProvider;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private OidcClient? _oidcClient;
 
@@ -22,11 +25,13 @@ public sealed class AuthService : IAuthService
     public AuthService(
         ITokenStore tokenStore,
         IAuthSessionService authSession,
-        IConfigurationService configuration)
+        IConfigurationService configuration,
+        IServiceProvider serviceProvider)
     {
         _tokenStore = tokenStore;
         _authSession = authSession;
         _configuration = configuration;
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
     public async Task<bool> HasValidSessionAsync(CancellationToken cancellationToken = default)
@@ -43,7 +48,11 @@ public sealed class AuthService : IAuthService
     public async Task SignInAsync(CancellationToken cancellationToken = default)
     {
         var client = GetOrCreateOidcClient();
-        var result = await client.LoginAsync(new LoginRequest(), cancellationToken).ConfigureAwait(false);
+        var loginRequest = new LoginRequest
+        {
+            FrontChannelExtraParameters = Parameters.FromObject(new { prompt = "login" })
+        };
+        var result = await client.LoginAsync(loginRequest, cancellationToken).ConfigureAwait(false);
         if (result.IsError)
         {
             await _tokenStore.ClearAsync(cancellationToken).ConfigureAwait(false);
@@ -76,6 +85,8 @@ public sealed class AuthService : IAuthService
     {
         await _tokenStore.ClearAsync(cancellationToken).ConfigureAwait(false);
         _authSession.ClearSession();
+        var clearer = _serviceProvider.GetRequiredService<IAccountDataClearer>();
+        await clearer.ClearAsync(cancellationToken).ConfigureAwait(false);
         RaiseStateChanged(false);
     }
 

@@ -41,6 +41,7 @@ public class SetupRequiredViewModel : BaseViewModel
         OpenOnboardingInBrowserCommand = new RelayCommand(_ => OpenOnboardingInBrowser());
         RefreshCommand = new RelayCommand(async _ => await RefreshAsync());
         CreateOrganisationCommand = new RelayCommand(async _ => await CreateOrganisationAsync());
+        RestoreFromCodeCommand = new RelayCommand(async _ => await RestoreFromCodeAsync());
         SignOutCommand = new RelayCommand(async _ => await SignOutAsync());
     }
 
@@ -53,6 +54,7 @@ public class SetupRequiredViewModel : BaseViewModel
     public RelayCommand OpenOnboardingInBrowserCommand { get; }
     public RelayCommand RefreshCommand { get; }
     public RelayCommand CreateOrganisationCommand { get; }
+    public RelayCommand RestoreFromCodeCommand { get; }
     public RelayCommand SignOutCommand { get; }
 
     private void OpenOnboardingInBrowser()
@@ -125,6 +127,46 @@ public class SetupRequiredViewModel : BaseViewModel
         catch (Exception ex)
         {
             _dialogService.ShowMessage($"Could not create organisation: {ex.Message}", "Error");
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
+
+    private async System.Threading.Tasks.Task RestoreFromCodeAsync()
+    {
+        var input = await _dialogService.ShowInputDialogAsync(
+            "Paste your organisation recovery code (the long ID you saved earlier, e.g. for \"2 houses\"):",
+            "Restore organisation",
+            "").ConfigureAwait(true);
+        var raw = input?.Trim() ?? "";
+        if (string.IsNullOrEmpty(raw))
+            return;
+        if (!Guid.TryParse(raw, out var orgId) || orgId == Guid.Empty)
+        {
+            _dialogService.ShowMessage("That doesn't look like a valid recovery code. It should be a long ID like: 12345678-1234-1234-1234-123456789abc", "Invalid code");
+            return;
+        }
+        IsRefreshing = true;
+        try
+        {
+            var org = await _organizationApiService.GetOrganizationAsync(orgId).ConfigureAwait(false);
+            await _orgContext.SetCurrentOrgFromRecoveryAsync(orgId, org.Name).ConfigureAwait(false);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _dialogService.ShowMessage($"Restored organisation \"{org.Name}\".", "Organisation restored");
+                _navigationService.NavigateTo<DashboardViewModel>();
+            });
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message.Contains("403", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("not a member", StringComparison.OrdinalIgnoreCase)
+                ? "You are not a member of that organisation, or the code is wrong. Sign in with the account that owns that org."
+                : ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("Not Found", StringComparison.OrdinalIgnoreCase)
+                ? "That organisation was not found. It may have been permanently deleted (e.g. via Remove organisation), or you are not a member. Deleted organisations and their data cannot be recovered."
+                : ex.Message;
+            _dialogService.ShowMessage(msg, "Could not restore");
         }
         finally
         {

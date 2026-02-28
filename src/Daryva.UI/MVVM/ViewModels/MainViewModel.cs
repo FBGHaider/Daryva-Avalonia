@@ -179,6 +179,10 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
+                // Ensure token is in session and ApiClient has it before first API call (avoids 401 on startup).
+                _ = await _authService.GetAccessTokenAsync().ConfigureAwait(true);
+                _apiClient.ApplyAuthState();
+
                 await _orgContext.RefreshAsync().ConfigureAwait(true);
 
                 if (_orgContext.RequiresOnboarding || _orgContext.RequiresProfile)
@@ -215,7 +219,13 @@ namespace Daryva.MVVM.ViewModels
             }
             catch
             {
-                NavigateToOnboarding();
+                // e.g. network error or 401: show setup so user can tap Refresh instead of assuming no orgs.
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _navigationService.NavigateTo<SetupRequiredViewModel>();
+                    IsOnboardingMode = true;
+                    CurrentOrganizationName = "(Select organization)";
+                });
             }
         }
 

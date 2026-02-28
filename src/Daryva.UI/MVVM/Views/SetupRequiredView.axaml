@@ -21,7 +21,7 @@
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource PrimaryTextBrush}"
                        HorizontalAlignment="Center"/>
-            <TextBlock Text="This account has no organisation yet. Create one below to get started. Organisations are tied to your sign-in account — an org from a different login won't appear here."
+            <TextBlock Text="No organisation in this session. Create one, or restore an existing org using a recovery code you saved earlier (e.g. for &quot;2 houses&quot;)."
                        Foreground="{DynamicResource SecondaryTextBrush}"
                        TextWrapping="Wrap"
                        TextAlignment="Center"
@@ -29,6 +29,11 @@
             <StackPanel Spacing="12" HorizontalAlignment="Center">
                 <Button Content="Create organisation"
                         Command="{Binding CreateOrganisationCommand}"
+                        IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"
+                        MinWidth="200"/>
+                <Button Content="Restore from recovery code…"
+                        Command="{Binding RestoreFromCodeCommand}"
                         IsEnabled="{Binding IsRefreshing, Converter={StaticResource InvertBoolConverter}}"
                         HorizontalAlignment="Center"
                         MinWidth="200"/>

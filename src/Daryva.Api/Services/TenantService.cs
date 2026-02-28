@@ -114,7 +114,17 @@ public class TenantService : ITenantService
         Tenant tenant,
         CancellationToken cancellationToken = default)
     {
-        _dbContext.Tenants.Update(tenant);
+        // Load tracked entity only; do not attach the detached graph (Tenancies/House) to avoid 500 on SaveChanges
+        var existing = await _dbContext.Tenants
+            .FirstOrDefaultAsync(t => t.Id == tenant.Id, cancellationToken);
+        if (existing == null)
+            return;
+
+        existing.FullName = tenant.FullName;
+        existing.Email = tenant.Email ?? string.Empty;
+        existing.PhoneNumber = tenant.PhoneNumber ?? string.Empty;
+        existing.UniversityName = tenant.UniversityName;
+
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

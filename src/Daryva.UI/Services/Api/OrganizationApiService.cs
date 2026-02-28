@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text;
+using Daryva.Services;
 
 namespace Daryva.Services.Api;
 
@@ -10,14 +11,16 @@ namespace Daryva.Services.Api;
 public class OrganizationApiService : IOrganizationApiService
 {
     private readonly IApiClient _apiClient;
+    private readonly IConfigurationService _configuration;
     private static readonly JsonSerializerOptions JsonOptions = new() 
     { 
         PropertyNameCaseInsensitive = true 
     };
 
-    public OrganizationApiService(IApiClient apiClient)
+    public OrganizationApiService(IApiClient apiClient, IConfigurationService configuration)
     {
         _apiClient = apiClient;
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     }
 
     public async Task<List<OrganizationDto>> GetUserOrganizationsAsync(CancellationToken cancellationToken = default)
@@ -59,6 +62,17 @@ public class OrganizationApiService : IOrganizationApiService
         }
         catch (HttpRequestException ex)
         {
+            var msg = ex.Message ?? "";
+            if (msg.Contains("connection attempt failed", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("did not properly respond", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("failed to respond", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("No connection could be made", StringComparison.OrdinalIgnoreCase))
+            {
+                var baseUrl = _configuration.GetValue("ApiBaseUrl")?.Trim() ?? "(not set)";
+                throw new InvalidOperationException(
+                    $"Cannot reach the API at {baseUrl}. Check that the API server is running, the address is correct (Settings), and that your firewall or network allows connections to that host and port.",
+                    ex);
+            }
             throw new InvalidOperationException($"Failed to create organization: {ex.Message}", ex);
         }
     }
@@ -78,6 +92,19 @@ public class OrganizationApiService : IOrganizationApiService
         {
             throw new InvalidOperationException($"Failed to fetch organization: {ex.Message}", ex);
         }
+    }
+
+    public async Task<List<OrganizationMemberDto>> GetOrganizationMembersAsync(Guid orgId, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.GetAsync($"api/orgs/{orgId}/members", cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            return new List<OrganizationMemberDto>();
+
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        var list = JsonSerializer.Deserialize<List<OrganizationMemberDto>>(content, JsonOptions);
+        return list ?? new List<OrganizationMemberDto>();
     }
 
     public async Task DeleteOrganizationAsync(Guid orgId, CancellationToken cancellationToken = default)
@@ -117,5 +144,22 @@ public class OrganizationApiService : IOrganizationApiService
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         return JsonSerializer.Deserialize<JoinOrganizationResultDto>(body, JsonOptions)
             ?? throw new InvalidOperationException("Failed to join organization by code.");
+    }
+
+    public async Task<ImportBackupResultDto> ImportBackupAsync(string backupJson, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(backupJson))
+            throw new ArgumentException("Backup JSON is empty.", nameof(backupJson));
+
+        using var content = new StringContent(backupJson, Encoding.UTF8, "application/json");
+        var response = await _apiClient.HttpClient.PostAsync("api/import", content, cancellationToken);
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var result = JsonSerializer.Deserialize<ImportBackupResultDto>(body, JsonOptions);
+        if (result == null)
+            throw new InvalidOperationException("Invalid import response.");
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(result.Message ?? $"Import failed: {response.StatusCode}");
+        return result;
     }
 }

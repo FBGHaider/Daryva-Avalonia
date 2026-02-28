@@ -21,6 +21,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
 
         private int _tenantId;
+        private Guid? _tenantApiId; // Required for API backend when updating tenant
         private int? _currentTenancyId;
         private string _fullName = string.Empty;
         private string _email = string.Empty;
@@ -161,6 +162,7 @@ namespace Daryva.MVVM.ViewModels
             if (tenant == null) return;
 
             TenantId = tenant.TenantId;
+            _tenantApiId = tenant.ApiId; // Required for API backend when updating
             FullName = tenant.FullName;
             Email = tenant.Email;
             PhoneNumber = tenant.PhoneNumber;
@@ -248,10 +250,20 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                // Update tenant
+                // Resolve ApiId if missing (e.g. tenant list from cache or different source)
+                var apiId = _tenantApiId;
+                if (!apiId.HasValue)
+                {
+                    var existing = (await _tenantService.GetAllTenantsAsync(includeArchived: true))
+                        .FirstOrDefault(t => t.TenantId == TenantId);
+                    apiId = existing?.ApiId;
+                }
+
+                // Update tenant (ApiId required when using API backend)
                 var tenant = new Tenant
                 {
                     TenantId = TenantId,
+                    ApiId = apiId,
                     FullName = FullName.Trim(),
                     Email = trimmedEmail,
                     PhoneNumber = PhoneNumber.Trim(),

@@ -128,40 +128,6 @@
                         </StackPanel>
                     </Border>
 
-                    <Button Command="{Binding SwitchOrganizationCommand}"
-                            HorizontalAlignment="Stretch"
-                            Padding="8,6"
-                            Background="{DynamicResource Surface2Brush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Cursor="Hand">
-                        <StackPanel Orientation="Horizontal" Spacing="8"
-                                    HorizontalAlignment="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToAlignmentConverter}}">
-                            <TextBlock Text="🏢" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text="Switch Org"
-                                      IsVisible="{Binding IsNavigationCollapsed, Converter={StaticResource InvertBoolConverter}}"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding SignOutCommand}"
-                            HorizontalAlignment="Stretch"
-                            Padding="8,6"
-                            Background="{DynamicResource Surface2Brush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Cursor="Hand">
-                        <StackPanel Orientation="Horizontal" Spacing="8"
-                                    HorizontalAlignment="{Binding IsNavigationCollapsed, Converter={StaticResource BoolToAlignmentConverter}}">
-                            <TextBlock Text="🚪" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text="Sign out"
-                                      IsVisible="{Binding IsNavigationCollapsed, Converter={StaticResource InvertBoolConverter}}"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
                         <Button Command="{Binding ToggleNavigationCommand}"
                             HorizontalAlignment="Left"
                             Padding="4"

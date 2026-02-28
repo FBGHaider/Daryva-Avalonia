@@ -100,7 +100,8 @@ public partial class App : Application
         {
             var configurationService = serviceProvider.GetRequiredService<IConfigurationService>();
             var keepLoggedInRaw = configurationService.GetValue("KeepMeLoggedIn");
-            var keepLoggedIn = string.Equals(keepLoggedInRaw, "true", StringComparison.OrdinalIgnoreCase);
+            // Default true: keep session so startup always has token available after load from store.
+            var keepLoggedIn = string.IsNullOrWhiteSpace(keepLoggedInRaw) || string.Equals(keepLoggedInRaw, "true", StringComparison.OrdinalIgnoreCase);
 
             if (!keepLoggedIn)
             {

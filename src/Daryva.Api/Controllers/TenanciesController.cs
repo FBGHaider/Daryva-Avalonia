@@ -323,6 +323,118 @@ public class TenanciesController : ControllerBase
             return StatusCode(500, new { error = "Failed to create tenancy.", detail = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Export tenancies with current rent/deposit for editing and then calling repair-rent.
+    /// GET /api/tenancies/export-for-rent-repair
+    /// </summary>
+    [HttpGet("export-for-rent-repair")]
+    [ProducesResponseType(typeof(IEnumerable<RentRepairExportItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<RentRepairExportItem>>> ExportForRentRepair(CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return BadRequest(new { error = "Organization context not set." });
+
+        var orgId = _tenantContext.CurrentOrgId.Value;
+        var list = await _dbContext.Tenancies
+            .AsNoTracking()
+            .Include(t => t.House)
+            .Include(t => t.Tenant)
+            .Where(t => t.OrganizationId == orgId)
+            .OrderBy(t => t.Tenant!.FullName)
+            .ThenBy(t => t.House!.AddressLine1)
+            .Select(t => new RentRepairExportItem
+            {
+                TenancyId = t.Id,
+                TenantName = t.Tenant!.FullName,
+                HouseName = t.House!.Name,
+                RentAmountMonthly = t.RentAmountMonthly,
+                DepositAmount = t.DepositAmount
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(list);
+    }
+
+    /// <summary>
+    /// Update only rent (and optionally deposit) for tenancies. Use to fix wrong values (e.g. after migration).
+    /// POST /api/tenancies/repair-rent
+    /// </summary>
+    [HttpPost("repair-rent")]
+    [ProducesResponseType(typeof(RentRepairResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<RentRepairResult>> RepairRent(
+        [FromBody] RentRepairRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return BadRequest(new { error = "Organization context not set." });
+        if (request.Updates == null || request.Updates.Count == 0)
+            return BadRequest(new { error = "At least one update is required." });
+
+        var orgId = _tenantContext.CurrentOrgId.Value;
+        var tenancyIds = request.Updates.Select(u => u.TenancyId).Distinct().ToList();
+        var tenancies = await _dbContext.Tenancies
+            .Where(t => t.OrganizationId == orgId && tenancyIds.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id, cancellationToken);
+
+        var updated = 0;
+        var errors = new List<string>();
+
+        foreach (var u in request.Updates)
+        {
+            if (u.RentAmountMonthly <= 0)
+            {
+                errors.Add($"Tenancy {u.TenancyId}: RentAmountMonthly must be greater than 0.");
+                continue;
+            }
+
+            if (!tenancies.TryGetValue(u.TenancyId, out var tenancy))
+            {
+                errors.Add($"Tenancy {u.TenancyId}: Not found or not in this organization.");
+                continue;
+            }
+
+            tenancy.RentAmountMonthly = u.RentAmountMonthly;
+            if (u.DepositAmount.HasValue && u.DepositAmount.Value >= 0)
+                tenancy.DepositAmount = u.DepositAmount.Value;
+            updated++;
+        }
+
+        if (updated > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return Ok(new RentRepairResult { UpdatedCount = updated, Errors = errors });
+    }
+}
+
+public class RentRepairExportItem
+{
+    public Guid TenancyId { get; set; }
+    public string TenantName { get; set; } = string.Empty;
+    public string HouseName { get; set; } = string.Empty;
+    public decimal RentAmountMonthly { get; set; }
+    public decimal DepositAmount { get; set; }
+}
+
+public class RentRepairRequest
+{
+    public List<RentRepairUpdateItem> Updates { get; set; } = new();
+}
+
+public class RentRepairUpdateItem
+{
+    public Guid TenancyId { get; set; }
+    public decimal RentAmountMonthly { get; set; }
+    public decimal? DepositAmount { get; set; }
+}
+
+public class RentRepairResult
+{
+    public int UpdatedCount { get; set; }
+    public List<string> Errors { get; set; } = new();
 }
 
 public class TenancyLookupResponse

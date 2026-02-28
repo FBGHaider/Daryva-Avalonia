@@ -134,13 +134,11 @@ public class PaymentsController : ControllerBase
         var orgId = _tenantContext.CurrentOrgId.Value;
         try
         {
-            var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
-            var periodEndExclusive = periodStart.AddMonths(1);
             var total = await _dbContext.RentPayments
                 .Where(p => p.OrganizationId == orgId &&
                             p.TenancyId == tenancyId &&
-                            p.DatePaid >= periodStart &&
-                            p.DatePaid < periodEndExclusive)
+                            p.DatePaid.Year == year &&
+                            p.DatePaid.Month == month)
                 .SumAsync(p => p.AmountPaid, cancellationToken);
 
             return Ok(total);
@@ -198,13 +196,11 @@ public class PaymentsController : ControllerBase
         if (tenancy == null)
             return NotFound(new { error = "Tenancy not found." });
 
-        var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
-        var periodEndExclusive = periodStart.AddMonths(1);
         var paid = await _dbContext.RentPayments
             .Where(p => p.OrganizationId == orgId &&
                         p.TenancyId == tenancyId &&
-                        p.DatePaid >= periodStart &&
-                        p.DatePaid < periodEndExclusive)
+                        p.DatePaid.Year == year &&
+                        p.DatePaid.Month == month)
             .SumAsync(p => p.AmountPaid, cancellationToken);
 
         var due = tenancy.RentAmountMonthly;

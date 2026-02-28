@@ -99,6 +99,7 @@
                                 <Button Content="Switch" Classes="secondary" Command="{Binding SwitchOrgCommand}"/>
                                 <Button Content="Create organisation" Classes="primary" Command="{Binding CreateOrgCommand}"/>
                                 <Button Content="Rename" Classes="secondary" Command="{Binding RenameOrgCommand}" IsEnabled="{Binding CanRenameOrg}"/>
+                                <Button Content="Remove organisation" Classes="secondary" Command="{Binding RemoveOrgCommand}" ToolTip.Tip="Delete the selected organisation (Owner only)."/>
                             </StackPanel>
                             <WrapPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,12,0,0">
                                 <Border Classes="stat-pill" Margin="0,0,10,0">
@@ -177,6 +178,36 @@
                                 <TextBlock Text="Enter an email address and role, then click Send invite." Classes="text-muted" FontSize="12" Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Recovery code & restore (save org ID so you can get back to e.g. "2 houses") -->
+                <Border Classes="command-bar" Margin="0,0,0,16">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="Recovery &amp; restore" Classes="section-title" FontSize="16"/>
+                        <TextBlock Text="Save your organisation ID somewhere safe (e.g. &quot;2 houses&quot;). If you ever lose access or switch accounts, you can paste it below to restore this organisation." 
+                                   Classes="text-muted" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Recovery code for current organisation" Classes="text-muted" FontSize="12"/>
+                                <TextBox Text="{Binding RecoveryCode}" IsReadOnly="True" FontFamily="Consolas" FontSize="12" 
+                                         Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" 
+                                         Watermark="Select an organisation above"/>
+                            </StackPanel>
+                            <Button Grid.Row="0" Grid.Column="1" Content="Copy code" Classes="secondary" Command="{Binding CopyRecoveryCodeCommand}" 
+                                    VerticalAlignment="Bottom" Margin="12,0,0,0"/>
+                            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,12,0,0">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Have a recovery code? Paste it below to switch back to that organisation." Classes="text-muted" FontSize="12"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <Button Content="Restore organisation from code…" Classes="secondary" Command="{Binding RestoreOrgCommand}"/>
+                                        <Button Content="Restore from backup file…" Classes="secondary" Command="{Binding RestoreFromBackupCommand}" ToolTip.Tip="Import houses, tenants, tenancies, payments from a Daryva API backup JSON file"/>
+                                        <Button Content="Export for rent repair…" Classes="secondary" Command="{Binding ExportForRentRepairCommand}" ToolTip.Tip="Export tenancies with current rent/deposit so you can fix wrong values (e.g. after migration)"/>
+                                        <Button Content="Repair rent from file…" Classes="secondary" Command="{Binding RepairRentFromFileCommand}" ToolTip.Tip="Apply corrected rent/deposit from an edited export file"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </StackPanel>
                 </Border>
 

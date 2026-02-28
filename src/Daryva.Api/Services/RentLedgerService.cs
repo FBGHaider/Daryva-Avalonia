@@ -52,6 +52,8 @@ public class RentLedgerService : IRentLedgerService
         var periodEnd = DateTime.SpecifyKind(new DateTime(year, month, DateTime.DaysInMonth(year, month)), DateTimeKind.Utc);
         var periodEndExclusive = periodStart.AddMonths(1);
 
+        // Include payments whose date (year/month) falls in the selected month so ledger stays in sync with transactions.
+        // Using calendar month avoids timezone/end-of-day excluding payments that transactions show for "this month".
         var tenanciesQuery = _dbContext.Tenancies
             .AsNoTracking()
             .Include(t => t.Tenant)
@@ -74,9 +76,10 @@ public class RentLedgerService : IRentLedgerService
         var tenancies = await tenanciesQuery.ToListAsync(cancellationToken);
         var tenancyIds = tenancies.Select(t => t.Id).Distinct().ToList();
 
+        // Payments in this calendar month (by date part) so ledger matches what transactions show for "this month".
         var periodRentPayments = await _dbContext.RentPayments
             .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && p.DatePaid >= periodStart && p.DatePaid < periodEndExclusive)
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && p.DatePaid.Year == year && p.DatePaid.Month == month)
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
@@ -84,19 +87,33 @@ public class RentLedgerService : IRentLedgerService
             .GroupBy(p => p.TenancyId)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
 
-        var dedupedTenancies = tenancies
+        // Group by (tenant, house) so we show one row per logical tenancy; we'll sum payments across all tenancy IDs in the group.
+        var tenancyGroups = tenancies
             .GroupBy(t => new
             {
                 TenantKey = (t.Tenant != null ? t.Tenant.FullName : string.Empty).Trim().ToLower(),
                 HouseKey = $"{(t.House != null ? t.House.AddressLine1 : string.Empty).Trim().ToLower()}|{(t.House != null ? t.House.City : string.Empty).Trim().ToLower()}"
             })
-            .Select(group => group
-                .OrderByDescending(t => paidByTenancy.TryGetValue(t.Id, out var paid) ? paid : 0m)
-                .ThenByDescending(t => t.MoveInDate)
-                .ThenByDescending(t => t.RentStartYear ?? t.MoveInDate.Year)
-                .ThenByDescending(t => t.RentStartMonth ?? t.MoveInDate.Month)
-                .First())
             .ToList();
+
+        var dedupedTenancies = tenancyGroups
+            .Select(group =>
+            {
+                var groupTenancyIds = group.Select(t => t.Id).ToHashSet();
+                var groupPaid = periodRentPayments.Where(p => groupTenancyIds.Contains(p.TenancyId)).Sum(p => p.AmountPaid);
+                return group
+                    .OrderByDescending(t => paidByTenancy.TryGetValue(t.Id, out var paid) ? paid : 0m)
+                    .ThenByDescending(t => t.MoveInDate)
+                    .ThenByDescending(t => t.RentStartYear ?? t.MoveInDate.Year)
+                    .ThenByDescending(t => t.RentStartMonth ?? t.MoveInDate.Month)
+                    .First();
+            })
+            .ToList();
+
+        // For each (tenant, house) group, all tenancy IDs so we sum payments across the group.
+        var tenancyIdToGroupIds = tenancyGroups
+            .SelectMany(g => g.Select(t => (t.Id, GroupIds: g.Select(x => x.Id).ToHashSet())))
+            .ToDictionary(x => x.Id, x => x.GroupIds);
 
         var totalDepositByTenancy = await _dbContext.DepositPayments
             .AsNoTracking()
@@ -118,7 +135,9 @@ public class RentLedgerService : IRentLedgerService
             if (selectedPeriodNum < firstRentPeriodNum)
                 continue;
 
-            var paymentsForPeriod = periodRentPayments.Where(p => p.TenancyId == tenancy.Id).ToList();
+            // Sum payments for this logical (tenant, house): include all tenancy IDs in the same group so ledger matches transactions.
+            var groupIds = tenancyIdToGroupIds.TryGetValue(tenancy.Id, out var ids) ? ids : new HashSet<Guid> { tenancy.Id };
+            var paymentsForPeriod = periodRentPayments.Where(p => groupIds.Contains(p.TenancyId)).ToList();
             var amountPaid = paymentsForPeriod.Sum(p => p.AmountPaid);
             var amountDue = tenancy.RentAmountMonthly;
             var dueDay = Math.Min(Math.Max((int)tenancy.PaymentDueDay, 1), 28);

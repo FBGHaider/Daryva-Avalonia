@@ -50,16 +50,9 @@ public class ImportController : ControllerBase
     {
         try
         {
-            // Verify organization context
+            // Verify organization context (user must be member of org; middleware validates)
             if (!_tenantContext.CurrentOrgId.HasValue)
                 return BadRequest(new { error = "Organization context not set. Specify X-Org-Id header." });
-
-            var devAuthEnabled = _configuration.GetValue<bool>("DevAuth:Enabled");
-            if (!devAuthEnabled)
-            {
-                _logger.LogWarning("Import endpoint called when DevAuth is disabled");
-                return BadRequest(new { error = "Import endpoint is only available in development mode (DevAuth)" });
-            }
 
             _logger.LogInformation(
                 "Starting bulk import for org {OrgId}: {Houses} houses, {Tenants} tenants, {Tenancies} tenancies, {Expenses} expenses, {Documents} documents, {RentPayments} rent payments, {DepositPayments} deposit payments, {NotificationTemplates} templates, {Notifications} notifications, {NotificationAttempts} attempts",

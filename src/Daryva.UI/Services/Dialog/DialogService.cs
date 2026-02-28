@@ -370,5 +370,24 @@ namespace Daryva.Services.Dialog
                 throw capturedException;
             }
         }
+
+        public async Task<bool> CopyToClipboardAsync(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            var window = GetMainWindow();
+            if (window?.Clipboard == null) return false;
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    await window.Clipboard.SetTextAsync(text);
+                });
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }

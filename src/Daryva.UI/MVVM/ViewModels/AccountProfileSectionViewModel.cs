@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services.Auth;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 
@@ -14,6 +15,7 @@ namespace Daryva.MVVM.ViewModels
     {
         private readonly IUserProfileService _profileService;
         private readonly IDialogService _dialogService;
+        private readonly IAuthService _authService;
 
         private string _fullName = string.Empty;
         private string _email = string.Empty;
@@ -21,13 +23,15 @@ namespace Daryva.MVVM.ViewModels
         private string _timeZoneId = "GMT Standard Time";
         private string _emailHelperText = "Email is managed by your sign-in provider.";
 
-        public AccountProfileSectionViewModel(IUserProfileService profileService, IDialogService dialogService)
+        public AccountProfileSectionViewModel(IUserProfileService profileService, IDialogService dialogService, IAuthService authService)
         {
             _profileService = profileService ?? throw new ArgumentNullException(nameof(profileService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
 
             SaveProfileCommand = new RelayCommand(async _ => await SaveProfileAsync(), _ => CanSaveProfile());
             ResetProfileCommand = new RelayCommand(async _ => await LoadProfileAsync());
+            SignOutCommand = new RelayCommand(async _ => await _authService.SignOutAsync().ConfigureAwait(true));
 
             TimeZoneIds = new ObservableCollection<string>(
                 TimeZoneInfo.GetSystemTimeZones().Select(tz => tz.Id).OrderBy(id => id).ToList());
@@ -71,6 +75,7 @@ namespace Daryva.MVVM.ViewModels
 
         public ICommand SaveProfileCommand { get; }
         public ICommand ResetProfileCommand { get; }
+        public ICommand SignOutCommand { get; }
 
         private bool CanSaveProfile()
         {

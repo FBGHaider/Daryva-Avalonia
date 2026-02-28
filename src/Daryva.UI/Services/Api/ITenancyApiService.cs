@@ -86,4 +86,32 @@ public interface ITenancyApiService
     Task UpdateTenancyAsync(Guid id, UpdateTenancyDto dto, CancellationToken cancellationToken = default);
     Task DeleteTenancyAsync(Guid id, CancellationToken cancellationToken = default);
     Task DeleteEndedTenanciesByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default);
+
+    /// <summary>Export tenancies with current rent/deposit for editing and then calling RepairRentAsync.</summary>
+    Task<IReadOnlyList<RentRepairExportItemDto>> GetExportForRentRepairAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Update only rent (and optionally deposit) for given tenancies. Use to fix wrong values after migration.</summary>
+    Task<RentRepairResultDto> RepairRentAsync(IReadOnlyList<RentRepairUpdateItemDto> updates, CancellationToken cancellationToken = default);
+}
+
+public class RentRepairExportItemDto
+{
+    public Guid TenancyId { get; set; }
+    public string TenantName { get; set; } = string.Empty;
+    public string HouseName { get; set; } = string.Empty;
+    public decimal RentAmountMonthly { get; set; }
+    public decimal DepositAmount { get; set; }
+}
+
+public class RentRepairUpdateItemDto
+{
+    public Guid TenancyId { get; set; }
+    public decimal RentAmountMonthly { get; set; }
+    public decimal? DepositAmount { get; set; }
+}
+
+public class RentRepairResultDto
+{
+    public int UpdatedCount { get; set; }
+    public List<string> Errors { get; set; } = new();
 }

@@ -48,7 +48,7 @@ You have your Clerk API keys. Follow these steps so sign-in works across the **w
 2. Set in `AppSettings`:
    - **Oidc:Authority** = your Clerk issuer URL (e.g. `https://xxx.clerk.accounts.dev` — no trailing slash, or with `/`; the app normalises it).
    - **Oidc:ClientId** = the **Client ID** of the OAuth application you created for the desktop app in step 2.
-   - **ApiBaseUrl** = your API base URL (e.g. `http://localhost:5000` for dev, `https://api.daryva.com` for prod).
+   - **ApiBaseUrl** = your API base URL (see below for dev vs prod).
    - **AppOnboardingUrl** = `https://app.daryva.com/onboarding` (or your app URL).
 
 **Optional — Application configuration URLs:** In Clerk, your OAuth application’s “Application configuration URLs” panel lists the same endpoints the app uses via discovery. You can copy those URLs into your local config for reference (they must match your **Oidc:Authority** base). Optional keys: **Oidc:DiscoveryUrl**, **Oidc:AuthorizeUrl**, **Oidc:TokenUrl**, **Oidc:UserInfoUrl**. The app uses **Oidc:Authority** for OIDC discovery, which returns these same endpoints.
@@ -69,6 +69,11 @@ Example:
   }
 }
 ```
+
+**ApiBaseUrl by environment:**
+- **Local dev:** `http://localhost:5000` (API runs on port 5000 in Visual Studio / `dotnet run`).
+- **Production (server by IP):** Use port **8080**, not 5000 — the API in Docker listens on 8080. Example: `http://YOUR_SERVER_IP:8080` (e.g. `http://46.225.87.78:8080`). Ensure the server firewall allows inbound TCP 8080.
+- **Production (domain with Cloudflare):** Use `https://api.daryva.com` only if you have a reverse proxy (e.g. nginx/caddy) on the server listening on 443 and forwarding to the API on port 8080. Cloudflare proxy connects to your origin on 443 by default; port 5000 is not used in production.
 
 3. Run the desktop app and click **Sign in** — the browser should open to Clerk (or your sign-in page); after signing in you should be redirected back and the app should receive the token.
 

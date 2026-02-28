@@ -13,5 +13,10 @@ namespace Daryva.Services.Business
         Task SetCurrentOrganisationAsync(Guid orgId, CancellationToken cancellationToken = default);
         Task<Guid?> GetCurrentOrganisationIdAsync(CancellationToken cancellationToken = default);
         Task<Organisation?> GetOrganisationAsync(Guid orgId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Removes an organisation from local storage (e.g. after it was deleted via API).
+        /// </summary>
+        Task RemoveOrganisationFromLocalAsync(Guid orgId, CancellationToken cancellationToken = default);
     }
 }
