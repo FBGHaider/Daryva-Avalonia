@@ -49,6 +49,9 @@ public class OrganizationMemberDto
     [JsonPropertyName("email")]
     public string? Email { get; set; }
 
+    [JsonPropertyName("displayName")]
+    public string? DisplayName { get; set; }
+
     [JsonPropertyName("role")]
     public string Role { get; set; } = string.Empty;
 

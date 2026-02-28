@@ -72,6 +72,20 @@ public class MeService : IMeService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Backfill OrganisationMember.Email for this user so they show in the members list
+        if (!string.IsNullOrEmpty(normalizedEmail))
+        {
+            var membersWithNullEmail = await _db.OrganizationMembers
+                .Where(m => m.UserId == sub && (m.Email == null || m.Email == ""))
+                .ToListAsync(cancellationToken);
+            foreach (var m in membersWithNullEmail)
+            {
+                m.Email = normalizedEmail;
+            }
+            if (membersWithNullEmail.Count > 0)
+                await _db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task<MeResponseDto?> GetMeAsync(string userId, CancellationToken cancellationToken = default)

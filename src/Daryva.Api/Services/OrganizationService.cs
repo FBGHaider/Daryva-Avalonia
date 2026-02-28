@@ -146,12 +146,16 @@ public class OrganizationService : IOrganizationService
             CreatedAt = DateTime.UtcNow
         };
 
+        // Resolve current user's email so the owner row shows in members list
+        var ownerEmail = await ResolveUserEmailAsync(userId, cancellationToken);
+
         // Add current user as Owner
         var member = new OrganizationMember
         {
             Id = Guid.NewGuid(),
             OrganizationId = org.Id,
             UserId = userId,
+            Email = ownerEmail,
             Role = OrganizationMember.Roles.Owner,
             JoinedAt = DateTime.UtcNow
         };
@@ -563,6 +567,18 @@ public class OrganizationService : IOrganizationService
             Id = member.Id,
             UserId = member.UserId,
             Email = member.Email,
+            DisplayName = null,
+            Role = member.Role,
+            JoinedAt = member.JoinedAt
+        };
+
+    private static OrganizationMemberResponse MapToResponseWithProfile(OrganizationMember member, AppUserProfile? profile)
+        => new()
+        {
+            Id = member.Id,
+            UserId = member.UserId,
+            Email = !string.IsNullOrWhiteSpace(member.Email) ? member.Email : profile?.Email,
+            DisplayName = profile?.DisplayName,
             Role = member.Role,
             JoinedAt = member.JoinedAt
         };

@@ -34,9 +34,14 @@ public class OrganizationMemberResponse
     public string UserId { get; set; } = string.Empty;
 
     /// <summary>
-    /// User's email address.
+    /// User's email address (from member record or AppUserProfile).
     /// </summary>
     public string? Email { get; set; }
+
+    /// <summary>
+    /// User's display name (from AppUserProfile when available).
+    /// </summary>
+    public string? DisplayName { get; set; }
 
     /// <summary>
     /// Role within the organization.

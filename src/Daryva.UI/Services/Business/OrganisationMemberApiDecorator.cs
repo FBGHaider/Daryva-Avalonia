@@ -32,7 +32,7 @@ public class OrganisationMemberApiDecorator : IOrganisationMemberService
                 Id = d.Id,
                 OrganisationId = orgId,
                 Email = d.Email ?? string.Empty,
-                DisplayName = null,
+                DisplayName = d.DisplayName,
                 Role = ParseRole(d.Role),
                 Status = MemberStatus.Active,
                 JoinedAt = d.JoinedAt
