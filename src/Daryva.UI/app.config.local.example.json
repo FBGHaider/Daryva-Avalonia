@@ -1,6 +1,1 @@
-{
-  "AppSettings": {
-    "UpdateFeedUrl": "https://github.com/fbg-engineering/Daryva-Updates",
-    "ApiBaseUrl": "http://localhost:5000"
-  }
-}
+{"AppSettings":{"UpdateFeedUrl":"https://github.com/fbg-engineering/Daryva-Updates","ApiBaseUrl":"http://localhost:5000","Oidc:Authority":"https://your-tenant.clerk.accounts.dev","Oidc:ClientId":"your-client-id"}}

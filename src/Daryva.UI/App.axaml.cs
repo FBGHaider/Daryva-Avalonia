@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Daryva.Services;
 using Daryva.Services.Api;
+using Daryva.Services.Auth;
 using Daryva.Services.Theme;
 using Daryva.Services.Settings;
 using Daryva.MVVM.ViewModels;
@@ -64,6 +65,16 @@ public partial class App : Application
         {
             var serviceProvider = ServiceProvider!;
             ApplyLoginPersistencePolicy(serviceProvider);
+
+            try
+            {
+                var authService = serviceProvider.GetRequiredService<IAuthService>();
+                await authService.HasValidSessionAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // No OIDC session or config missing; continue with existing session or sign-in.
+            }
 
             var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
             var mainViewModel = serviceProvider.GetRequiredService<MainViewModel>();

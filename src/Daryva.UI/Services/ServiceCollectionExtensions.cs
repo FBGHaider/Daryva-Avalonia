@@ -7,6 +7,7 @@ using Daryva.Services.Dialog;
 using Daryva.Services.Platform;
 using Daryva.Services.Update;
 using Daryva.Services.Api;
+using Daryva.Services.Auth;
 using Daryva.Services.Migration;
 
 namespace Daryva.Services
@@ -32,6 +33,8 @@ namespace Daryva.Services
 
             // API Client Services
             services.AddSingleton<IAuthSessionService, AuthSessionService>();
+            services.AddSingleton<ITokenStore, TokenStore>();
+            services.AddSingleton<IAuthService, AuthService>();
             services.AddSingleton<IApiClient, ApiClient>();
             services.AddScoped<IAuthApiService, AuthApiService>();
             services.AddScoped<IOrganizationApiService, OrganizationApiService>();
