@@ -13,6 +13,14 @@ public class CreateOrganizationRequest
 }
 
 /// <summary>
+/// Request payload for updating an organization (e.g. rename). Owner only.
+/// </summary>
+public class UpdateOrganizationRequest
+{
+    public string? Name { get; set; }
+}
+
+/// <summary>
 /// Response payload for an organization.
 /// </summary>
 public class OrganizationResponse

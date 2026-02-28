@@ -37,6 +37,15 @@ public interface IOrganizationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Update organization (e.g. rename). Caller must be Owner.
+    /// </summary>
+    Task<OrganizationResponse?> UpdateOrganizationAsync(
+        Guid orgId,
+        string userId,
+        UpdateOrganizationRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Add a member to an organization (by email).
     /// </summary>
     Task<OrganizationMemberResponse> AddMemberAsync(
@@ -178,6 +187,38 @@ public class OrganizationService : IOrganizationService
             .FirstOrDefaultAsync(o => o.Id == orgId, cancellationToken);
 
         return org == null ? null : MapToResponse(org, membership.Role);
+    }
+
+    public async Task<OrganizationResponse?> UpdateOrganizationAsync(
+        Guid orgId,
+        string userId,
+        UpdateOrganizationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var membership = await _dbContext.OrganizationMembers
+            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
+        if (membership == null)
+            return null;
+        if (!string.Equals(membership.Role, OrganizationMember.Roles.Owner, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only the owner can rename the organization.");
+
+        var org = await _dbContext.Organizations.FirstOrDefaultAsync(o => o.Id == orgId, cancellationToken);
+        if (org == null)
+            return null;
+
+        if (request.Name != null)
+        {
+            var name = request.Name.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Organization name cannot be empty.", nameof(request.Name));
+            if (name.Length > 256)
+                throw new ArgumentException("Organization name must be 256 characters or less.", nameof(request.Name));
+            org.Name = name;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("User {UserId} updated organization {OrgId} (name).", userId, orgId);
+        return MapToResponse(org, membership.Role);
     }
 
     public async Task<OrganizationMemberResponse> AddMemberAsync(

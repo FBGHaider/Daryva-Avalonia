@@ -24,4 +24,12 @@ public interface IOrgContext
     /// Raised when the current org changes (e.g. after SetCurrentOrgAsync). Subscribe to trigger app-wide data refresh.
     /// </summary>
     event EventHandler<CurrentOrgChangedEventArgs>? CurrentOrgChanged;
+
+    /// <summary>
+    /// Raised when current org details (e.g. name) change. Subscribe to refresh the org label in the UI.
+    /// </summary>
+    event EventHandler? CurrentOrgDetailsChanged;
+
+    /// <summary>Notifies that current org details (e.g. name) changed so subscribers can refresh.</summary>
+    void NotifyCurrentOrgDetailsChanged();
 }

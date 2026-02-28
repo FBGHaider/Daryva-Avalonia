@@ -113,6 +113,45 @@ public class OrgsController : ControllerBase
     }
 
     /// <summary>
+    /// Update organization (e.g. rename). Owner only.
+    /// PATCH /api/orgs/{orgId}
+    /// { "name": "New name" }
+    /// </summary>
+    [HttpPatch("{orgId}")]
+    [ProducesResponseType(typeof(OrganizationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<OrganizationResponse>> UpdateOrganization(
+        Guid orgId,
+        [FromBody] UpdateOrganizationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request == null)
+            return BadRequest(new { error = "Request body required." });
+        try
+        {
+            var org = await _orgService.UpdateOrganizationAsync(
+                orgId,
+                _tenantContext.UserId,
+                request,
+                cancellationToken);
+            if (org == null)
+                return NotFound(new { error = "Organization not found or not a member." });
+            return Ok(org);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Add a member to an organization (by email).
     /// User must be a member of the organization (role validation could be added).
     ///

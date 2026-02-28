@@ -94,6 +94,18 @@ public class OrganizationApiService : IOrganizationApiService
         }
     }
 
+    public async Task<OrganizationDto> UpdateOrganizationAsync(Guid orgId, string newName, CancellationToken cancellationToken = default)
+    {
+        var request = new { name = newName };
+        var json = JsonSerializer.Serialize(request);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await _apiClient.HttpClient.PatchAsync($"api/orgs/{orgId}", content, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+        var org = JsonSerializer.Deserialize<OrganizationDto>(responseContent, JsonOptions);
+        return org ?? throw new InvalidOperationException("Failed to parse updated organization.");
+    }
+
     public async Task<List<OrganizationMemberDto>> GetOrganizationMembersAsync(Guid orgId, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.HttpClient.GetAsync($"api/orgs/{orgId}/members", cancellationToken);

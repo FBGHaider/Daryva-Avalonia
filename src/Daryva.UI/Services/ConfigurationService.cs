@@ -24,6 +24,8 @@ namespace Daryva.Services
         private static Dictionary<string, string>? _settings;
         private static Dictionary<string, string>? _localSettings;
         private static string? _localConnectionString;
+        /// <summary>Path used for loading local config; save uses this so persisted values (e.g. ApiCurrentOrgId) are read on next launch.</summary>
+        private static string? _localConfigPathUsed;
 
         static ConfigurationService()
         {
@@ -212,7 +214,8 @@ namespace Daryva.Services
         {
             try
             {
-                var dir = Path.GetDirectoryName(LocalConfigPath);
+                var pathToUse = _localConfigPathUsed ?? LocalConfigPath;
+                var dir = Path.GetDirectoryName(pathToUse);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 {
                     Directory.CreateDirectory(dir);
@@ -227,7 +230,7 @@ namespace Daryva.Services
                 };
 
                 var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(LocalConfigPath, json);
+                File.WriteAllText(pathToUse, json);
             }
             catch
             {

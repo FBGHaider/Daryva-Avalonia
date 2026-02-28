@@ -55,6 +55,7 @@ namespace Daryva.MVVM.ViewModels
             _organisationService = organisationService;
 
             _authService.StateChanged += OnAuthStateChanged;
+            _orgContext.CurrentOrgDetailsChanged += OnCurrentOrgDetailsChanged;
 
             // Initialize navigation items
             NavigationItems = new ObservableCollection<NavigationItem>
@@ -121,6 +122,11 @@ namespace Daryva.MVVM.ViewModels
             });
         }
 
+        private void OnCurrentOrgDetailsChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(() => _ = RefreshCurrentOrganizationLabelAsync(force: true));
+        }
+
         private async System.Threading.Tasks.Task ApplyPostSignInAsync()
         {
             try
@@ -136,17 +142,7 @@ namespace Daryva.MVVM.ViewModels
                     });
                     return;
                 }
-                var orgs = _orgContext.Orgs;
-                if (orgs.Count > 0)
-                {
-                    var preferred = _configurationService.GetValue("ApiCurrentOrgId");
-                    Guid? preferredGuid = Guid.TryParse(preferred, out var parsed) ? parsed : null;
-                    var preferredOrg = preferredGuid.HasValue ? orgs.FirstOrDefault(o => o.Id == preferredGuid.Value) : null;
-                    if (preferredOrg != null)
-                        await _orgContext.SetCurrentOrgAsync(preferredOrg.Id).ConfigureAwait(false);
-                    else
-                        await _orgContext.SetCurrentOrgAsync(orgs[0].Id).ConfigureAwait(false);
-                }
+                // Current org already set by RefreshAsync (per-account key).
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _ = RefreshCurrentOrganizationLabelAsync(force: true);
@@ -193,26 +189,13 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                var orgs = _orgContext.Orgs;
-                if (orgs.Count == 0)
+                if (_orgContext.Orgs.Count == 0)
                 {
                     NavigateToOnboarding();
                     return;
                 }
 
-                var preferredOrgId = _configurationService.GetValue("ApiCurrentOrgId");
-                Guid? preferredGuid = Guid.TryParse(preferredOrgId, out var parsed) ? parsed : null;
-                var preferred = preferredGuid.HasValue ? orgs.FirstOrDefault(o => o.Id == preferredGuid.Value) : null;
-
-                if (preferred != null)
-                {
-                    await _orgContext.SetCurrentOrgAsync(preferred.Id).ConfigureAwait(true);
-                }
-                else if (orgs.Count >= 1)
-                {
-                    await _orgContext.SetCurrentOrgAsync(orgs[0].Id).ConfigureAwait(true);
-                }
-
+                // Current org already set by RefreshAsync (using per-account persisted key).
                 _ = RefreshCurrentOrganizationLabelAsync(force: true);
                 NavigateToDashboard();
                 _ = LoadAppStartPageAndNavigateAsync();

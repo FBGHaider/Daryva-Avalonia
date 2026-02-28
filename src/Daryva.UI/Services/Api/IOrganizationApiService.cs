@@ -67,6 +67,11 @@ public interface IOrganizationApiService
     Task<List<OrganizationDto>> GetUserOrganizationsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Update organization (e.g. rename). Owner only. PATCH /api/orgs/{orgId}.
+    /// </summary>
+    Task<OrganizationDto> UpdateOrganizationAsync(Guid orgId, string newName, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Get all members of an organization (current user must be a member).
     /// Uses existing X-Org-Id on the client; call after setting current org.
     /// </summary>

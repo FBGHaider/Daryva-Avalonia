@@ -96,10 +96,17 @@ namespace Daryva.Services.Business
         public async Task RenameOrganisationAsync(Guid orgId, string newName, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(newName)) throw new ArgumentException("Name is required.", nameof(newName));
+            var trimmed = newName.Trim();
+
+            if (_organizationApiService != null)
+            {
+                await _organizationApiService.UpdateOrganizationAsync(orgId, trimmed, cancellationToken).ConfigureAwait(false);
+            }
+
             var list = await ReadOrgsAsync(cancellationToken).ConfigureAwait(false);
             var org = list.FirstOrDefault(o => o.Id == orgId);
             if (org == null) throw new InvalidOperationException("Organisation not found.");
-            org.Name = newName.Trim();
+            org.Name = trimmed;
             await WriteOrgsAsync(list, cancellationToken).ConfigureAwait(false);
         }
 

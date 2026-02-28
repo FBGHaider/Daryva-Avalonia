@@ -411,10 +411,11 @@ namespace Daryva.MVVM.ViewModels
                 await _orgService.RenameOrganisationAsync(CurrentOrganisation.Id, newName.Trim());
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    var newNameTrimmed = newName.Trim();
                     CurrentOrganisation = new Organisation
                     {
-                        Id = CurrentOrganisation.Id,
-                        Name = newName.Trim(),
+                        Id = CurrentOrganisation!.Id,
+                        Name = newNameTrimmed,
                         CreatedAt = CurrentOrganisation.CreatedAt,
                         PlanTier = CurrentOrganisation.PlanTier
                     };
@@ -427,6 +428,7 @@ namespace Daryva.MVVM.ViewModels
                     if (SelectedOrganisation?.Id == CurrentOrganisation.Id)
                         SelectedOrganisation = CurrentOrganisation;
                     OnPropertyChanged(nameof(CurrentOrganisationName));
+                    _orgContext.NotifyCurrentOrgDetailsChanged();
                     _dialogService.ShowMessage("Organisation renamed.", "Saved");
                 });
             }
