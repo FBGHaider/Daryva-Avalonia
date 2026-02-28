@@ -44,9 +44,11 @@ public class PaymentsController : ControllerBase
 
         try
         {
-            var paymentDate = request.PaymentDate.Kind == DateTimeKind.Unspecified
-                ? DateTime.SpecifyKind(request.PaymentDate, DateTimeKind.Utc)
-                : request.PaymentDate.ToUniversalTime();
+            // Store the calendar date (year/month/day) the user selected at midnight UTC so the rent
+            // ledger and transactions always show the payment in the same month (no timezone shift).
+            var paymentDate = DateTime.SpecifyKind(
+                new DateTime(request.PaymentDate.Year, request.PaymentDate.Month, request.PaymentDate.Day, 0, 0, 0),
+                DateTimeKind.Utc);
 
             var response = new RecordPaymentResponse();
 
@@ -134,16 +136,18 @@ public class PaymentsController : ControllerBase
         var orgId = _tenantContext.CurrentOrgId.Value;
         try
         {
-            // Use same (tenant, house) group as rent ledger so total paid matches ledger and transactions
+            // Use same (tenant, house) group and same month range as rent ledger
             var groupIds = await _rentLedgerService.GetTenancyIdsInSameGroupAsync(tenancyId, cancellationToken);
             if (groupIds == null || groupIds.Count == 0)
                 return NotFound(new { error = "Tenancy not found." });
 
+            var periodStartUtc = DateTime.SpecifyKind(new DateTime(year, month, 1, 0, 0, 0), DateTimeKind.Utc);
+            var periodEndExclusiveUtc = periodStartUtc.AddMonths(1);
             var total = await _dbContext.RentPayments
                 .Where(p => p.OrganizationId == orgId &&
                             groupIds.Contains(p.TenancyId) &&
-                            p.DatePaid.Year == year &&
-                            p.DatePaid.Month == month)
+                            p.DatePaid >= periodStartUtc &&
+                            p.DatePaid < periodEndExclusiveUtc)
                 .SumAsync(p => p.AmountPaid, cancellationToken);
 
             return Ok(total);
@@ -201,16 +205,18 @@ public class PaymentsController : ControllerBase
         if (tenancy == null)
             return NotFound(new { error = "Tenancy not found." });
 
-        // Use same (tenant, house) group as rent ledger so status matches ledger and transactions
+        // Use same (tenant, house) group and same month range as rent ledger
         var groupIds = await _rentLedgerService.GetTenancyIdsInSameGroupAsync(tenancyId, cancellationToken);
         var paid = 0m;
         if (groupIds != null && groupIds.Count > 0)
         {
+            var periodStartUtc = DateTime.SpecifyKind(new DateTime(year, month, 1, 0, 0, 0), DateTimeKind.Utc);
+            var periodEndExclusiveUtc = periodStartUtc.AddMonths(1);
             paid = await _dbContext.RentPayments
                 .Where(p => p.OrganizationId == orgId &&
                             groupIds.Contains(p.TenancyId) &&
-                            p.DatePaid.Year == year &&
-                            p.DatePaid.Month == month)
+                            p.DatePaid >= periodStartUtc &&
+                            p.DatePaid < periodEndExclusiveUtc)
                 .SumAsync(p => p.AmountPaid, cancellationToken);
         }
 

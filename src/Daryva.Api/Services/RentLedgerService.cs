@@ -83,10 +83,16 @@ public class RentLedgerService : IRentLedgerService
         var tenancies = await tenanciesQuery.ToListAsync(cancellationToken);
         var tenancyIds = tenancies.Select(t => t.Id).Distinct().ToList();
 
-        // Payments in this calendar month (by date part) so ledger matches what transactions show for "this month".
+        // Payments in this calendar month: use UTC range so any payment recorded in the month is included
+        // (avoids timezone shifts where DatePaid.Year/Month could be the previous month).
+        var periodStartUtc = DateTime.SpecifyKind(new DateTime(year, month, 1, 0, 0, 0), DateTimeKind.Utc);
+        var periodEndExclusiveUtc = periodStartUtc.AddMonths(1);
         var periodRentPayments = await _dbContext.RentPayments
             .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && p.DatePaid.Year == year && p.DatePaid.Month == month)
+            .Where(p => p.OrganizationId == orgId &&
+                        tenancyIds.Contains(p.TenancyId) &&
+                        p.DatePaid >= periodStartUtc &&
+                        p.DatePaid < periodEndExclusiveUtc)
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
@@ -94,13 +100,9 @@ public class RentLedgerService : IRentLedgerService
             .GroupBy(p => p.TenancyId)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
 
-        // Group by (tenant, house) so we show one row per logical tenancy; we'll sum payments across all tenancy IDs in the group.
+        // Group by (TenantId, HouseId) so we never miss payments due to name/address string differences.
         var tenancyGroups = tenancies
-            .GroupBy(t => new
-            {
-                TenantKey = (t.Tenant != null ? t.Tenant.FullName : string.Empty).Trim().ToLower(),
-                HouseKey = $"{(t.House != null ? t.House.AddressLine1 : string.Empty).Trim().ToLower()}|{(t.House != null ? t.House.City : string.Empty).Trim().ToLower()}"
-            })
+            .GroupBy(t => new { t.TenantId, t.HouseId })
             .ToList();
 
         var dedupedTenancies = tenancyGroups
