@@ -1,14 +1,10 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services;
-
-public interface IBulkImportService
-{
-    Task<BulkImportResponse> ImportDataAsync(Guid organizationId, BulkImportRequest request, CancellationToken cancellationToken = default);
-}
 
 public class BulkImportService : IBulkImportService
 {

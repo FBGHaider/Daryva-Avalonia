@@ -27,10 +27,20 @@ public class OrganizationMember
     public string? Email { get; set; }
 
     /// <summary>
-    /// Role within the organization: "Owner", "Admin", "Member", or "ReadOnly".
-    /// Keep as string to support external role systems; can be validated at application layer.
+    /// Role within the organization. Currently only "Landlord" -- kept as a string (not an
+    /// enum) so future org-scoped roles (Property Manager, Contractor) can be added without
+    /// a schema change. Platform Admin is NOT a value here: it's AppUser.IsPlatformAdmin,
+    /// orthogonal to org membership. Tenant is NOT a value here either: tenant portal access
+    /// is a narrower, tenancy-level link, not org membership (not built yet).
     /// </summary>
     public required string Role { get; set; }
+
+    /// <summary>
+    /// True for the org's primary owner -- exclusive rights (delete org, transfer ownership,
+    /// billing) that shouldn't be shared across every co-managing Landlord on the org.
+    /// Exactly one member per org should have this set to true.
+    /// </summary>
+    public bool IsPrimaryOwner { get; set; }
 
     /// <summary>
     /// Timestamp when member joined the organization.
@@ -45,12 +55,8 @@ public class OrganizationMember
     // Common role constants for convenience
     public static class Roles
     {
-        public const string Owner = "Owner";
-        public const string Admin = "Admin";
-        public const string Member = "Member";
-        public const string ReadOnly = "ReadOnly";
+        public const string Landlord = "Landlord";
 
-        public static bool IsValid(string role) =>
-            role == Owner || role == Admin || role == Member || role == ReadOnly;
+        public static bool IsValid(string role) => role == Landlord;
     }
 }

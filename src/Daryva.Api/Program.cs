@@ -1,11 +1,20 @@
 using Daryva.Api.Data;
+using Daryva.Api.Repositories;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security;
+using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services;
+using Daryva.Api.Services.Interfaces;
 using Daryva.Api.Services.Seed;
+using Daryva.Api.Services.Seed.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +49,15 @@ builder.Services.AddHttpContextAccessor();
 // Tenant context (scoped to request)
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 
+// Repositories + unit of work (services must not depend on AppDbContext directly)
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+builder.Services.AddScoped<IAuthRefreshTokenRepository, AuthRefreshTokenRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IAuditLogger, AuditLogger>();
+builder.Services.AddScoped<IOrganizationMemberRepository, OrganizationMemberRepository>();
+builder.Services.AddScoped<ISupportSessionRepository, SupportSessionRepository>();
+
 // Business logic services
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IMeService, MeService>();
@@ -54,6 +72,7 @@ builder.Services.AddScoped<IEmailSender, EmailSender>();
 builder.Services.AddScoped<IDataSeeder, DataSeeder>();
 builder.Services.AddScoped<IBulkImportService, BulkImportService>();
 builder.Services.AddScoped<IOrganizationSyncService, OrganizationSyncService>();
+builder.Services.AddScoped<IPlatformAdminBootstrapper, PlatformAdminBootstrapper>();
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -64,6 +83,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, OrgResourceAuthorizationHandler>();
 
 // Add authentication with either external authority or local signing key.
 if (!string.IsNullOrEmpty(jwtOptions.Authority))
@@ -119,6 +141,69 @@ else
         });
 }
 
+// Rate limiting. "auth" is a strict per-IP policy for the auth endpoints most worth throttling
+// (login/register/refresh/resend-verification/forgot-password/verify-email/reset-password) --
+// defense in depth on top of the per-account lockout AuthService already enforces for login.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+        }
+
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = "Too many requests",
+            message = "Too many attempts. Please wait before trying again."
+        }, cancellationToken);
+    };
+
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 4,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    // Looser general policy for the rest of the API, to blunt scraping/abuse. Applies to every
+    // request (stacks with "auth" on top for those endpoints, not instead of it) except health
+    // checks and swagger, which get polled/loaded far more often than any real abuse pattern.
+    // Partitioned by user identity when authenticated (fair per-account budget across a session
+    // opening several requests at once), falling back to IP for anonymous requests.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var path = httpContext.Request.Path.Value ?? string.Empty;
+        if (path == "/health" || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+            return RateLimitPartition.GetNoLimiter("exempt");
+
+        var partitionKey = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? httpContext.User.FindFirst("sub")?.Value
+            ?? httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+
+        return RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey,
+            _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 200,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 4,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -135,6 +220,10 @@ using (var scope = app.Services.CreateScope())
         logger.LogError(ex, "Database migration failed. Ensure the database is reachable and the connection string is correct. Error: {Message}", ex.Message);
         throw;
     }
+
+    // Grants IsPlatformAdmin to Admin:BootstrapEmails, idempotently. No-op if unset.
+    var platformAdminBootstrapper = scope.ServiceProvider.GetRequiredService<IPlatformAdminBootstrapper>();
+    await platformAdminBootstrapper.BootstrapAsync();
 }
 
 // Configure the HTTP request pipeline.
@@ -146,6 +235,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
+app.UseRateLimiter();
 
 // Return 500 with JSON body (error, detail, inner) for any unhandled exception
 app.UseMiddleware<ExceptionHandlerMiddleware>();
@@ -165,10 +255,12 @@ if (devAuthEnabled)
     app.UseMiddleware<DevAuthMiddleware>();
 }
 
-app.UseAuthorization();
-
-// Add tenant context middleware (after auth, before controllers)
+// Tenant context must run before UseAuthorization: permission-policy checks (PermissionAuthorizationHandler)
+// read ITenantContext.CurrentRole/IsPlatformAdmin, which this middleware resolves. It only needs
+// HttpContext.User (set by UseAuthentication/DevAuth above), not UseAuthorization's own output.
 app.UseMiddleware<TenantContextMiddleware>();
+
+app.UseAuthorization();
 
 app.MapControllers();
 

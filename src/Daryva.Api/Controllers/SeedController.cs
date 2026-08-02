@@ -1,4 +1,4 @@
-using Daryva.Api.Services.Seed;
+using Daryva.Api.Services.Seed.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

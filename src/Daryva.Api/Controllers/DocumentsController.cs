@@ -1,6 +1,7 @@
 using Daryva.Api.Domain;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,6 +27,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = Permissions.Documents.View)]
     public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetDocuments(CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -44,6 +46,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet("tenant/{tenantId:guid}")]
+    [Authorize(Policy = Permissions.Documents.View)]
     public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetDocumentsByTenant(
         Guid tenantId,
         CancellationToken cancellationToken = default)
@@ -64,6 +67,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet("tenancy/{tenancyId:guid}")]
+    [Authorize(Policy = Permissions.Documents.View)]
     public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetDocumentsByTenancy(
         Guid tenancyId,
         CancellationToken cancellationToken = default)
@@ -84,6 +88,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet("house/{houseId:guid}")]
+    [Authorize(Policy = Permissions.Documents.View)]
     public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetDocumentsByHouse(
         Guid houseId,
         CancellationToken cancellationToken = default)
@@ -97,6 +102,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet("{documentId:guid}")]
+    [Authorize(Policy = Permissions.Documents.View)]
     public async Task<ActionResult<DocumentResponse>> GetDocument(
         Guid documentId,
         CancellationToken cancellationToken = default)
@@ -119,6 +125,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.Documents.Manage)]
     public async Task<ActionResult<DocumentResponse>> CreateDocument(
         [FromBody] CreateDocumentRequest request,
         CancellationToken cancellationToken = default)
@@ -168,6 +175,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpPut("{documentId:guid}")]
+    [Authorize(Policy = Permissions.Documents.Manage)]
     public async Task<ActionResult<DocumentResponse>> UpdateDocument(
         Guid documentId,
         [FromBody] UpdateDocumentRequest request,
@@ -201,6 +209,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpGet("{documentId:guid}/download")]
+    [Authorize(Policy = Permissions.Documents.View)]
     public async Task<IActionResult> DownloadDocument(
         Guid documentId,
         CancellationToken cancellationToken = default)
@@ -220,6 +229,7 @@ public class DocumentsController : ControllerBase
     }
 
     [HttpDelete("{documentId:guid}")]
+    [Authorize(Policy = Permissions.Documents.Manage)]
     public async Task<IActionResult> DeleteDocument(
         Guid documentId,
         CancellationToken cancellationToken = default)

@@ -1,3 +1,5 @@
+using Daryva.Api.Domain.Interfaces;
+
 namespace Daryva.Api.Domain;
 
 /// <summary>

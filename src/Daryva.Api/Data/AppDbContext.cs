@@ -1,5 +1,5 @@
 using Daryva.Api.Domain;
-using Daryva.Api.Security;
+using Daryva.Api.Security.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Data;
@@ -31,6 +31,8 @@ public class AppDbContext : DbContext
     public required DbSet<Notification> Notifications { get; set; }
     public required DbSet<NotificationTemplate> NotificationTemplates { get; set; }
     public required DbSet<NotificationAttempt> NotificationAttempts { get; set; }
+    public required DbSet<AuditLog> AuditLogs { get; set; }
+    public required DbSet<SupportSession> SupportSessions { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext)
         : base(options)
@@ -360,6 +362,35 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(e => e.OrganizationId);
             entity.HasIndex(e => e.NotificationId);
+        });
+
+        // ========== AUDIT LOG (Global Entity, not org-filtered -- see visibility note on AuditLog) ==========
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ActorRole).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.TargetType).HasMaxLength(100);
+            entity.Property(e => e.TargetId).HasMaxLength(256);
+            entity.Property(e => e.IpAddress).HasMaxLength(128);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => new { e.OrganizationId, e.CreatedAt });
+            entity.HasIndex(e => e.ActorUserId);
+            entity.HasIndex(e => e.EventType);
+            entity.HasIndex(e => e.SupportSessionId);
+        });
+
+        // ========== SUPPORT SESSION (Global Entity, not org-filtered -- see class doc) ==========
+        modelBuilder.Entity<SupportSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(1024);
+            entity.Property(e => e.EndedReason).HasMaxLength(50);
+            entity.Property(e => e.StartedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => new { e.AdminUserId, e.OrganizationId });
+            entity.HasIndex(e => e.OrganizationId);
         });
 
         // ========== GLOBAL QUERY FILTERS (Multi-Tenancy Highway Guardrail) ==========

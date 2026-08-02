@@ -2,7 +2,8 @@ using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = Permissions.Messaging.View)]
     public async Task<ActionResult<IEnumerable<NotificationResponse>>> GetNotifications(
         [FromQuery] NotificationFilterRequest filter,
         CancellationToken cancellationToken = default)
@@ -45,6 +47,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpGet("{notificationId:guid}")]
+    [Authorize(Policy = Permissions.Messaging.View)]
     public async Task<ActionResult<NotificationResponse>> GetNotification(
         Guid notificationId,
         CancellationToken cancellationToken = default)
@@ -60,6 +63,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpGet("recipients")]
+    [Authorize(Policy = Permissions.Messaging.View)]
     public async Task<ActionResult<IEnumerable<NotificationRecipientResponse>>> GetRecipients(
         [FromQuery] RecipientFilterRequest filter,
         CancellationToken cancellationToken = default)
@@ -72,6 +76,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult<NotificationResponse>> CreateNotification(
         [FromBody] CreateNotificationRequest request,
         CancellationToken cancellationToken = default)
@@ -112,6 +117,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost("{notificationId:guid}/send")]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult> SendNotification(
         Guid notificationId,
         CancellationToken cancellationToken = default)
@@ -129,6 +135,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost("{notificationId:guid}/send-with-content")]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult> SendNotificationWithContent(
         Guid notificationId,
         [FromBody] SendNotificationWithContentRequest request,
@@ -147,6 +154,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost("send-batch")]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult> SendBatch(
         [FromBody] SendBatchRequest request,
         CancellationToken cancellationToken = default)
@@ -159,6 +167,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost("process-due")]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult> ProcessDueQueue(CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -169,6 +178,7 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost("{notificationId:guid}/cancel")]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult> CancelNotification(
         Guid notificationId,
         CancellationToken cancellationToken = default)

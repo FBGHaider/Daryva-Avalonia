@@ -3,53 +3,60 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security;
-using Microsoft.EntityFrameworkCore;
+using Daryva.Api.Services.Interfaces;
+using Konscious.Security.Cryptography;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Daryva.Api.Services;
 
-public interface IAuthService
-{
-    Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default);
-    Task<VerifyEmailResponse> VerifyEmailAsync(string token, CancellationToken cancellationToken = default);
-    Task<RegisterResponse> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);
-    Task<AuthResponse?> LoginAsync(LoginRequest request, string? clientIp, CancellationToken cancellationToken = default);
-    Task<AuthResponse?> RefreshAsync(string refreshToken, string? clientIp, CancellationToken cancellationToken = default);
-    Task<bool> LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
-    Task<MeResponse?> GetMeAsync(string userId, CancellationToken cancellationToken = default);
-}
-
 public class AuthService : IAuthService
 {
-    private const int PasswordIterations = 100_000;
+    // OWASP-recommended Argon2id baseline: 19 MiB memory, 2 iterations, 1 degree of parallelism.
+    private const int Argon2MemoryKb = 19_456;
+    private const int Argon2Iterations = 2;
+    private const int Argon2Parallelism = 1;
+    private const int Argon2SaltLength = 16;
+    private const int Argon2HashLength = 32;
     private static readonly TimeSpan EmailVerificationTokenLifetime = TimeSpan.FromHours(24);
     private static readonly TimeSpan ResendThrottleWindow = TimeSpan.FromSeconds(30);
-    private readonly AppDbContext _dbContext;
+    private const int MaxFailedLoginAttempts = 5;
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan PasswordResetTokenLifetime = TimeSpan.FromHours(1);
+    private readonly IAppUserRepository _appUserRepository;
+    private readonly IAuthRefreshTokenRepository _authRefreshTokenRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditLogger _auditLogger;
     private readonly JwtOptions _jwtOptions;
     private readonly IEmailSender _emailSender;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
-        AppDbContext dbContext,
+        IAppUserRepository appUserRepository,
+        IAuthRefreshTokenRepository authRefreshTokenRepository,
+        IUnitOfWork unitOfWork,
+        IAuditLogger auditLogger,
         IOptions<JwtOptions> jwtOptions,
         IEmailSender emailSender,
         IConfiguration configuration,
         ILogger<AuthService> logger)
     {
-        _dbContext = dbContext;
+        _appUserRepository = appUserRepository;
+        _authRefreshTokenRepository = authRefreshTokenRepository;
+        _unitOfWork = unitOfWork;
+        _auditLogger = auditLogger;
         _jwtOptions = jwtOptions.Value;
         _emailSender = emailSender;
         _configuration = configuration;
         _logger = logger;
     }
 
-    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, string? clientIp, CancellationToken cancellationToken = default)
     {
         var firstName = NormalizeName(request.FirstName, nameof(request.FirstName));
         var lastName = NormalizeName(request.LastName, nameof(request.LastName));
@@ -57,7 +64,7 @@ public class AuthService : IAuthService
         ValidatePassword(request.Password);
         var now = DateTime.UtcNow;
 
-        var existingUser = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+        var existingUser = await _appUserRepository.GetByEmailAsync(email, cancellationToken);
         if (existingUser != null)
         {
             if (existingUser.EmailVerifiedAt.HasValue)
@@ -71,7 +78,10 @@ public class AuthService : IAuthService
             existingUser.IsActive = true;
 
             var resendResult = await RotateVerificationTokenAndSendAsync(existingUser, now, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            _auditLogger.Log(existingUser.Id, AuditActorRoles.User, AuditEventTypes.AuthRegister,
+                targetType: nameof(AppUser), targetId: existingUser.Id.ToString(),
+                metadata: new { reRegistered = true }, ipAddress: clientIp);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
             return resendResult;
         }
 
@@ -91,10 +101,12 @@ public class AuthService : IAuthService
             CreatedAt = now
         };
 
-        _dbContext.AppUsers.Add(user);
+        _appUserRepository.Add(user);
 
         var sent = await TrySendVerificationEmailAsync(user.Email, tokenPlain, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.AuthRegister,
+            targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return BuildRegisterResponse(user.Email, sent, "Account created. Please verify your email before logging in.");
     }
@@ -113,9 +125,7 @@ public class AuthService : IAuthService
         var now = DateTime.UtcNow;
         var tokenHash = Sha256(token.Trim());
 
-        var user = await _dbContext.AppUsers.FirstOrDefaultAsync(
-            u => u.EmailVerificationTokenHash == tokenHash,
-            cancellationToken);
+        var user = await _appUserRepository.GetByEmailVerificationTokenHashAsync(tokenHash, cancellationToken);
 
         if (user == null)
         {
@@ -147,7 +157,7 @@ public class AuthService : IAuthService
         user.EmailVerifiedAt = now;
         user.EmailVerificationTokenHash = null;
         user.EmailVerificationTokenExpiresAt = null;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new VerifyEmailResponse
         {
@@ -159,7 +169,7 @@ public class AuthService : IAuthService
     public async Task<RegisterResponse> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
-        var user = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.Email == normalizedEmail, cancellationToken);
+        var user = await _appUserRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
 
         if (user == null)
         {
@@ -178,7 +188,7 @@ public class AuthService : IAuthService
         }
 
         var result = await RotateVerificationTokenAndSendAsync(user, now, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return result;
     }
 
@@ -186,15 +196,42 @@ public class AuthService : IAuthService
     {
         var allowAnyLogin = _configuration.GetValue<bool>("Auth:AllowAnyLogin");
         var email = NormalizeEmail(request.Email);
-        var user = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+        var user = await _appUserRepository.GetByEmailAsync(email, cancellationToken);
         if (user == null || !user.IsActive)
             return null;
 
-        if (!allowAnyLogin && !VerifyPassword(request.Password, user.PasswordHash))
-            return null;
+        var now = DateTime.UtcNow;
+        if (user.LockedUntil.HasValue && user.LockedUntil.Value > now)
+        {
+            var minutesRemaining = (int)Math.Ceiling((user.LockedUntil.Value - now).TotalMinutes);
+            _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.AuthLoginBlocked,
+                targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            throw new UnauthorizedAccessException($"Account is temporarily locked due to too many failed login attempts. Try again in {minutesRemaining} minute(s).");
+        }
 
-        user.LastLoginAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        if (!allowAnyLogin && !VerifyPassword(request.Password, user.PasswordHash))
+        {
+            user.FailedLoginCount++;
+            var justLocked = user.FailedLoginCount >= MaxFailedLoginAttempts;
+            if (justLocked)
+            {
+                user.LockedUntil = now.Add(LockoutDuration);
+                user.FailedLoginCount = 0;
+            }
+            _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.AuthLoginFailed,
+                targetType: nameof(AppUser), targetId: user.Id.ToString(),
+                metadata: new { locked = justLocked }, ipAddress: clientIp);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+        user.LastLoginAt = now;
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.AuthLogin,
+            targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await IssueTokensAsync(user, clientIp, cancellationToken);
     }
@@ -207,9 +244,7 @@ public class AuthService : IAuthService
         var tokenHash = Sha256(refreshToken);
         var now = DateTime.UtcNow;
 
-        var session = await _dbContext.AuthRefreshTokens
-            .Include(t => t.User)
-            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+        var session = await _authRefreshTokenRepository.GetByTokenHashWithUserAsync(tokenHash, cancellationToken);
 
         if (session == null || session.RevokedAt.HasValue || session.ExpiresAt <= now || session.User == null || !session.User.IsActive)
             return null;
@@ -217,7 +252,7 @@ public class AuthService : IAuthService
         session.RevokedAt = now;
 
         var response = await IssueTokensAsync(session.User, clientIp, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return response;
     }
 
@@ -227,12 +262,12 @@ public class AuthService : IAuthService
             return false;
 
         var tokenHash = Sha256(refreshToken);
-        var session = await _dbContext.AuthRefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+        var session = await _authRefreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
         if (session == null || session.RevokedAt.HasValue)
             return false;
 
         session.RevokedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return true;
     }
 
@@ -241,7 +276,7 @@ public class AuthService : IAuthService
         if (!Guid.TryParse(userId, out var userGuid))
             return null;
 
-        var user = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.Id == userGuid, cancellationToken);
+        var user = await _appUserRepository.GetByIdAsync(userGuid, cancellationToken);
         if (user == null)
             return null;
 
@@ -255,6 +290,102 @@ public class AuthService : IAuthService
             CreatedAt = user.CreatedAt,
             LastLoginAt = user.LastLoginAt
         };
+    }
+
+    public async Task<ForgotPasswordResponse> ForgotPasswordAsync(string email, string? clientIp, CancellationToken cancellationToken = default)
+    {
+        const string genericMessage = "If an account with that email exists, a password reset link has been sent.";
+
+        var normalizedEmail = NormalizeEmail(email);
+        var user = await _appUserRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        if (user == null || !user.IsActive)
+            return new ForgotPasswordResponse { Message = genericMessage };
+
+        var now = DateTime.UtcNow;
+        if (user.PasswordResetSentAt.HasValue && now - user.PasswordResetSentAt.Value < ResendThrottleWindow)
+            return new ForgotPasswordResponse { Message = genericMessage };
+
+        var tokenPlain = GenerateVerificationToken();
+        user.PasswordResetTokenHash = Sha256(tokenPlain);
+        user.PasswordResetTokenExpiresAt = now.Add(PasswordResetTokenLifetime);
+        user.PasswordResetSentAt = now;
+
+        await TrySendPasswordResetEmailAsync(user.Email, tokenPlain, cancellationToken);
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.AuthPasswordResetRequested,
+            targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new ForgotPasswordResponse { Message = genericMessage };
+    }
+
+    public async Task<ResetPasswordResponse> ResetPasswordAsync(string token, string newPassword, string? clientIp, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return new ResetPasswordResponse { Success = false, Message = "Reset token is required." };
+
+        ValidatePassword(newPassword);
+
+        var now = DateTime.UtcNow;
+        var tokenHash = Sha256(token.Trim());
+
+        var user = await _appUserRepository.GetByPasswordResetTokenHashAsync(tokenHash, cancellationToken);
+        if (user == null)
+            return new ResetPasswordResponse { Success = false, Message = "Invalid or expired reset link." };
+
+        if (!user.PasswordResetTokenExpiresAt.HasValue || user.PasswordResetTokenExpiresAt.Value <= now)
+            return new ResetPasswordResponse { Success = false, Message = "Reset link has expired. Please request a new one." };
+
+        user.PasswordHash = HashPassword(newPassword);
+        user.PasswordResetTokenHash = null;
+        user.PasswordResetTokenExpiresAt = null;
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+
+        // A password reset invalidates every existing session, not just the one that requested it.
+        var activeSessions = await _authRefreshTokenRepository.GetActiveSessionsByUserIdAsync(user.Id, cancellationToken);
+        foreach (var session in activeSessions)
+            session.RevokedAt = now;
+
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.AuthPasswordReset,
+            targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new ResetPasswordResponse { Success = true, Message = "Password has been reset. You can now log in with your new password." };
+    }
+
+    private async Task<bool> TrySendPasswordResetEmailAsync(string email, string token, CancellationToken cancellationToken)
+    {
+        var resetUrl = BuildResetPasswordUrl(token);
+        var subject = "Reset your Daryva password";
+        var body = $"We received a request to reset your Daryva password.\n\nOpen this link to choose a new password:\n{resetUrl}\n\nThis link expires in 1 hour. If you did not request this, you can ignore this email.";
+
+        try
+        {
+            return await _emailSender.SendEmailAsync(email, subject, body);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send password reset email to {Email}", email);
+            return false;
+        }
+    }
+
+    private string BuildResetPasswordUrl(string token)
+    {
+        var template = _configuration["Auth:ResetPasswordUrlTemplate"];
+        if (!string.IsNullOrWhiteSpace(template) && template.Contains("{token}", StringComparison.OrdinalIgnoreCase))
+        {
+            return Regex.Replace(template, "\\{token\\}", Uri.EscapeDataString(token), RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100));
+        }
+
+        var baseUrl = _configuration["Auth:ResetPasswordUrlBase"];
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            baseUrl = "http://localhost:5257/api/auth/reset-password";
+        }
+
+        var separator = baseUrl.Contains('?') ? "&" : "?";
+        return $"{baseUrl}{separator}token={Uri.EscapeDataString(token)}";
     }
 
     private async Task<RegisterResponse> RotateVerificationTokenAndSendAsync(AppUser user, DateTime now, CancellationToken cancellationToken)
@@ -363,8 +494,8 @@ public class AuthService : IAuthService
             CreatedByIp = clientIp
         };
 
-        _dbContext.AuthRefreshTokens.Add(refreshSession);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _authRefreshTokenRepository.Add(refreshSession);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new AuthResponse
         {
@@ -404,9 +535,9 @@ public class AuthService : IAuthService
 
     private static string HashPassword(string password)
     {
-        var salt = RandomNumberGenerator.GetBytes(16);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, PasswordIterations, HashAlgorithmName.SHA256, 32);
-        return $"v1.{PasswordIterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
+        var salt = RandomNumberGenerator.GetBytes(Argon2SaltLength);
+        var hash = ComputeArgon2Hash(password, salt, Argon2Iterations, Argon2MemoryKb, Argon2Parallelism, Argon2HashLength);
+        return $"v2.argon2id.{Argon2MemoryKb}.{Argon2Iterations}.{Argon2Parallelism}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 
     private static bool VerifyPassword(string password, string storedHash)
@@ -415,26 +546,40 @@ public class AuthService : IAuthService
             return false;
 
         var parts = storedHash.Split('.');
-        if (parts.Length != 4 || parts[0] != "v1")
+        if (parts.Length != 7 || parts[0] != "v2" || parts[1] != "argon2id")
             return false;
 
-        if (!int.TryParse(parts[1], out var iterations))
+        if (!int.TryParse(parts[2], out var memoryKb) ||
+            !int.TryParse(parts[3], out var iterations) ||
+            !int.TryParse(parts[4], out var parallelism))
             return false;
 
         byte[] salt;
         byte[] expected;
         try
         {
-            salt = Convert.FromBase64String(parts[2]);
-            expected = Convert.FromBase64String(parts[3]);
+            salt = Convert.FromBase64String(parts[5]);
+            expected = Convert.FromBase64String(parts[6]);
         }
         catch
         {
             return false;
         }
 
-        var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
+        var actual = ComputeArgon2Hash(password, salt, iterations, memoryKb, parallelism, expected.Length);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+
+    private static byte[] ComputeArgon2Hash(string password, byte[] salt, int iterations, int memoryKb, int parallelism, int hashLength)
+    {
+        using var argon2 = new Argon2id(Encoding.UTF8.GetBytes(password))
+        {
+            Salt = salt,
+            DegreeOfParallelism = parallelism,
+            Iterations = iterations,
+            MemorySize = memoryKb
+        };
+        return argon2.GetBytes(hashLength);
     }
 
     private static string Sha256(string value)

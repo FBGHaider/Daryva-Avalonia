@@ -1,18 +1,9 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services;
-
-public interface IExpenseService
-{
-    Task<IEnumerable<Expense>> GetAllExpensesAsync(CancellationToken cancellationToken = default);
-    Task<IEnumerable<Expense>> GetExpensesByHouseAsync(Guid houseId, CancellationToken cancellationToken = default);
-    Task<Expense?> GetExpenseByIdAsync(Guid expenseId, CancellationToken cancellationToken = default);
-    Task<Expense> CreateExpenseAsync(Expense expense, CancellationToken cancellationToken = default);
-    Task UpdateExpenseAsync(Expense expense, CancellationToken cancellationToken = default);
-    Task DeleteExpenseAsync(Guid expenseId, CancellationToken cancellationToken = default);
-}
 
 public class ExpenseService : IExpenseService
 {

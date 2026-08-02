@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Mail;
 using System.Text.Json;
+using Daryva.Api.Services.Interfaces;
 
 namespace Daryva.Api.Services;
 

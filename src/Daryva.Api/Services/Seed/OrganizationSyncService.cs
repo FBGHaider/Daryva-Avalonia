@@ -1,21 +1,9 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Services.Seed.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services.Seed;
-
-/// <summary>
-/// Ensures the current dev user is a member of all organizations in the system.
-/// This fixes the case where data was imported but the dev user can't access it.
-/// </summary>
-public interface IOrganizationSyncService
-{
-    /// <summary>
-    /// Synchronize the current user's organization memberships with all existing organizations.
-    /// If user is not a member of any organization that has data, adds them.
-    /// </summary>
-    Task SyncUserOrgMembershipsAsync(string userId);
-}
 
 public class OrganizationSyncService : IOrganizationSyncService
 {
@@ -63,12 +51,13 @@ public class OrganizationSyncService : IOrganizationSyncService
                 {
                     UserId = userId,
                     OrganizationId = org.Id,
-                    Role = "owner",
+                    Role = OrganizationMember.Roles.Landlord,
+                    IsPrimaryOwner = true,
                     JoinedAt = DateTime.UtcNow
                 };
 
                 _dbContext.OrganizationMembers.Add(membership);
-                _logger.LogInformation("Added user {UserId} to organization {OrgId} ({OrgName})", 
+                _logger.LogInformation("Added user {UserId} to organization {OrgId} ({OrgName})",
                     userId, org.Id, org.Name);
             }
         }

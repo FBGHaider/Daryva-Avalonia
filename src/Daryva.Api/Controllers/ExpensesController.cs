@@ -1,6 +1,7 @@
 using Daryva.Api.Domain;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,6 +27,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = Permissions.Expenses.View)]
     public async Task<ActionResult<IEnumerable<ExpenseResponse>>> GetExpenses(CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -44,6 +46,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpGet("house/{houseId:guid}")]
+    [Authorize(Policy = Permissions.Expenses.View)]
     public async Task<ActionResult<IEnumerable<ExpenseResponse>>> GetExpensesByHouse(
         Guid houseId,
         CancellationToken cancellationToken = default)
@@ -64,6 +67,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpGet("{expenseId:guid}")]
+    [Authorize(Policy = Permissions.Expenses.View)]
     public async Task<ActionResult<ExpenseResponse>> GetExpense(
         Guid expenseId,
         CancellationToken cancellationToken = default)
@@ -86,6 +90,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.Expenses.Manage)]
     public async Task<ActionResult<ExpenseResponse>> CreateExpense(
         [FromBody] CreateExpenseRequest request,
         CancellationToken cancellationToken = default)
@@ -122,6 +127,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpPut("{expenseId:guid}")]
+    [Authorize(Policy = Permissions.Expenses.Manage)]
     public async Task<ActionResult<ExpenseResponse>> UpdateExpense(
         Guid expenseId,
         [FromBody] UpdateExpenseRequest request,
@@ -146,6 +152,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpDelete("{expenseId:guid}")]
+    [Authorize(Policy = Permissions.Expenses.Manage)]
     public async Task<IActionResult> DeleteExpense(
         Guid expenseId,
         CancellationToken cancellationToken = default)

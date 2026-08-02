@@ -1,4 +1,4 @@
-namespace Daryva.Api.Services.Seed;
+namespace Daryva.Api.Services.Seed.Interfaces;
 
 /// <summary>
 /// Service for seeding sample data into the database.

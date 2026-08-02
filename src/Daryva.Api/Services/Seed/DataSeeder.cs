@@ -1,5 +1,6 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Services.Seed.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services.Seed;
@@ -54,7 +55,8 @@ public class DataSeeder : IDataSeeder
                 OrganizationId = devOrg.Id,
                 UserId = devUserId,
                 Email = "dev@local",
-                Role = "Owner",
+                Role = OrganizationMember.Roles.Landlord,
+                IsPrimaryOwner = true,
                 JoinedAt = DateTime.UtcNow,
             };
 

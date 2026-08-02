@@ -1,4 +1,4 @@
-namespace Daryva.Api.Services;
+namespace Daryva.Api.Services.Interfaces;
 
 public interface IEmailSender
 {

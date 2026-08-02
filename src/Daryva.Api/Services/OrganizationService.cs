@@ -1,120 +1,12 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
-using Daryva.Api.Security;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace Daryva.Api.Services;
-
-/// <summary>
-/// Business logic for organization management and multi-tenancy.
-/// </summary>
-public interface IOrganizationService
-{
-    /// <summary>
-    /// Create a new organization. Current user becomes the Owner.
-    /// </summary>
-    /// <param name="callerEmail">Optional email from JWT/claims so the owner member shows the signed-in email; if null, resolved from profile.</param>
-    Task<OrganizationResponse> CreateOrganizationAsync(
-        string userId,
-        CreateOrganizationRequest request,
-        string? callerEmail = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Get all organizations the user belongs to.
-    /// </summary>
-    Task<IEnumerable<OrganizationResponse>> GetUserOrganizationsAsync(
-        string userId,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// If the user has no organizations, create a default one (e.g. for first-time or Clerk-only users).
-    /// Used so the app can skip "setup" and go straight to dashboard.
-    /// </summary>
-    Task EnsureDefaultOrganizationAsync(
-        string userId,
-        string? suggestedName,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Get organization by ID (if user is member).
-    /// </summary>
-    Task<OrganizationResponse?> GetOrganizationAsync(
-        Guid orgId,
-        string userId,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Update organization (e.g. rename). Caller must be Owner.
-    /// </summary>
-    Task<OrganizationResponse?> UpdateOrganizationAsync(
-        Guid orgId,
-        string userId,
-        UpdateOrganizationRequest request,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Add a member to an organization (by email).
-    /// </summary>
-    Task<OrganizationMemberResponse> AddMemberAsync(
-        Guid orgId,
-        string userId,
-        AddMemberRequest request,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Delete an organization (Owner only).
-    /// </summary>
-    Task<bool> DeleteOrganizationAsync(
-        Guid orgId,
-        string userId,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Get all members of an organization (if user is member).
-    /// </summary>
-    Task<IEnumerable<OrganizationMemberResponse>> GetOrganizationMembersAsync(
-        Guid orgId,
-        string userId,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Create a single-use invite token for joining an organization.
-    /// </summary>
-    Task<CreateOrgInviteResponse> CreateInviteAsync(
-        Guid orgId,
-        string userId,
-        CreateOrgInviteRequest request,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Accept an invite token and join the referenced organization.
-    /// </summary>
-    Task<JoinOrganizationResponse> AcceptInviteAsync(
-        string userId,
-        AcceptOrgInviteRequest request,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Generate (and rotate) a reusable org join code.
-    /// </summary>
-    Task<GenerateOrgJoinCodeResponse> GenerateJoinCodeAsync(
-        Guid orgId,
-        string userId,
-        GenerateOrgJoinCodeRequest request,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Join an organization using an active join code.
-    /// </summary>
-    Task<JoinOrganizationResponse> JoinByCodeAsync(
-        string userId,
-        JoinOrgByCodeRequest request,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Implementation of IOrganizationService.
@@ -154,14 +46,15 @@ public class OrganizationService : IOrganizationService
             ? callerEmail.Trim().ToLowerInvariant()
             : await ResolveUserEmailAsync(userId, cancellationToken);
 
-        // Add current user as Owner
+        // Creator becomes the org's Landlord and primary owner
         var member = new OrganizationMember
         {
             Id = Guid.NewGuid(),
             OrganizationId = org.Id,
             UserId = userId,
             Email = ownerEmail,
-            Role = OrganizationMember.Roles.Owner,
+            Role = OrganizationMember.Roles.Landlord,
+            IsPrimaryOwner = true,
             JoinedAt = DateTime.UtcNow
         };
 
@@ -171,7 +64,7 @@ public class OrganizationService : IOrganizationService
 
         _logger.LogInformation("Created organization {OrgId} with owner {UserId}.", org.Id, userId);
 
-        return MapToResponse(org, OrganizationMember.Roles.Owner);
+        return MapToResponse(org, OrganizationMember.Roles.Landlord);
     }
 
     public async Task<IEnumerable<OrganizationResponse>> GetUserOrganizationsAsync(
@@ -237,7 +130,7 @@ public class OrganizationService : IOrganizationService
             .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
         if (membership == null)
             return null;
-        if (!string.Equals(membership.Role, OrganizationMember.Roles.Owner, StringComparison.OrdinalIgnoreCase))
+        if (!membership.IsPrimaryOwner)
             throw new InvalidOperationException("Only the owner can rename the organization.");
 
         var org = await _dbContext.Organizations.FirstOrDefaultAsync(o => o.Id == orgId, cancellationToken);
@@ -314,7 +207,7 @@ public class OrganizationService : IOrganizationService
         if (membership == null)
             return false;
 
-        if (!string.Equals(membership.Role, OrganizationMember.Roles.Owner, StringComparison.OrdinalIgnoreCase))
+        if (!membership.IsPrimaryOwner)
             throw new InvalidOperationException("Only organization owners can delete an organization.");
 
         var org = await _dbContext.Organizations
@@ -366,8 +259,8 @@ public class OrganizationService : IOrganizationService
         if (callerMembership == null)
             throw new InvalidOperationException("You are not a member of this organization.");
 
-        if (!CanManageJoin(callerMembership.Role))
-            throw new InvalidOperationException("Only Owner/Admin can create invites.");
+        if (!CanManageJoin(callerMembership))
+            throw new InvalidOperationException("Only the organization owner can create invites.");
 
         if (!OrganizationMember.Roles.IsValid(request.Role))
             throw new ArgumentException($"Invalid role: {request.Role}.", nameof(request.Role));
@@ -466,8 +359,8 @@ public class OrganizationService : IOrganizationService
         if (callerMembership == null)
             throw new InvalidOperationException("You are not a member of this organization.");
 
-        if (!CanManageJoin(callerMembership.Role))
-            throw new InvalidOperationException("Only Owner/Admin can manage org join code.");
+        if (!CanManageJoin(callerMembership))
+            throw new InvalidOperationException("Only the organization owner can manage the org join code.");
 
         if (!OrganizationMember.Roles.IsValid(request.Role))
             throw new ArgumentException($"Invalid role: {request.Role}.", nameof(request.Role));
@@ -607,9 +500,10 @@ public class OrganizationService : IOrganizationService
         return !string.IsNullOrWhiteSpace(memberEmail) ? memberEmail : profileEmail;
     }
 
-    private static bool CanManageJoin(string role) =>
-        string.Equals(role, OrganizationMember.Roles.Owner, StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(role, OrganizationMember.Roles.Admin, StringComparison.OrdinalIgnoreCase);
+    // "Admin" org-role no longer exists (Admin is now platform-level, see AppUser.IsPlatformAdmin).
+    // Conservatively keep this gated to the primary owner; phase 18 revisits with the real
+    // permission system if co-managing Landlords should be able to invite too.
+    private static bool CanManageJoin(OrganizationMember membership) => membership.IsPrimaryOwner;
 
     /// <summary>
     /// Resolve current user's email from AppUser (local auth) or AppUserProfile (OIDC/Dev).

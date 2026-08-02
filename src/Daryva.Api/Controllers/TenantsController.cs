@@ -1,6 +1,7 @@
 using Daryva.Api.Domain;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,6 +40,7 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<TenantResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.View)]
     public async Task<ActionResult<IEnumerable<TenantResponse>>> GetTenants(
         [FromQuery] bool includeArchived = false,
         CancellationToken cancellationToken = default)
@@ -101,6 +103,7 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(typeof(TenantResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.View)]
     public async Task<ActionResult<TenantResponse>> GetTenant(
         Guid tenantId,
         CancellationToken cancellationToken = default)
@@ -157,6 +160,7 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(typeof(TenantResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.Manage)]
     public async Task<ActionResult<TenantResponse>> CreateTenant(
         [FromBody] CreateTenantRequest request,
         CancellationToken cancellationToken = default)
@@ -204,6 +208,7 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(typeof(TenantResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.Manage)]
     public async Task<ActionResult<TenantResponse>> UpdateTenant(
         Guid tenantId,
         [FromBody] UpdateTenantRequest request,
@@ -244,6 +249,7 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.Manage)]
     public async Task<IActionResult> ArchiveTenant(
         Guid tenantId,
         CancellationToken cancellationToken = default)
@@ -267,6 +273,7 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.Manage)]
     public async Task<IActionResult> UnarchiveTenant(
         Guid tenantId,
         CancellationToken cancellationToken = default)
@@ -290,6 +297,7 @@ public class TenantsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.Manage)]
     public async Task<IActionResult> DeleteTenant(
         Guid tenantId,
         CancellationToken cancellationToken = default)

@@ -2,7 +2,8 @@ using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost("record")]
+    [Authorize(Policy = Permissions.Payments.Record)]
     public async Task<ActionResult<RecordPaymentResponse>> RecordPayment(
         [FromBody] RecordPaymentRequest request,
         CancellationToken cancellationToken = default)
@@ -101,6 +103,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("totals/deposit/{tenancyId:guid}")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<decimal>> GetTotalDepositPaid(
         Guid tenancyId,
         CancellationToken cancellationToken = default)
@@ -129,6 +132,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("totals/rent/{tenancyId:guid}")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<decimal>> GetTotalRentPaidForPeriod(
         Guid tenancyId,
         [FromQuery] int year,
@@ -164,6 +168,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("status/deposit/{tenancyId:guid}")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<string>> GetDepositStatus(
         Guid tenancyId,
         [FromQuery] decimal? requiredAmount,
@@ -194,6 +199,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("status/rent/{tenancyId:guid}")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<string>> GetRentStatusForPeriod(
         Guid tenancyId,
         [FromQuery] int year,
@@ -236,6 +242,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("ledger/rent")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<IEnumerable<RentLedgerItemResponse>>> GetRentLedger(
         [FromQuery] int year,
         [FromQuery] int month,
@@ -249,6 +256,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("ledger/deposit")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<IEnumerable<DepositLedgerItemResponse>>> GetDepositLedger(
         [FromQuery] int year,
         [FromQuery] int month,
@@ -360,6 +368,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("transactions")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<IEnumerable<TransactionItemResponse>>> GetTransactions(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
@@ -467,6 +476,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("deposit-return-reminders")]
+    [Authorize(Policy = Permissions.Payments.View)]
     public async Task<ActionResult<IEnumerable<DepositReturnReminderResponse>>> GetDepositReturnReminders(CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -516,6 +526,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost("deposit-returned")]
+    [Authorize(Policy = Permissions.Payments.Record)]
     public async Task<ActionResult> RecordDepositReturned([FromBody] RecordDepositReturnedRequest request, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -568,7 +579,10 @@ public class PaymentsController : ControllerBase
         return NoContent();
     }
 
+    // See task #44: this hard-deletes financial records rather than voiding them -- gated with
+    // Payments.Void as the closest existing permission until that's redesigned.
     [HttpDelete("transactions")]
+    [Authorize(Policy = Permissions.Payments.Void)]
     public async Task<IActionResult> DeleteAllTransactions(CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -582,7 +596,10 @@ public class PaymentsController : ControllerBase
         return NoContent();
     }
 
+    // See task #44: this hard-deletes the payment row rather than voiding it -- gated with
+    // Payments.Void as the closest existing permission until that's redesigned.
     [HttpDelete("transactions/{paymentType}/{paymentId:guid}")]
+    [Authorize(Policy = Permissions.Payments.Void)]
     public async Task<IActionResult> UnrecordPayment(
         string paymentType,
         Guid paymentId,

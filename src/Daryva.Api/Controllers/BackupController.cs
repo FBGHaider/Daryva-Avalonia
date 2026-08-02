@@ -1,6 +1,6 @@
 using Daryva.Api.Data;
 using Daryva.Api.Dtos;
-using Daryva.Api.Security;
+using Daryva.Api.Security.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

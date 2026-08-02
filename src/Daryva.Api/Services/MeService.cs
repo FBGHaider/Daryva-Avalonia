@@ -1,33 +1,11 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
-using Daryva.Api.Security;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Daryva.Api.Services;
-
-/// <summary>
-/// Service for GET /api/me: user profile, organisations, onboarding state.
-/// Ensures AppUserProfile exists on first login (OIDC/Dev).
-/// </summary>
-public interface IMeService
-{
-    /// <summary>
-    /// Ensure a profile exists for the given subject and email (from JWT/Dev). Create if not exists.
-    /// </summary>
-    Task EnsureUserProfileAsync(string sub, string? email, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Get full /api/me response: user, organisations, requiresOrgSetup, requiresProfileSetup.
-    /// </summary>
-    Task<MeResponseDto?> GetMeAsync(string userId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Update current user profile (DisplayName, Phone, TimeZoneId). Validates and persists.
-    /// </summary>
-    Task<MeUserDto?> UpdateProfileAsync(string userId, UpdateMeRequest request, CancellationToken cancellationToken = default);
-}
 
 public class MeService : IMeService
 {

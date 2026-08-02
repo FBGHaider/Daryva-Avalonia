@@ -1,7 +1,8 @@
 using System.Security.Claims;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,16 +19,29 @@ public class OrgsController : ControllerBase
 {
     private readonly IOrganizationService _orgService;
     private readonly ITenantContext _tenantContext;
+    private readonly IAuthorizationService _authorizationService;
     private readonly ILogger<OrgsController> _logger;
 
     public OrgsController(
         IOrganizationService orgService,
         ITenantContext tenantContext,
+        IAuthorizationService authorizationService,
         ILogger<OrgsController> logger)
     {
         _orgService = orgService;
         _tenantContext = tenantContext;
+        _authorizationService = authorizationService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// True if the caller has access to this specific org -- real membership (any org, not just
+    /// CurrentOrgId) or platform-admin Support Session elevation. See OrgResourceRequirement.
+    /// </summary>
+    private async Task<bool> HasOrgAccessAsync(Guid orgId)
+    {
+        var result = await _authorizationService.AuthorizeAsync(User, orgId, new[] { new OrgResourceRequirement() });
+        return result.Succeeded;
     }
 
     /// <summary>
@@ -100,10 +114,14 @@ public class OrgsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Organization.View)]
     public async Task<ActionResult<OrganizationResponse>> GetOrganization(
         Guid orgId,
         CancellationToken cancellationToken = default)
     {
+        if (!await HasOrgAccessAsync(orgId))
+            return Forbid();
+
         var org = await _orgService.GetOrganizationAsync(
             orgId,
             _tenantContext.UserId,
@@ -126,6 +144,7 @@ public class OrgsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Organization.ManageSettings)]
     public async Task<ActionResult<OrganizationResponse>> UpdateOrganization(
         Guid orgId,
         [FromBody] UpdateOrganizationRequest request,
@@ -133,6 +152,8 @@ public class OrgsController : ControllerBase
     {
         if (request == null)
             return BadRequest(new { error = "Request body required." });
+        if (!await HasOrgAccessAsync(orgId))
+            return Forbid();
         try
         {
             var org = await _orgService.UpdateOrganizationAsync(
@@ -170,11 +191,15 @@ public class OrgsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Organization.ManageMembers)]
     public async Task<ActionResult<OrganizationMemberResponse>> AddMember(
         Guid orgId,
         [FromBody] AddMemberRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!await HasOrgAccessAsync(orgId))
+            return Forbid();
+
         try
         {
             if (!ModelState.IsValid)
@@ -211,10 +236,14 @@ public class OrgsController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<OrganizationMemberResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Organization.View)]
     public async Task<ActionResult<IEnumerable<OrganizationMemberResponse>>> GetMembers(
         Guid orgId,
         CancellationToken cancellationToken = default)
     {
+        if (!await HasOrgAccessAsync(orgId))
+            return Forbid();
+
         // Check if user is member
         var org = await _orgService.GetOrganizationAsync(
             orgId,
@@ -245,10 +274,14 @@ public class OrgsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Organization.Delete)]
     public async Task<IActionResult> DeleteOrganization(
         Guid orgId,
         CancellationToken cancellationToken = default)
     {
+        if (!await HasOrgAccessAsync(orgId))
+            return Forbid();
+
         try
         {
             var deleted = await _orgService.DeleteOrganizationAsync(
@@ -282,11 +315,15 @@ public class OrgsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Organization.ManageMembers)]
     public async Task<ActionResult<CreateOrgInviteResponse>> CreateInvite(
         Guid orgId,
         [FromBody] CreateOrgInviteRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!await HasOrgAccessAsync(orgId))
+            return Forbid();
+
         try
         {
             var response = await _orgService.CreateInviteAsync(orgId, _tenantContext.UserId, request, cancellationToken);
@@ -340,11 +377,15 @@ public class OrgsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Organization.ManageMembers)]
     public async Task<ActionResult<GenerateOrgJoinCodeResponse>> GenerateJoinCode(
         Guid orgId,
         [FromBody] GenerateOrgJoinCodeRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!await HasOrgAccessAsync(orgId))
+            return Forbid();
+
         try
         {
             var response = await _orgService.GenerateJoinCodeAsync(orgId, _tenantContext.UserId, request, cancellationToken);

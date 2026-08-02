@@ -1,6 +1,7 @@
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -41,6 +42,7 @@ public class HousesController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<HouseResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Properties.View)]
     public async Task<ActionResult<IEnumerable<HouseResponse>>> GetHouses(
         [FromQuery] bool includeArchived = false,
         CancellationToken cancellationToken = default)
@@ -66,6 +68,7 @@ public class HousesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Properties.View)]
     public async Task<ActionResult<HouseResponse>> GetHouse(
         Guid houseId,
         CancellationToken cancellationToken = default)
@@ -101,6 +104,7 @@ public class HousesController : ControllerBase
     [ProducesResponseType(typeof(HouseResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Properties.Manage)]
     public async Task<ActionResult<HouseResponse>> CreateHouse(
         [FromBody] CreateHouseRequest request,
         CancellationToken cancellationToken = default)
@@ -145,6 +149,7 @@ public class HousesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Properties.Manage)]
     public async Task<ActionResult<HouseResponse>> UpdateHouse(
         Guid houseId,
         [FromBody] UpdateHouseRequest request,
@@ -189,6 +194,7 @@ public class HousesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Properties.Manage)]
     public async Task<ActionResult<HouseResponse>> ArchiveHouse(
         Guid houseId,
         CancellationToken cancellationToken = default)
@@ -221,6 +227,7 @@ public class HousesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Properties.Manage)]
     public async Task<IActionResult> DeleteHouse(
         Guid houseId,
         CancellationToken cancellationToken = default)

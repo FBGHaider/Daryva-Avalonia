@@ -1,4 +1,4 @@
-namespace Daryva.Api.Domain;
+namespace Daryva.Api.Domain.Interfaces;
 
 /// <summary>
 /// Interface for entities that are scoped to an organization (multi-tenant).

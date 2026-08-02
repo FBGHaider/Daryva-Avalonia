@@ -1,4 +1,5 @@
 using Daryva.Api.Data;
+using Daryva.Api.Security.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Security;
@@ -61,9 +62,28 @@ public class TenantContextMiddleware
 
         if (userOrgs.Count == 0)
         {
-            // User has no orgs yet; they'll need to create one first
-            _logger.LogInformation("User {UserId} has no organization memberships. CurrentOrgId = null.", userId);
-            tenantContext.SetCurrentOrgId(null);
+            if (requestedOrgId.HasValue)
+            {
+                // No real org memberships, but an org was explicitly requested -- e.g. a platform
+                // admin acting via an active Support Session on that org. Set it tentatively;
+                // ResolveCurrentRoleAsync (below) determines whether this caller actually gets any
+                // access. If not, CurrentRole stays null and downstream permission/resource checks
+                // deny, same as any other unauthorized request -- no privilege escalation risk.
+                _logger.LogInformation(
+                    "User {UserId} has no organization memberships; tentatively resolving requested org {OrgId}.",
+                    userId, requestedOrgId);
+                tenantContext.SetCurrentOrgId(requestedOrgId.Value);
+            }
+            else
+            {
+                // User has no orgs yet; they'll need to create one first
+                _logger.LogInformation("User {UserId} has no organization memberships. CurrentOrgId = null.", userId);
+                tenantContext.SetCurrentOrgId(null);
+            }
+
+            // Resolve even with no/unvalidated org: IsPlatformAdmin must be available for
+            // purely platform-level endpoints (org list, user management) that need no org context.
+            await tenantContext.ResolveCurrentRoleAsync();
             await _next(httpContext);
             return;
         }
@@ -114,6 +134,10 @@ public class TenantContextMiddleware
                 return;
             }
         }
+
+        // Resolve CurrentRole/IsPrimaryOwnerOfCurrentOrg once here, so the rest of the pipeline
+        // (controllers, services) can read ITenantContext.CurrentRole as a plain sync property.
+        await tenantContext.ResolveCurrentRoleAsync();
 
         await _next(httpContext);
     }

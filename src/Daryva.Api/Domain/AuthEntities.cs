@@ -17,6 +17,18 @@ public class AppUser
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+    public int FailedLoginCount { get; set; }
+    public DateTime? LockedUntil { get; set; }
+    public string? PasswordResetTokenHash { get; set; }
+    public DateTime? PasswordResetTokenExpiresAt { get; set; }
+    public DateTime? PasswordResetSentAt { get; set; }
+
+    /// <summary>
+    /// Platform-level admin claim -- Daryva staff, not a Landlord's org member. Orthogonal
+    /// to OrganizationMember: an admin is not a member of any org's data by default, only
+    /// via an explicit, logged Support Session scoped to that org.
+    /// </summary>
+    public bool IsPlatformAdmin { get; set; }
 }
 
 /// <summary>

@@ -1,8 +1,9 @@
 using Daryva.Api.Dtos;
-using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Daryva.Api.Controllers;
 
@@ -25,11 +26,12 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _authService.RegisterAsync(request, cancellationToken);
+            var result = await _authService.RegisterAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -46,6 +48,7 @@ public class AuthController : ControllerBase
     [HttpPost("verify-email")]
     [ProducesResponseType(typeof(VerifyEmailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<VerifyEmailResponse>> VerifyEmail([FromBody] VerifyEmailRequest request, CancellationToken cancellationToken = default)
     {
         var result = await _authService.VerifyEmailAsync(request.Token, cancellationToken);
@@ -59,6 +62,7 @@ public class AuthController : ControllerBase
     [HttpGet("verify-email")]
     [ProducesResponseType(typeof(VerifyEmailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<VerifyEmailResponse>> VerifyEmailByQuery([FromQuery] string token, CancellationToken cancellationToken = default)
     {
         var result = await _authService.VerifyEmailAsync(token, cancellationToken);
@@ -72,6 +76,7 @@ public class AuthController : ControllerBase
     [HttpPost("resend-verification")]
     [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<RegisterResponse>> ResendVerification([FromBody] ResendVerificationEmailRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
@@ -85,6 +90,7 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken = default)
     {
         try
@@ -106,6 +112,7 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshRequest request, CancellationToken cancellationToken = default)
     {
         var result = await _authService.RefreshAsync(request.RefreshToken, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
@@ -122,6 +129,41 @@ public class AuthController : ControllerBase
     {
         await _authService.LogoutAsync(request.RefreshToken, cancellationToken);
         return NoContent();
+    }
+
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(typeof(ForgotPasswordResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<ForgotPasswordResponse>> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return BadRequest(new { error = "Email is required." });
+
+        var result = await _authService.ForgotPasswordAsync(request.Email, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    [ProducesResponseType(typeof(ResetPasswordResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<ResetPasswordResponse>> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _authService.ResetPasswordAsync(request.Token, request.NewPassword, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [Authorize]

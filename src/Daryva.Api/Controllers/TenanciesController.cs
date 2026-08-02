@@ -1,6 +1,7 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Security;
+using Daryva.Api.Security.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ public class TenanciesController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = Permissions.Tenancies.View)]
     public async Task<ActionResult<IEnumerable<TenancyDetailResponse>>> GetTenancies(
         [FromQuery] Guid? tenantId,
         [FromQuery] Guid? houseId,
@@ -52,6 +54,7 @@ public class TenanciesController : ControllerBase
     }
 
     [HttpGet("active-in-period")]
+    [Authorize(Policy = Permissions.Tenancies.View)]
     public async Task<ActionResult<IEnumerable<TenancyDetailResponse>>> GetTenanciesActiveInPeriod(
         [FromQuery] int year,
         [FromQuery] int month,
@@ -78,6 +81,7 @@ public class TenanciesController : ControllerBase
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(TenancyDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = Permissions.Tenancies.View)]
     public async Task<ActionResult<TenancyDetailResponse>> GetTenancy(Guid id, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -103,6 +107,7 @@ public class TenanciesController : ControllerBase
     }
 
     [HttpGet("ended-with-deposit")]
+    [Authorize(Policy = Permissions.Tenancies.View)]
     public async Task<ActionResult<IEnumerable<TenancyDetailResponse>>> GetEndedTenanciesWithDeposit(CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -123,6 +128,7 @@ public class TenanciesController : ControllerBase
     [HttpPatch("{id:guid}/end")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = Permissions.Tenancies.Manage)]
     public async Task<IActionResult> EndTenancy(Guid id, [FromBody] EndTenancyRequest request, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -153,6 +159,7 @@ public class TenanciesController : ControllerBase
     [HttpPatch("{id:guid}/reactivate")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = Permissions.Tenancies.Manage)]
     public async Task<IActionResult> ReactivateTenancy(Guid id, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -174,6 +181,7 @@ public class TenanciesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [Authorize(Policy = Permissions.Tenancies.Manage)]
     public async Task<IActionResult> UpdateTenancy(Guid id, [FromBody] UpdateTenancyRequest request, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -218,6 +226,7 @@ public class TenanciesController : ControllerBase
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = Permissions.Tenancies.Manage)]
     public async Task<IActionResult> DeleteTenancy(Guid id, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -236,6 +245,7 @@ public class TenanciesController : ControllerBase
 
     [HttpDelete("by-house/{houseId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [Authorize(Policy = Permissions.Tenancies.Manage)]
     public async Task<IActionResult> DeleteEndedTenanciesByHouse(Guid houseId, [FromQuery] bool endedOnly = true, CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -280,6 +290,7 @@ public class TenanciesController : ControllerBase
     [ProducesResponseType(typeof(CreateTenancyResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = Permissions.Tenancies.Manage)]
     public async Task<ActionResult<CreateTenancyResponse>> CreateTenancy(
         [FromBody] CreateTenancyRequest request,
         CancellationToken cancellationToken = default)
@@ -348,6 +359,7 @@ public class TenanciesController : ControllerBase
     /// </summary>
     [HttpGet("export-for-rent-repair")]
     [ProducesResponseType(typeof(IEnumerable<RentRepairExportItem>), StatusCodes.Status200OK)]
+    [Authorize(Policy = Permissions.Tenancies.View)]
     public async Task<ActionResult<IEnumerable<RentRepairExportItem>>> ExportForRentRepair(CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -381,6 +393,7 @@ public class TenanciesController : ControllerBase
     [HttpPost("repair-rent")]
     [ProducesResponseType(typeof(RentRepairResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize(Policy = Permissions.Tenancies.Manage)]
     public async Task<ActionResult<RentRepairResult>> RepairRent(
         [FromBody] RentRepairRequest request,
         CancellationToken cancellationToken = default)

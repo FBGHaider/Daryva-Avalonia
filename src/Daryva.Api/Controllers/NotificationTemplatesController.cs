@@ -1,7 +1,8 @@
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
-using Daryva.Api.Services;
+using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,6 +23,7 @@ public class NotificationTemplatesController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = Permissions.Messaging.View)]
     public async Task<ActionResult<IEnumerable<NotificationTemplateResponse>>> GetTemplates(
         [FromQuery] string? channel,
         [FromQuery] string? type,
@@ -41,6 +43,7 @@ public class NotificationTemplatesController : ControllerBase
     }
 
     [HttpGet("{templateId:guid}")]
+    [Authorize(Policy = Permissions.Messaging.View)]
     public async Task<ActionResult<NotificationTemplateResponse>> GetTemplate(
         Guid templateId,
         CancellationToken cancellationToken = default)
@@ -56,6 +59,7 @@ public class NotificationTemplatesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult<NotificationTemplateResponse>> CreateTemplate(
         [FromBody] NotificationTemplateRequest request,
         CancellationToken cancellationToken = default)
@@ -81,6 +85,7 @@ public class NotificationTemplatesController : ControllerBase
     }
 
     [HttpPut("{templateId:guid}")]
+    [Authorize(Policy = Permissions.Messaging.Send)]
     public async Task<ActionResult<NotificationTemplateResponse>> UpdateTemplate(
         Guid templateId,
         [FromBody] NotificationTemplateRequest request,
