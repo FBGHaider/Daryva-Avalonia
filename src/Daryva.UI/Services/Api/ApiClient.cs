@@ -19,21 +19,25 @@ public class ApiClient : IApiClient
     private readonly IOrgContext _orgContext;
     private readonly IConfigurationService _configuration;
     private readonly IAuthSessionService _authSession;
-    private readonly IAuthService? _authService;
+    private readonly IServiceProvider _serviceProvider;
 
     public Guid? CurrentOrgId => _orgContext.CurrentOrgId;
     public HttpClient HttpClient => _httpClient;
 
-    public ApiClient(IConfigurationService configuration, IAuthSessionService authSession, IOrgContext orgContext, IAuthService? authService = null)
+    // IAuthService is resolved lazily via IServiceProvider (not constructor-injected) because
+    // IAuthService -> IAuthApiService -> IApiClient would otherwise be a circular DI graph
+    // (ApiClient -> IAuthService -> ... -> ApiClient). Resolving at point of use, after the
+    // container has finished constructing everything, breaks the cycle.
+    public ApiClient(IConfigurationService configuration, IAuthSessionService authSession, IOrgContext orgContext, IServiceProvider serviceProvider)
     {
         _configuration = configuration;
         _authSession = authSession;
         _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
-        _authService = authService;
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
         var baseAddress = configuration.GetValue("ApiBaseUrl") ?? "http://localhost:5000";
 
-        var authHandler = new ApiAuthHandler(this, new Uri(baseAddress), _authSession, _authService);
+        var authHandler = new ApiAuthHandler(this, new Uri(baseAddress), _authSession, _serviceProvider);
         authHandler.InnerHandler = new HttpClientHandler();
         
         _httpClient = new HttpClient(authHandler)
@@ -72,16 +76,18 @@ public class ApiClient : IApiClient
         private readonly ApiClient _owner;
         private readonly Uri _baseAddress;
         private readonly IAuthSessionService _authSession;
-        private readonly IAuthService? _authService;
+        private readonly IServiceProvider _serviceProvider;
         private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
-        public ApiAuthHandler(ApiClient owner, Uri baseAddress, IAuthSessionService authSession, IAuthService? authService)
+        public ApiAuthHandler(ApiClient owner, Uri baseAddress, IAuthSessionService authSession, IServiceProvider serviceProvider)
         {
             _owner = owner ?? throw new ArgumentNullException(nameof(owner));
             _baseAddress = baseAddress;
             _authSession = authSession;
-            _authService = authService;
+            _serviceProvider = serviceProvider;
         }
+
+        private IAuthService? AuthService => _serviceProvider.GetService(typeof(IAuthService)) as IAuthService;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -103,8 +109,9 @@ public class ApiClient : IApiClient
             var refreshed = await RefreshAccessTokenAsync(cancellationToken);
             if (!refreshed)
             {
-                if (_authService != null)
-                    await _authService.SignOutAsync(cancellationToken).ConfigureAwait(false);
+                var authService = AuthService;
+                if (authService != null)
+                    await authService.SignOutAsync(cancellationToken).ConfigureAwait(false);
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized) { RequestMessage = request };
             }
 
@@ -137,9 +144,10 @@ public class ApiClient : IApiClient
 
         private async Task EnsureFreshTokenIfNeededAsync(CancellationToken cancellationToken)
         {
-            if (_authService != null)
+            var authService = AuthService;
+            if (authService != null)
             {
-                await _authService.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false);
+                await authService.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false);
                 return;
             }
             if (!_authSession.IsAuthenticated || !_authSession.AccessTokenExpiresAtUtc.HasValue)
@@ -160,8 +168,9 @@ public class ApiClient : IApiClient
 
         private async Task<bool> RefreshAccessTokenAsync(CancellationToken cancellationToken)
         {
-            if (_authService != null)
-                return await _authService.TryRefreshAsync(cancellationToken).ConfigureAwait(false);
+            var authService = AuthService;
+            if (authService != null)
+                return await authService.TryRefreshAsync(cancellationToken).ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(_authSession.RefreshToken))
                 return false;
