@@ -75,6 +75,7 @@
     <PackageReference Include="Avalonia.Win32" Version="11.1.0" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
     <PackageReference Include="Avalonia.Native" Version="11.1.0" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.10" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
              x:Class="Daryva.MVVM.Views.AccountSecuritySectionView"
              x:CompileBindings="False">
+    <UserControl.Resources>
+        <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
+    </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Border.settings-card">
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
@@ -9,6 +13,20 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="20"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
         </Style>
     </UserControl.Styles>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -24,10 +42,77 @@
             </Border>
 
             <Border Classes="settings-card">
-                <StackPanel Spacing="12">
+                <StackPanel Spacing="16">
                     <TextBlock Text="Two-factor authentication" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="Coming soon." FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
-                    <Button Content="Enable 2FA" IsEnabled="False" Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="12,8" CornerRadius="8"/>
+
+                    <TextBlock Text="Loading…" FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding ShowLoadingScene}"/>
+
+                    <StackPanel Spacing="12" IsVisible="{Binding ShowOverviewScene}">
+                        <StackPanel Spacing="12" IsVisible="{Binding IsTwoFactorEnabled, Converter={StaticResource InvertBoolConverter}}">
+                            <TextBlock Text="Add an extra layer of security to your account by requiring a code from an authenticator app when you sign in." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <Button Content="Enable 2FA" Classes="primary" Command="{Binding StartEnrollCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                        <StackPanel Spacing="12" IsVisible="{Binding IsTwoFactorEnabled}">
+                            <TextBlock Text="Two-factor authentication is enabled on your account." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Content="Regenerate recovery codes" Classes="secondary" Command="{Binding ShowRegenerateCommand}"/>
+                                <Button Content="Disable 2FA" Classes="secondary" Command="{Binding ShowDisableCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Spacing="12" IsVisible="{Binding ShowEnrollingScene}">
+                        <TextBlock Text="Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.), then enter the 6-digit code it generates." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <Image Source="{Binding EnrollQrCode}" Width="180" Height="180" HorizontalAlignment="Left"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Can't scan? Enter manually:" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding EnrollSecret}" FontSize="12" FontFamily="Consolas,monospace" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </StackPanel>
+                        <TextBox Watermark="6-digit code" Text="{Binding ConfirmCode}" Width="200" HorizontalAlignment="Left"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Confirm" Classes="primary" Command="{Binding ConfirmEnrollCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                            <Button Content="Cancel" Classes="secondary" Command="{Binding CancelEnrollCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Spacing="12" IsVisible="{Binding ShowRecoveryCodesScene}">
+                        <TextBlock Text="Save these recovery codes somewhere safe. Each can be used once to sign in if you lose access to your authenticator app. They won't be shown again." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <ItemsControl ItemsSource="{Binding RecoveryCodes}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6" Padding="10,6" Margin="0,0,8,8">
+                                        <TextBlock Text="{Binding}" FontFamily="Consolas,monospace" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="Done" Classes="primary" Command="{Binding DoneWithRecoveryCodesCommand}" HorizontalAlignment="Left"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="12" IsVisible="{Binding ShowConfirmDisableScene}">
+                        <TextBlock Text="Enter your password to disable two-factor authentication." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <TextBox Watermark="Password" Text="{Binding DisablePassword}" PasswordChar="•" Width="260" HorizontalAlignment="Left"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Disable 2FA" Classes="secondary" Command="{Binding ConfirmDisableCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                            <Button Content="Cancel" Classes="secondary" Command="{Binding CancelPasswordPromptCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Spacing="12" IsVisible="{Binding ShowConfirmRegenerateScene}">
+                        <TextBlock Text="Enter your password to regenerate your recovery codes. Your existing codes will stop working." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <TextBox Watermark="Password" Text="{Binding RegeneratePassword}" PasswordChar="•" Width="260" HorizontalAlignment="Left"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Regenerate" Classes="primary" Command="{Binding ConfirmRegenerateCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                            <Button Content="Cancel" Classes="secondary" Command="{Binding CancelPasswordPromptCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource StatusDangerBrush}" FontSize="13" TextWrapping="Wrap" IsVisible="{Binding HasErrorMessage}"/>
                 </StackPanel>
             </Border>
 

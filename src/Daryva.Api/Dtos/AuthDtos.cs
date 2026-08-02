@@ -154,6 +154,7 @@ public class MeResponse
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public bool EmailVerified { get; set; }
+    public bool TwoFactorEnabled { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
 }

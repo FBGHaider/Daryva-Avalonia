@@ -57,6 +57,51 @@ public class MeDto
 
     [JsonPropertyName("email")]
     public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("twoFactorEnabled")]
+    public bool TwoFactorEnabled { get; set; }
+}
+
+public class TwoFactorEnrollResultDto
+{
+    [JsonPropertyName("secret")]
+    public string Secret { get; set; } = string.Empty;
+
+    [JsonPropertyName("otpAuthUri")]
+    public string OtpAuthUri { get; set; } = string.Empty;
+}
+
+public class TwoFactorConfirmResultDto
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("recoveryCodes")]
+    public List<string> RecoveryCodes { get; set; } = new();
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
+public class TwoFactorDisableResultDto
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
+public class TwoFactorRegenerateRecoveryCodesResultDto
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("recoveryCodes")]
+    public List<string> RecoveryCodes { get; set; } = new();
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
 }
 
 public class RegisterResultDto
@@ -115,6 +160,10 @@ public interface IAuthApiService
     Task<RegisterResultDto> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<ForgotPasswordResultDto> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
     Task<ResetPasswordResultDto> ResetPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default);
+    Task<TwoFactorEnrollResultDto> EnrollTwoFactorAsync(CancellationToken cancellationToken = default);
+    Task<TwoFactorConfirmResultDto> ConfirmTwoFactorAsync(string code, CancellationToken cancellationToken = default);
+    Task<TwoFactorDisableResultDto> DisableTwoFactorAsync(string password, CancellationToken cancellationToken = default);
+    Task<TwoFactorRegenerateRecoveryCodesResultDto> RegenerateRecoveryCodesAsync(string password, CancellationToken cancellationToken = default);
     Task<MeDto?> GetMeAsync(CancellationToken cancellationToken = default);
     Task LogoutAsync(CancellationToken cancellationToken = default);
 }

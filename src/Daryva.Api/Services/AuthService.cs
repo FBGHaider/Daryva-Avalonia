@@ -357,6 +357,7 @@ public class AuthService : IAuthService
             LastName = user.LastName,
             Email = user.Email,
             EmailVerified = user.EmailVerifiedAt.HasValue,
+            TwoFactorEnabled = user.TwoFactorEnabled,
             CreatedAt = user.CreatedAt,
             LastLoginAt = user.LastLoginAt
         };

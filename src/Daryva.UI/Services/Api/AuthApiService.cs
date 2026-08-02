@@ -133,6 +133,75 @@ public class AuthApiService : IAuthApiService
         return new ResetPasswordResultDto { Success = false, Message = TryGetErrorMessage(body) ?? "Failed to reset password." };
     }
 
+    public async Task<TwoFactorEnrollResultDto> EnrollTwoFactorAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsync("api/auth/2fa/enroll", null, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Failed to start two-factor enrollment.");
+
+        return JsonSerializer.Deserialize<TwoFactorEnrollResultDto>(body)
+            ?? throw new InvalidOperationException("Invalid enrollment response.");
+    }
+
+    public async Task<TwoFactorConfirmResultDto> ConfirmTwoFactorAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/2fa/confirm", new { code }, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // Both success (200) and a rejected code (400) return the same { success, recoveryCodes,
+        // message } shape here, unlike ResetPasswordAsync -- but still fall back on a genuinely
+        // malformed/500 body instead of surfacing an empty Message.
+        try
+        {
+            var result = JsonSerializer.Deserialize<TwoFactorConfirmResultDto>(body);
+            if (result != null && !string.IsNullOrWhiteSpace(result.Message))
+                return result;
+        }
+        catch (JsonException)
+        {
+        }
+
+        return new TwoFactorConfirmResultDto { Success = false, Message = TryGetErrorMessage(body) ?? "Invalid verification code." };
+    }
+
+    public async Task<TwoFactorDisableResultDto> DisableTwoFactorAsync(string password, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/2fa/disable", new { password }, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        try
+        {
+            var result = JsonSerializer.Deserialize<TwoFactorDisableResultDto>(body);
+            if (result != null && !string.IsNullOrWhiteSpace(result.Message))
+                return result;
+        }
+        catch (JsonException)
+        {
+        }
+
+        return new TwoFactorDisableResultDto { Success = false, Message = TryGetErrorMessage(body) ?? "Failed to disable two-factor authentication." };
+    }
+
+    public async Task<TwoFactorRegenerateRecoveryCodesResultDto> RegenerateRecoveryCodesAsync(string password, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/2fa/recovery-codes/regenerate", new { password }, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        try
+        {
+            var result = JsonSerializer.Deserialize<TwoFactorRegenerateRecoveryCodesResultDto>(body);
+            if (result != null && !string.IsNullOrWhiteSpace(result.Message))
+                return result;
+        }
+        catch (JsonException)
+        {
+        }
+
+        return new TwoFactorRegenerateRecoveryCodesResultDto { Success = false, Message = TryGetErrorMessage(body) ?? "Failed to regenerate recovery codes." };
+    }
+
     /// <summary>Parses the API's generic `{ error: "..." }` failure body; null if the body isn't shaped that way.</summary>
     private static string? TryGetErrorMessage(string body)
     {
