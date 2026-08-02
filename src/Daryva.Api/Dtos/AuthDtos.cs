@@ -121,6 +121,32 @@ public class TwoFactorConfirmResponse
     public string Message { get; set; } = string.Empty;
 }
 
+public class TwoFactorDisableRequest
+{
+    public string Password { get; set; } = string.Empty;
+}
+
+public class TwoFactorDisableResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+public class TwoFactorRegenerateRecoveryCodesRequest
+{
+    public string Password { get; set; } = string.Empty;
+}
+
+public class TwoFactorRegenerateRecoveryCodesResponse
+{
+    public bool Success { get; set; }
+
+    /// <summary>New one-time recovery codes, shown once. Replaces all previously issued codes.</summary>
+    public List<string> RecoveryCodes { get; set; } = new();
+
+    public string Message { get; set; } = string.Empty;
+}
+
 public class MeResponse
 {
     public string UserId { get; set; } = string.Empty;

@@ -482,6 +482,60 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<TwoFactorDisableResponse> DisableTwoFactorAsync(string userId, string password, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(userId, out var userGuid))
+            throw new InvalidOperationException("Invalid user id.");
+
+        var user = await _appUserRepository.GetByIdAsync(userGuid, cancellationToken)
+            ?? throw new InvalidOperationException("User not found.");
+
+        if (!user.TwoFactorEnabled)
+            return new TwoFactorDisableResponse { Success = false, Message = "Two-factor authentication is not enabled." };
+
+        if (!VerifyPassword(password, user.PasswordHash))
+            return new TwoFactorDisableResponse { Success = false, Message = "Incorrect password." };
+
+        user.TwoFactorEnabled = false;
+        user.TwoFactorSecretEncrypted = null;
+        user.RecoveryCodesHash = null;
+
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TwoFactorDisabled,
+            targetType: nameof(AppUser), targetId: user.Id.ToString());
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new TwoFactorDisableResponse { Success = true, Message = "Two-factor authentication has been disabled." };
+    }
+
+    public async Task<TwoFactorRegenerateRecoveryCodesResponse> RegenerateRecoveryCodesAsync(string userId, string password, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(userId, out var userGuid))
+            throw new InvalidOperationException("Invalid user id.");
+
+        var user = await _appUserRepository.GetByIdAsync(userGuid, cancellationToken)
+            ?? throw new InvalidOperationException("User not found.");
+
+        if (!user.TwoFactorEnabled)
+            return new TwoFactorRegenerateRecoveryCodesResponse { Success = false, Message = "Two-factor authentication is not enabled." };
+
+        if (!VerifyPassword(password, user.PasswordHash))
+            return new TwoFactorRegenerateRecoveryCodesResponse { Success = false, Message = "Incorrect password." };
+
+        var recoveryCodes = GenerateRecoveryCodes();
+        user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(recoveryCodes.Select(Sha256));
+
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TwoFactorRecoveryCodesRegenerated,
+            targetType: nameof(AppUser), targetId: user.Id.ToString());
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new TwoFactorRegenerateRecoveryCodesResponse
+        {
+            Success = true,
+            RecoveryCodes = recoveryCodes,
+            Message = "Recovery codes regenerated. Store them somewhere safe -- they won't be shown again."
+        };
+    }
+
     private static List<string> GenerateRecoveryCodes()
     {
         var codes = new List<string>(RecoveryCodeCount);

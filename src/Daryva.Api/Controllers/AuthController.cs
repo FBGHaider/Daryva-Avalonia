@@ -217,4 +217,34 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+
+    [Authorize]
+    [HttpPost("2fa/disable")]
+    [ProducesResponseType(typeof(TwoFactorDisableResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<TwoFactorDisableResponse>> DisableTwoFactor([FromBody] TwoFactorDisableRequest request, CancellationToken cancellationToken = default)
+    {
+        var result = await _authService.DisableTwoFactorAsync(_tenantContext.UserId, request.Password, cancellationToken);
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("2fa/recovery-codes/regenerate")]
+    [ProducesResponseType(typeof(TwoFactorRegenerateRecoveryCodesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<TwoFactorRegenerateRecoveryCodesResponse>> RegenerateRecoveryCodes([FromBody] TwoFactorRegenerateRecoveryCodesRequest request, CancellationToken cancellationToken = default)
+    {
+        var result = await _authService.RegenerateRecoveryCodesAsync(_tenantContext.UserId, request.Password, cancellationToken);
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
 }

@@ -22,4 +22,10 @@ public interface IAuthService
 
     /// <summary>Verifies the code against the pending secret; on success sets TwoFactorEnabled and returns one-time recovery codes.</summary>
     Task<TwoFactorConfirmResponse> ConfirmTwoFactorAsync(string userId, string code, CancellationToken cancellationToken = default);
+
+    /// <summary>Disables 2FA and clears the stored secret and recovery codes. Requires the current password.</summary>
+    Task<TwoFactorDisableResponse> DisableTwoFactorAsync(string userId, string password, CancellationToken cancellationToken = default);
+
+    /// <summary>Replaces all recovery codes with a freshly generated set. Requires the current password.</summary>
+    Task<TwoFactorRegenerateRecoveryCodesResponse> RegenerateRecoveryCodesAsync(string userId, string password, CancellationToken cancellationToken = default);
 }
