@@ -22,6 +22,9 @@ public static class RolePermissions
                 Permissions.Platform.ManageOrganizations,
                 Permissions.Platform.ManageUsers,
                 Permissions.Audit.View,
+                Permissions.SupportSessions.Start,
+                Permissions.SupportSessions.End,
+                Permissions.SupportSessions.View,
             },
             [Roles.Landlord] = new HashSet<string>
             {

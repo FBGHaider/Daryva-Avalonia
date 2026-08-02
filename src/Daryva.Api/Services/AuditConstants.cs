@@ -20,6 +20,8 @@ public static class AuditEventTypes
     public const string TwoFactorRecoveryCodeUsed = "TwoFactorRecoveryCodeUsed";
     public const string TwoFactorDisabled = "TwoFactorDisabled";
     public const string TwoFactorRecoveryCodesRegenerated = "TwoFactorRecoveryCodesRegenerated";
+    public const string SupportSessionStarted = "SupportSessionStarted";
+    public const string SupportSessionEnded = "SupportSessionEnded";
 }
 
 /// <summary>

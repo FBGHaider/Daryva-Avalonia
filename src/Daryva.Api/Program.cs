@@ -80,6 +80,7 @@ builder.Services.AddScoped<ISupportSessionRepository, SupportSessionRepository>(
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISupportSessionService, SupportSessionService>();
 builder.Services.AddScoped<IRentLedgerService, RentLedgerService>();
 builder.Services.AddScoped<IHouseService, HouseService>();
 builder.Services.AddScoped<ITenantService, TenantService>();

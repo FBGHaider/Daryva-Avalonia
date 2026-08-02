@@ -96,4 +96,11 @@ public static class Permissions
         public const string ManageOrganizations = "platform.manage_organizations";
         public const string ManageUsers = "platform.manage_users";
     }
+
+    public static class SupportSessions
+    {
+        public const string Start = "support_sessions.start";
+        public const string End = "support_sessions.end";
+        public const string View = "support_sessions.view";
+    }
 }

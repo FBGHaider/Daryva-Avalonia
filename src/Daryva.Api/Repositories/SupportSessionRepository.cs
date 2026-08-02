@@ -25,4 +25,32 @@ public class SupportSessionRepository : ISupportSessionRepository
             .OrderByDescending(s => s.StartedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public Task<SupportSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return _dbContext.SupportSessions.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+    }
+
+    public async Task<List<SupportSession>> ListAsync(Guid? organizationId, bool includeEnded, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.SupportSessions.AsQueryable();
+
+        if (organizationId.HasValue)
+            query = query.Where(s => s.OrganizationId == organizationId.Value);
+
+        if (!includeEnded)
+            query = query.Where(s => s.EndedAt == null);
+
+        return await query.OrderByDescending(s => s.StartedAt).ToListAsync(cancellationToken);
+    }
+
+    public Task<bool> OrganizationExistsAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Organizations.AnyAsync(o => o.Id == organizationId, cancellationToken);
+    }
+
+    public void Add(SupportSession session)
+    {
+        _dbContext.SupportSessions.Add(session);
+    }
 }
