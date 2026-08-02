@@ -1,7 +1,7 @@
 {
     "AppSettings":  {
                         "UpdateFeedUrl":  "https://github.com/fbg-engineering/Daryva-Updates",
-                        "ApiBaseUrl":  "https://api.daryva.com",
+                        "ApiBaseUrl":  "http://localhost:5000",
                         "AppOnboardingUrl":  "https://app.daryva.com/onboarding"
                     }
 }
