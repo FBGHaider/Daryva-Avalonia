@@ -143,11 +143,15 @@ public class ResetPasswordResultDto
     public string Message { get; set; } = string.Empty;
 }
 
-/// <summary>Shape of the API's generic `{ error: "..." }` failure body (ArgumentException catch blocks).</summary>
+/// <summary>Shape of the API's generic `{ error: "..." }` failure body (ArgumentException catch blocks),
+/// plus the optional friendlier `message` field the rate limiter's 429 body adds alongside it.</summary>
 public class ErrorResponseDto
 {
     [JsonPropertyName("error")]
     public string? Error { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
 }
 
 public interface IAuthApiService
