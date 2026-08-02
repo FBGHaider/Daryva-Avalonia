@@ -33,6 +33,10 @@
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
                     HorizontalAlignment="Center"
                     MinWidth="200"/>
+            <Button Content="Forgot password?"
+                    Command="{Binding ForgotPasswordCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                    HorizontalAlignment="Center"/>
             <Button Content="Don't have an account? Create one"
                     Command="{Binding CreateAccountCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"

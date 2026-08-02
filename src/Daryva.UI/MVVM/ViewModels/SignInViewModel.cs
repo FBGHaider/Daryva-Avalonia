@@ -27,6 +27,7 @@ public class SignInViewModel : BaseViewModel
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         SignInCommand = new RelayCommand(async _ => await SignInAsync());
         CreateAccountCommand = new RelayCommand(_ => NavigateToCreateAccount());
+        ForgotPasswordCommand = new RelayCommand(_ => NavigateToForgotPassword());
     }
 
     private void NavigateToCreateAccount()
@@ -35,6 +36,14 @@ public class SignInViewModel : BaseViewModel
         // SignInView; it's only needed if the user actually clicks "Create account".
         var onboarding = _serviceProvider.GetRequiredService<OnboardingViewModel>();
         onboarding.IsLoginScene = false;
+        _navigationService.NavigateTo(onboarding);
+    }
+
+    private void NavigateToForgotPassword()
+    {
+        var onboarding = _serviceProvider.GetRequiredService<OnboardingViewModel>();
+        onboarding.ForgotPasswordEmail = Email;
+        onboarding.IsForgotPasswordScene = true;
         _navigationService.NavigateTo(onboarding);
     }
 
@@ -70,6 +79,7 @@ public class SignInViewModel : BaseViewModel
 
     public RelayCommand SignInCommand { get; }
     public RelayCommand CreateAccountCommand { get; }
+    public RelayCommand ForgotPasswordCommand { get; }
 
     private async System.Threading.Tasks.Task SignInAsync()
     {

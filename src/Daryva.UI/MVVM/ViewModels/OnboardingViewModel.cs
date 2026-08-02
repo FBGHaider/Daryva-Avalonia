@@ -37,7 +37,13 @@ public class OnboardingViewModel : BaseViewModel
     private bool _keepMeLoggedIn;
     private bool _isLoginScene = true;
     private bool _isVerifyEmailScene;
+    private bool _isForgotPasswordScene;
+    private bool _isResetPasswordScene;
     private string _verifyEmailAddress = string.Empty;
+    private string _forgotPasswordEmail = string.Empty;
+    private string _resetToken = string.Empty;
+    private string _resetNewPassword = string.Empty;
+    private string _resetConfirmPassword = string.Empty;
 
     public ObservableCollection<OrganizationDto> Organizations { get; } = new();
 
@@ -73,15 +79,19 @@ public class OnboardingViewModel : BaseViewModel
                 OnPropertyChanged(nameof(ShowLoginScene));
                 OnPropertyChanged(nameof(ShowRegisterScene));
                 OnPropertyChanged(nameof(ShowVerifyEmailScene));
+                OnPropertyChanged(nameof(ShowForgotPasswordScene));
+                OnPropertyChanged(nameof(ShowResetPasswordScene));
             }
         }
     }
 
     public bool ShowAuthSection => !IsAuthenticated;
     public bool ShowOrgSection => IsAuthenticated;
-    public bool ShowLoginScene => ShowAuthSection && IsLoginScene && !IsVerifyEmailScene;
-    public bool ShowRegisterScene => ShowAuthSection && !IsLoginScene && !IsVerifyEmailScene;
-    public bool ShowVerifyEmailScene => ShowAuthSection && IsVerifyEmailScene;
+    public bool ShowLoginScene => ShowAuthSection && IsLoginScene && !IsVerifyEmailScene && !IsForgotPasswordScene && !IsResetPasswordScene;
+    public bool ShowRegisterScene => ShowAuthSection && !IsLoginScene && !IsVerifyEmailScene && !IsForgotPasswordScene && !IsResetPasswordScene;
+    public bool ShowVerifyEmailScene => ShowAuthSection && IsVerifyEmailScene && !IsForgotPasswordScene && !IsResetPasswordScene;
+    public bool ShowForgotPasswordScene => ShowAuthSection && IsForgotPasswordScene && !IsResetPasswordScene;
+    public bool ShowResetPasswordScene => ShowAuthSection && IsResetPasswordScene;
 
     public bool IsLoginScene
     {
@@ -90,15 +100,10 @@ public class OnboardingViewModel : BaseViewModel
         {
             if (SetProperty(ref _isLoginScene, value))
             {
-                if (IsVerifyEmailScene)
-                {
-                    _isVerifyEmailScene = false;
-                    OnPropertyChanged(nameof(IsVerifyEmailScene));
-                }
-
-                OnPropertyChanged(nameof(ShowLoginScene));
-                OnPropertyChanged(nameof(ShowRegisterScene));
-                OnPropertyChanged(nameof(ShowVerifyEmailScene));
+                _isVerifyEmailScene = false;
+                _isForgotPasswordScene = false;
+                _isResetPasswordScene = false;
+                NotifySceneVisibilityChanged();
             }
         }
     }
@@ -110,17 +115,74 @@ public class OnboardingViewModel : BaseViewModel
         {
             if (SetProperty(ref _isVerifyEmailScene, value))
             {
-                OnPropertyChanged(nameof(ShowLoginScene));
-                OnPropertyChanged(nameof(ShowRegisterScene));
-                OnPropertyChanged(nameof(ShowVerifyEmailScene));
+                NotifySceneVisibilityChanged();
             }
         }
+    }
+
+    public bool IsForgotPasswordScene
+    {
+        get => _isForgotPasswordScene;
+        set
+        {
+            if (SetProperty(ref _isForgotPasswordScene, value))
+            {
+                if (value)
+                    _isResetPasswordScene = false;
+                NotifySceneVisibilityChanged();
+            }
+        }
+    }
+
+    public bool IsResetPasswordScene
+    {
+        get => _isResetPasswordScene;
+        set
+        {
+            if (SetProperty(ref _isResetPasswordScene, value))
+            {
+                NotifySceneVisibilityChanged();
+            }
+        }
+    }
+
+    private void NotifySceneVisibilityChanged()
+    {
+        OnPropertyChanged(nameof(ShowLoginScene));
+        OnPropertyChanged(nameof(ShowRegisterScene));
+        OnPropertyChanged(nameof(ShowVerifyEmailScene));
+        OnPropertyChanged(nameof(ShowForgotPasswordScene));
+        OnPropertyChanged(nameof(ShowResetPasswordScene));
     }
 
     public string VerifyEmailAddress
     {
         get => _verifyEmailAddress;
         set => SetProperty(ref _verifyEmailAddress, value);
+    }
+
+    public string ForgotPasswordEmail
+    {
+        get => _forgotPasswordEmail;
+        set => SetProperty(ref _forgotPasswordEmail, value);
+    }
+
+    public string ResetToken
+    {
+        get => _resetToken;
+        set => SetProperty(ref _resetToken, value);
+    }
+
+    public string ResetNewPassword
+    {
+        get => _resetNewPassword;
+        set => SetProperty(ref _resetNewPassword, value);
+    }
+
+    public string ResetConfirmPassword
+    {
+        get => _resetConfirmPassword;
+        set => SetProperty(ref _resetConfirmPassword, value);
     }
 
     public bool HasOrganizations => Organizations.Count > 0;
@@ -208,6 +270,9 @@ public class OnboardingViewModel : BaseViewModel
     public ICommand ShowRegisterSceneCommand { get; }
     public ICommand ShowLoginSceneCommand { get; }
     public ICommand ForgotPasswordCommand { get; }
+    public ICommand ShowResetPasswordSceneCommand { get; }
+    public ICommand SubmitForgotPasswordCommand { get; }
+    public ICommand SubmitResetPasswordCommand { get; }
 
     public OnboardingViewModel(
         IAuthApiService authApiService,
@@ -238,7 +303,10 @@ public class OnboardingViewModel : BaseViewModel
         LogoutCommand = new RelayCommand(async _ => await LogoutAsync());
         ShowRegisterSceneCommand = new RelayCommand(_ => SwitchToRegisterScene());
         ShowLoginSceneCommand = new RelayCommand(_ => SwitchToLoginScene());
-        ForgotPasswordCommand = new RelayCommand(async _ => await ForgotPasswordAsync());
+        ForgotPasswordCommand = new RelayCommand(_ => SwitchToForgotPasswordScene());
+        ShowResetPasswordSceneCommand = new RelayCommand(_ => SwitchToResetPasswordScene());
+        SubmitForgotPasswordCommand = new RelayCommand(async _ => await SubmitForgotPasswordAsync());
+        SubmitResetPasswordCommand = new RelayCommand(async _ => await SubmitResetPasswordAsync());
 
         _ = InitializeAsync();
     }
@@ -330,13 +398,78 @@ public class OnboardingViewModel : BaseViewModel
         IsLoginScene = true;
     }
 
-    private async Task ForgotPasswordAsync()
+    private void SwitchToForgotPasswordScene()
+    {
+        ForgotPasswordEmail = LoginEmail;
+        IsForgotPasswordScene = true;
+    }
+
+    private void SwitchToResetPasswordScene()
+    {
+        IsResetPasswordScene = true;
+    }
+
+    private async Task SubmitForgotPasswordAsync()
     {
         await ExecuteBusyAsync(async () =>
         {
-            await Task.CompletedTask;
-            ErrorMessage = "Forgot password is not available yet. Please contact support.";
+            if (string.IsNullOrWhiteSpace(ForgotPasswordEmail))
+            {
+                ErrorMessage = "Email is required.";
+                return;
+            }
+
+            var result = await _authApiService.ForgotPasswordAsync(ForgotPasswordEmail.Trim());
+            ErrorMessage = result.Message;
+            IsResetPasswordScene = true;
         });
+    }
+
+    private async Task SubmitResetPasswordAsync()
+    {
+        await ExecuteBusyAsync(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(ResetToken) || string.IsNullOrWhiteSpace(ResetNewPassword) || string.IsNullOrWhiteSpace(ResetConfirmPassword))
+            {
+                ErrorMessage = "All boxes should be filled.";
+                return;
+            }
+
+            if (!string.Equals(ResetNewPassword, ResetConfirmPassword, StringComparison.Ordinal))
+            {
+                ErrorMessage = "Passwords do not match.";
+                return;
+            }
+
+            var token = ExtractResetToken(ResetToken.Trim());
+            var result = await _authApiService.ResetPasswordAsync(token, ResetNewPassword);
+            if (!result.Success)
+            {
+                ErrorMessage = result.Message;
+                return;
+            }
+
+            ResetToken = string.Empty;
+            ResetNewPassword = string.Empty;
+            ResetConfirmPassword = string.Empty;
+            ErrorMessage = result.Message;
+            IsLoginScene = true;
+        });
+    }
+
+    /// <summary>Accepts either the raw token or the full emailed reset link (?token=...) so users can paste whichever they copied.</summary>
+    private static string ExtractResetToken(string input)
+    {
+        var tokenIndex = input.IndexOf("token=", StringComparison.OrdinalIgnoreCase);
+        if (tokenIndex < 0)
+            return input;
+
+        var value = input[(tokenIndex + "token=".Length)..];
+        var ampIndex = value.IndexOf('&');
+        if (ampIndex >= 0)
+            value = value[..ampIndex];
+
+        return Uri.UnescapeDataString(value);
     }
 
     private async Task LoadOrganizationsAsync()

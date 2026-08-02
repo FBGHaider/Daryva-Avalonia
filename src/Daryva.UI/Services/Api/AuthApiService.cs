@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Daryva.Services.Api;
 
@@ -71,6 +72,50 @@ public class AuthApiService : IAuthApiService
 
         return await response.Content.ReadFromJsonAsync<RegisterResultDto>(cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException("Invalid resend verification response.");
+    }
+
+    public async Task<ForgotPasswordResultDto> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/forgot-password", new { email }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<ForgotPasswordResultDto>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Invalid forgot-password response.");
+    }
+
+    public async Task<ResetPasswordResultDto> ResetPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/reset-password", new { token, newPassword }, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // Backend returns 400 with a meaningful { success:false, message:"..." } body for an
+        // invalid/expired token, and a differently-shaped { error:"..." } body for a rejected new
+        // password (ArgumentException) -- surface whichever message is actually present instead of
+        // just throwing on the non-2xx status (which would give a bare "status code" message).
+        try
+        {
+            var result = JsonSerializer.Deserialize<ResetPasswordResultDto>(body);
+            if (result != null && !string.IsNullOrWhiteSpace(result.Message))
+                return result;
+        }
+        catch (JsonException)
+        {
+        }
+
+        if (response.IsSuccessStatusCode)
+            return new ResetPasswordResultDto { Success = true, Message = "Password has been reset." };
+
+        try
+        {
+            var error = JsonSerializer.Deserialize<ErrorResponseDto>(body);
+            if (!string.IsNullOrWhiteSpace(error?.Error))
+                return new ResetPasswordResultDto { Success = false, Message = error.Error };
+        }
+        catch (JsonException)
+        {
+        }
+
+        return new ResetPasswordResultDto { Success = false, Message = "Failed to reset password." };
     }
 
     public async Task<MeDto?> GetMeAsync(CancellationToken cancellationToken = default)

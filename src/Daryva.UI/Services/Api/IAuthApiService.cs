@@ -83,6 +83,28 @@ public class VerifyEmailResultDto
     public string Message { get; set; } = string.Empty;
 }
 
+public class ForgotPasswordResultDto
+{
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
+public class ResetPasswordResultDto
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>Shape of the API's generic `{ error: "..." }` failure body (ArgumentException catch blocks).</summary>
+public class ErrorResponseDto
+{
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+}
+
 public interface IAuthApiService
 {
     Task<LoginResultDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
@@ -90,6 +112,8 @@ public interface IAuthApiService
     Task<RegisterResultDto> RegisterAsync(string email, string password, string? firstName = null, string? lastName = null, CancellationToken cancellationToken = default);
     Task<VerifyEmailResultDto> VerifyEmailAsync(string token, CancellationToken cancellationToken = default);
     Task<RegisterResultDto> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);
+    Task<ForgotPasswordResultDto> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
+    Task<ResetPasswordResultDto> ResetPasswordAsync(string token, string newPassword, CancellationToken cancellationToken = default);
     Task<MeDto?> GetMeAsync(CancellationToken cancellationToken = default);
     Task LogoutAsync(CancellationToken cancellationToken = default);
 }

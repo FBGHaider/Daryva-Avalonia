@@ -150,6 +150,83 @@
                                     HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Border>
+
+                    <Border Padding="16"
+                            CornerRadius="8"
+                            Background="{DynamicResource SecondaryBackgroundBrush}"
+                            Opacity="{Binding ShowForgotPasswordScene, Converter={StaticResource BoolToOpacityConverter}}"
+                            IsHitTestVisible="{Binding ShowForgotPasswordScene}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                            </Transitions>
+                        </Border.Transitions>
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Reset your password"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"/>
+                            <TextBlock Text="Enter your account email and we'll send you a reset link."
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="300"/>
+                            <TextBox Watermark="Email" Text="{Binding ForgotPasswordEmail}" Width="300" HorizontalAlignment="Center"/>
+                            <Button Content="Send reset link"
+                                    Command="{Binding SubmitForgotPasswordCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                            <Button Content="I already have a reset link"
+                                    Command="{Binding ShowResetPasswordSceneCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="220"
+                                    HorizontalAlignment="Center"/>
+                            <Button Content="Back to login"
+                                    Command="{Binding ShowLoginSceneCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Padding="16"
+                            CornerRadius="8"
+                            Background="{DynamicResource SecondaryBackgroundBrush}"
+                            Opacity="{Binding ShowResetPasswordScene, Converter={StaticResource BoolToOpacityConverter}}"
+                            IsHitTestVisible="{Binding ShowResetPasswordScene}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                            </Transitions>
+                        </Border.Transitions>
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Set a new password"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"/>
+                            <TextBlock Text="Paste the reset link (or just the code) from your email."
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="300"/>
+                            <TextBox Watermark="Reset link or code" Text="{Binding ResetToken}" Width="300" HorizontalAlignment="Center"/>
+                            <TextBox Watermark="New password" Text="{Binding ResetNewPassword}" PasswordChar="•" Width="300" HorizontalAlignment="Center"/>
+                            <TextBox Watermark="Confirm new password" Text="{Binding ResetConfirmPassword}" PasswordChar="•" Width="300" HorizontalAlignment="Center"/>
+                            <Button Content="Reset password"
+                                    Command="{Binding SubmitResetPasswordCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                            <Button Content="Back to login"
+                                    Command="{Binding ShowLoginSceneCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                                    Width="180"
+                                    HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
                 </Grid>
 
                 <Border Background="{DynamicResource SecondaryBackgroundBrush}"
