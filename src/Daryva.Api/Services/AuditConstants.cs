@@ -14,6 +14,10 @@ public static class AuditEventTypes
     public const string AuthPasswordReset = "AuthPasswordReset";
     public const string PlatformAdminGranted = "PlatformAdminGranted";
     public const string TwoFactorEnabled = "TwoFactorEnabled";
+    public const string TwoFactorChallengeIssued = "TwoFactorChallengeIssued";
+    public const string TwoFactorVerified = "TwoFactorVerified";
+    public const string TwoFactorFailed = "TwoFactorFailed";
+    public const string TwoFactorRecoveryCodeUsed = "TwoFactorRecoveryCodeUsed";
 }
 
 /// <summary>

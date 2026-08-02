@@ -31,6 +31,8 @@ public class AuthService : IAuthService
     private static readonly TimeSpan PasswordResetTokenLifetime = TimeSpan.FromHours(1);
     private const string TwoFactorDataProtectionPurpose = "Daryva.TwoFactorSecret";
     private const int RecoveryCodeCount = 10;
+    private const string TwoFactorChallengeAudience = "daryva-2fa-pending";
+    private static readonly TimeSpan TwoFactorChallengeLifetime = TimeSpan.FromMinutes(5);
     private readonly IAppUserRepository _appUserRepository;
     private readonly IAuthRefreshTokenRepository _authRefreshTokenRepository;
     private readonly IUnitOfWork _unitOfWork;
@@ -199,7 +201,7 @@ public class AuthService : IAuthService
         return result;
     }
 
-    public async Task<AuthResponse?> LoginAsync(LoginRequest request, string? clientIp, CancellationToken cancellationToken = default)
+    public async Task<LoginResponse?> LoginAsync(LoginRequest request, string? clientIp, CancellationToken cancellationToken = default)
     {
         var allowAnyLogin = _configuration.GetValue<bool>("Auth:AllowAnyLogin");
         var email = NormalizeEmail(request.Email);
@@ -235,8 +237,69 @@ public class AuthService : IAuthService
 
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
+
+        if (user.TwoFactorEnabled)
+        {
+            _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TwoFactorChallengeIssued,
+                targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return new LoginResponse
+            {
+                RequiresTwoFactor = true,
+                ChallengeToken = CreateTwoFactorChallengeToken(user)
+            };
+        }
+
         user.LastLoginAt = now;
         _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.AuthLogin,
+            targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var authResponse = await IssueTokensAsync(user, clientIp, cancellationToken);
+        return ToLoginResponse(authResponse);
+    }
+
+    public async Task<AuthResponse?> VerifyTwoFactorLoginAsync(string challengeToken, string code, string? clientIp, CancellationToken cancellationToken = default)
+    {
+        var userId = ValidateTwoFactorChallengeToken(challengeToken);
+        if (userId == null || string.IsNullOrWhiteSpace(code))
+            return null;
+
+        var user = await _appUserRepository.GetByIdAsync(userId.Value, cancellationToken);
+        if (user == null || !user.IsActive || !user.TwoFactorEnabled || string.IsNullOrWhiteSpace(user.TwoFactorSecretEncrypted))
+            return null;
+
+        var trimmedCode = code.Trim();
+        var usedRecoveryCode = false;
+
+        var secretBase32 = _twoFactorProtector.Unprotect(user.TwoFactorSecretEncrypted);
+        var totp = new Totp(Base32Encoding.ToBytes(secretBase32));
+        var verified = totp.VerifyTotp(trimmedCode, out _, VerificationWindow.RfcSpecifiedNetworkDelay);
+
+        if (!verified && !string.IsNullOrWhiteSpace(user.RecoveryCodesHash))
+        {
+            var hashes = System.Text.Json.JsonSerializer.Deserialize<List<string>>(user.RecoveryCodesHash) ?? new List<string>();
+            var codeHash = Sha256(trimmedCode.ToLowerInvariant());
+            if (hashes.Remove(codeHash))
+            {
+                user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(hashes);
+                verified = true;
+                usedRecoveryCode = true;
+            }
+        }
+
+        if (!verified)
+        {
+            _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TwoFactorFailed,
+                targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+
+        user.LastLoginAt = DateTime.UtcNow;
+        _auditLogger.Log(user.Id, AuditActorRoles.User,
+            usedRecoveryCode ? AuditEventTypes.TwoFactorRecoveryCodeUsed : AuditEventTypes.TwoFactorVerified,
             targetType: nameof(AppUser), targetId: user.Id.ToString(), ipAddress: clientIp);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -582,6 +645,75 @@ public class AuthService : IAuthService
             UserId = user.Id.ToString(),
             Email = user.Email
         };
+    }
+
+    private static LoginResponse ToLoginResponse(AuthResponse auth)
+    {
+        return new LoginResponse
+        {
+            RequiresTwoFactor = false,
+            AccessToken = auth.AccessToken,
+            RefreshToken = auth.RefreshToken,
+            AccessTokenExpiresAt = auth.AccessTokenExpiresAt,
+            UserId = auth.UserId,
+            Email = auth.Email
+        };
+    }
+
+    private string CreateTwoFactorChallengeToken(AppUser user)
+    {
+        var now = DateTime.UtcNow;
+        var keyBytes = Encoding.UTF8.GetBytes(_jwtOptions.SigningKey);
+        var signingKey = new SymmetricSecurityKey(keyBytes);
+        var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new("sub", user.Id.ToString()),
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: _jwtOptions.Issuer,
+            audience: TwoFactorChallengeAudience,
+            claims: claims,
+            notBefore: now,
+            expires: now.Add(TwoFactorChallengeLifetime),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private Guid? ValidateTwoFactorChallengeToken(string challengeToken)
+    {
+        if (string.IsNullOrWhiteSpace(challengeToken))
+            return null;
+
+        var keyBytes = Encoding.UTF8.GetBytes(_jwtOptions.SigningKey);
+        var signingKey = new SymmetricSecurityKey(keyBytes);
+
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = signingKey,
+            ValidateIssuer = true,
+            ValidIssuer = _jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = TwoFactorChallengeAudience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+
+        try
+        {
+            var principal = new JwtSecurityTokenHandler().ValidateToken(challengeToken, validationParameters, out _);
+            var sub = principal.FindFirst("sub")?.Value ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return Guid.TryParse(sub, out var userId) ? userId : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string NormalizeEmail(string email)

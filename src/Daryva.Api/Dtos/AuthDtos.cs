@@ -52,6 +52,29 @@ public class AuthResponse
     public string Email { get; set; } = string.Empty;
 }
 
+public class LoginResponse
+{
+    /// <summary>When true, no tokens have been issued yet -- call 2fa/verify with the ChallengeToken and a code.</summary>
+    public bool RequiresTwoFactor { get; set; }
+
+    /// <summary>Short-lived token proving password ownership, only valid against 2fa/verify. Set when RequiresTwoFactor is true.</summary>
+    public string? ChallengeToken { get; set; }
+
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? AccessTokenExpiresAt { get; set; }
+    public string? UserId { get; set; }
+    public string? Email { get; set; }
+}
+
+public class TwoFactorLoginRequest
+{
+    public string ChallengeToken { get; set; } = string.Empty;
+
+    /// <summary>Either a 6-digit TOTP code or a one-time recovery code.</summary>
+    public string Code { get; set; } = string.Empty;
+}
+
 public class ForgotPasswordRequest
 {
     public string Email { get; set; } = string.Empty;

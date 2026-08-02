@@ -88,10 +88,10 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [EnableRateLimiting("auth")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -106,6 +106,20 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = ex.Message });
         }
 
+    }
+
+    [AllowAnonymous]
+    [HttpPost("2fa/verify")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<AuthResponse>> VerifyTwoFactorLogin([FromBody] TwoFactorLoginRequest request, CancellationToken cancellationToken = default)
+    {
+        var result = await _authService.VerifyTwoFactorLoginAsync(request.ChallengeToken, request.Code, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+        if (result == null)
+            return Unauthorized(new { error = "Invalid or expired code." });
+
+        return Ok(result);
     }
 
     [AllowAnonymous]
