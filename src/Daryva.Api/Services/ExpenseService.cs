@@ -1,5 +1,6 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +10,15 @@ public class ExpenseService : IExpenseService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILogger<ExpenseService> _logger;
+    private readonly ITenantContext _tenantContext;
+    private readonly IAuditLogger _auditLogger;
 
-    public ExpenseService(AppDbContext dbContext, ILogger<ExpenseService> logger)
+    public ExpenseService(AppDbContext dbContext, ILogger<ExpenseService> logger, ITenantContext tenantContext, IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _tenantContext = tenantContext;
+        _auditLogger = auditLogger;
     }
 
     public async Task<IEnumerable<Expense>> GetAllExpensesAsync(CancellationToken cancellationToken = default)
@@ -60,7 +65,18 @@ public class ExpenseService : IExpenseService
         if (expense != null)
         {
             _dbContext.Expenses.Remove(expense);
+            LogAudit(AuditEventTypes.ExpenseDeleted, expense.OrganizationId, nameof(Expense), expense.Id.ToString());
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId)
+    {
+        if (!Guid.TryParse(_tenantContext.UserId, out var actorId))
+            return;
+
+        _auditLogger.Log(actorId, _tenantContext.CurrentRole ?? "Unknown", eventType,
+            organizationId: organizationId, targetType: targetType, targetId: targetId,
+            supportSessionId: _tenantContext.ActiveSupportSessionId);
     }
 }

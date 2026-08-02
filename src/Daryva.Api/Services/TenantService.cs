@@ -1,5 +1,6 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,11 +14,15 @@ public class TenantService : ITenantService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILogger<TenantService> _logger;
+    private readonly ITenantContext _tenantContext;
+    private readonly IAuditLogger _auditLogger;
 
-    public TenantService(AppDbContext dbContext, ILogger<TenantService> logger)
+    public TenantService(AppDbContext dbContext, ILogger<TenantService> logger, ITenantContext tenantContext, IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _tenantContext = tenantContext;
+        _auditLogger = auditLogger;
     }
 
     public async Task<IEnumerable<Tenant>> GetAllTenantsAsync(
@@ -84,6 +89,7 @@ public class TenantService : ITenantService
         if (tenant != null)
         {
             _dbContext.Tenants.Remove(tenant);
+            LogAudit(AuditEventTypes.TenantDeleted, tenant.OrganizationId, nameof(Tenant), tenant.Id.ToString());
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
     }
@@ -108,6 +114,7 @@ public class TenantService : ITenantService
         }
 
         tenant.IsArchived = true;
+        LogAudit(AuditEventTypes.TenantArchived, tenant.OrganizationId, nameof(Tenant), tenant.Id.ToString());
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Archived tenant {TenantId}", tenantId);
         return true;
@@ -121,8 +128,19 @@ public class TenantService : ITenantService
             return false;
 
         tenant.IsArchived = false;
+        LogAudit(AuditEventTypes.TenantUnarchived, tenant.OrganizationId, nameof(Tenant), tenant.Id.ToString());
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Unarchived tenant {TenantId}", tenantId);
         return true;
+    }
+
+    private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId)
+    {
+        if (!Guid.TryParse(_tenantContext.UserId, out var actorId))
+            return;
+
+        _auditLogger.Log(actorId, _tenantContext.CurrentRole ?? "Unknown", eventType,
+            organizationId: organizationId, targetType: targetType, targetId: targetId,
+            supportSessionId: _tenantContext.ActiveSupportSessionId);
     }
 }

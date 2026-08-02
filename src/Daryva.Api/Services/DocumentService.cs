@@ -1,5 +1,6 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +10,15 @@ public class DocumentService : IDocumentService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILogger<DocumentService> _logger;
+    private readonly ITenantContext _tenantContext;
+    private readonly IAuditLogger _auditLogger;
 
-    public DocumentService(AppDbContext dbContext, ILogger<DocumentService> logger)
+    public DocumentService(AppDbContext dbContext, ILogger<DocumentService> logger, ITenantContext tenantContext, IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _tenantContext = tenantContext;
+        _auditLogger = auditLogger;
     }
 
     public async Task<IEnumerable<Document>> GetAllDocumentsAsync(CancellationToken cancellationToken = default)
@@ -73,7 +78,18 @@ public class DocumentService : IDocumentService
         if (document != null)
         {
             _dbContext.Documents.Remove(document);
+            LogAudit(AuditEventTypes.DocumentDeleted, document.OrganizationId, nameof(Document), document.Id.ToString());
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId)
+    {
+        if (!Guid.TryParse(_tenantContext.UserId, out var actorId))
+            return;
+
+        _auditLogger.Log(actorId, _tenantContext.CurrentRole ?? "Unknown", eventType,
+            organizationId: organizationId, targetType: targetType, targetId: targetId,
+            supportSessionId: _tenantContext.ActiveSupportSessionId);
     }
 }

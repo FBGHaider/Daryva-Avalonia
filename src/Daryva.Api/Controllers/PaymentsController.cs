@@ -3,6 +3,7 @@ using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
 using Daryva.Api.Security;
 using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services;
 using Daryva.Api.Services.Interfaces;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
@@ -19,12 +20,24 @@ public class PaymentsController : ControllerBase
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly IRentLedgerService _rentLedgerService;
+    private readonly IAuditLogger _auditLogger;
 
-    public PaymentsController(AppDbContext dbContext, ITenantContext tenantContext, IRentLedgerService rentLedgerService)
+    public PaymentsController(AppDbContext dbContext, ITenantContext tenantContext, IRentLedgerService rentLedgerService, IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _rentLedgerService = rentLedgerService;
+        _auditLogger = auditLogger;
+    }
+
+    private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId, object? metadata = null)
+    {
+        if (!Guid.TryParse(_tenantContext.UserId, out var actorId))
+            return;
+
+        _auditLogger.Log(actorId, _tenantContext.CurrentRole ?? "Unknown", eventType,
+            organizationId: organizationId, targetType: targetType, targetId: targetId, metadata: metadata,
+            supportSessionId: _tenantContext.ActiveSupportSessionId);
     }
 
     [HttpPost("record")]
@@ -91,6 +104,8 @@ public class PaymentsController : ControllerBase
                 response.RentPaymentId = rentPayment.Id;
             }
 
+            LogAudit(AuditEventTypes.PaymentRecorded, orgId, nameof(Tenancy), tenancy.Id.ToString(),
+                metadata: new { response.DepositPaymentId, response.RentPaymentId, request.DepositAmount, request.RentAmount });
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             response.Success = true;
@@ -567,6 +582,8 @@ public class PaymentsController : ControllerBase
         };
 
         _dbContext.DepositReturns.Add(depositReturn);
+        LogAudit(AuditEventTypes.DepositReturnRecorded, orgId, nameof(Tenancy), tenancy.Id.ToString(),
+            metadata: new { depositReturn.AmountReturned });
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -590,8 +607,14 @@ public class PaymentsController : ControllerBase
 
         var orgId = _tenantContext.CurrentOrgId.Value;
 
-        _ = await _dbContext.RentPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
-        _ = await _dbContext.DepositPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
+        // ExecuteDeleteAsync bypasses the change tracker, so it commits immediately and independently
+        // of the audit entry below -- the audit log is staged and saved separately afterward.
+        var rentDeleted = await _dbContext.RentPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
+        var depositDeleted = await _dbContext.DepositPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
+
+        LogAudit(AuditEventTypes.PaymentsBulkDeleted, orgId, nameof(Organization), orgId.ToString(),
+            metadata: new { rentPaymentsDeleted = rentDeleted, depositPaymentsDeleted = depositDeleted });
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return NoContent();
     }
@@ -608,6 +631,8 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        var orgId = _tenantContext.CurrentOrgId.Value;
+
         if (paymentType.Equals("Rent", StringComparison.OrdinalIgnoreCase))
         {
             var payment = await _dbContext.RentPayments.FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
@@ -617,6 +642,8 @@ public class PaymentsController : ControllerBase
             }
 
             _dbContext.RentPayments.Remove(payment);
+            LogAudit(AuditEventTypes.PaymentDeleted, orgId, nameof(RentPayment), payment.Id.ToString(),
+                metadata: new { paymentType = "Rent", payment.AmountPaid });
             await _dbContext.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
@@ -630,6 +657,8 @@ public class PaymentsController : ControllerBase
             }
 
             _dbContext.DepositPayments.Remove(payment);
+            LogAudit(AuditEventTypes.PaymentDeleted, orgId, nameof(DepositPayment), payment.Id.ToString(),
+                metadata: new { paymentType = "Deposit", payment.AmountPaid });
             await _dbContext.SaveChangesAsync(cancellationToken);
             return NoContent();
         }

@@ -1,6 +1,7 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
+using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,12 +16,21 @@ public class HouseService : IHouseService
     private readonly AppDbContext _dbContext;
     private readonly ILogger<HouseService> _logger;
     private readonly IRentLedgerService _rentLedgerService;
+    private readonly ITenantContext _tenantContext;
+    private readonly IAuditLogger _auditLogger;
 
-    public HouseService(AppDbContext dbContext, ILogger<HouseService> logger, IRentLedgerService rentLedgerService)
+    public HouseService(
+        AppDbContext dbContext,
+        ILogger<HouseService> logger,
+        IRentLedgerService rentLedgerService,
+        ITenantContext tenantContext,
+        IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
         _logger = logger;
         _rentLedgerService = rentLedgerService;
+        _tenantContext = tenantContext;
+        _auditLogger = auditLogger;
     }
 
     public async Task<IEnumerable<HouseResponse>> GetHousesAsync(
@@ -149,6 +159,7 @@ public class HouseService : IHouseService
             return null;
 
         house.IsArchived = true;
+        LogAudit(AuditEventTypes.HouseArchived, house.OrganizationId, nameof(House), house.Id.ToString());
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Archived house {HouseId} in organization {OrgId}.", houseId, orgId);
@@ -171,11 +182,22 @@ public class HouseService : IHouseService
             return false;
 
         _dbContext.Houses.Remove(house);
+        LogAudit(AuditEventTypes.HouseDeleted, house.OrganizationId, nameof(House), house.Id.ToString());
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Deleted house {HouseId} from organization {OrgId}.", houseId, orgId);
 
         return true;
+    }
+
+    private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId)
+    {
+        if (!Guid.TryParse(_tenantContext.UserId, out var actorId))
+            return;
+
+        _auditLogger.Log(actorId, _tenantContext.CurrentRole ?? "Unknown", eventType,
+            organizationId: organizationId, targetType: targetType, targetId: targetId,
+            supportSessionId: _tenantContext.ActiveSupportSessionId);
     }
 
     private static void ValidateHouseRequest(CreateHouseRequest request)

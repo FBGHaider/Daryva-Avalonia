@@ -22,6 +22,21 @@ public static class AuditEventTypes
     public const string TwoFactorRecoveryCodesRegenerated = "TwoFactorRecoveryCodesRegenerated";
     public const string SupportSessionStarted = "SupportSessionStarted";
     public const string SupportSessionEnded = "SupportSessionEnded";
+    public const string HouseArchived = "HouseArchived";
+    public const string HouseDeleted = "HouseDeleted";
+    public const string TenantArchived = "TenantArchived";
+    public const string TenantUnarchived = "TenantUnarchived";
+    public const string TenantDeleted = "TenantDeleted";
+    public const string TenancyEnded = "TenancyEnded";
+    public const string TenancyReactivated = "TenancyReactivated";
+    public const string TenancyDeleted = "TenancyDeleted";
+    public const string TenanciesBulkDeleted = "TenanciesBulkDeleted";
+    public const string DocumentDeleted = "DocumentDeleted";
+    public const string ExpenseDeleted = "ExpenseDeleted";
+    public const string PaymentRecorded = "PaymentRecorded";
+    public const string DepositReturnRecorded = "DepositReturnRecorded";
+    public const string PaymentDeleted = "PaymentDeleted";
+    public const string PaymentsBulkDeleted = "PaymentsBulkDeleted";
 }
 
 /// <summary>

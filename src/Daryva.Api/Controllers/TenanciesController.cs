@@ -2,6 +2,8 @@ using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Security;
 using Daryva.Api.Security.Interfaces;
+using Daryva.Api.Services;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,11 +17,23 @@ public class TenanciesController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
+    private readonly IAuditLogger _auditLogger;
 
-    public TenanciesController(AppDbContext dbContext, ITenantContext tenantContext)
+    public TenanciesController(AppDbContext dbContext, ITenantContext tenantContext, IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
+        _auditLogger = auditLogger;
+    }
+
+    private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId)
+    {
+        if (!Guid.TryParse(_tenantContext.UserId, out var actorId))
+            return;
+
+        _auditLogger.Log(actorId, _tenantContext.CurrentRole ?? "Unknown", eventType,
+            organizationId: organizationId, targetType: targetType, targetId: targetId,
+            supportSessionId: _tenantContext.ActiveSupportSessionId);
     }
 
     [HttpGet]
@@ -147,6 +161,7 @@ public class TenanciesController : ControllerBase
                 : request.MoveOutDate.ToUniversalTime();
             tenancy.MoveOutDate = moveOutUtc;
             tenancy.Status = "Ended";
+            LogAudit(AuditEventTypes.TenancyEnded, tenancy.OrganizationId, nameof(Tenancy), tenancy.Id.ToString());
             await _dbContext.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
@@ -173,6 +188,7 @@ public class TenanciesController : ControllerBase
 
         tenancy.MoveOutDate = null;
         tenancy.Status = "Active";
+        LogAudit(AuditEventTypes.TenancyReactivated, tenancy.OrganizationId, nameof(Tenancy), tenancy.Id.ToString());
         await _dbContext.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
@@ -239,6 +255,7 @@ public class TenanciesController : ControllerBase
             return NotFound();
 
         _dbContext.Tenancies.Remove(tenancy);
+        LogAudit(AuditEventTypes.TenancyDeleted, tenancy.OrganizationId, nameof(Tenancy), tenancy.Id.ToString());
         await _dbContext.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
@@ -257,6 +274,10 @@ public class TenanciesController : ControllerBase
             query = query.Where(t => t.Status == "Ended");
         var toRemove = await query.ToListAsync(cancellationToken);
         _dbContext.Tenancies.RemoveRange(toRemove);
+        if (toRemove.Count > 0)
+        {
+            LogAudit(AuditEventTypes.TenanciesBulkDeleted, orgId, nameof(House), houseId.ToString());
+        }
         await _dbContext.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
