@@ -256,7 +256,7 @@ function Set-UiApiBaseUrl {
     $apiBaseUrl = "http://localhost:$ApiPort"
     $projectLocalConfig = Join-Path $UiProjectDir "app.config.local.json"
     $exampleConfig = Join-Path $UiProjectDir "app.config.local.example.json"
-    $outputLocalConfig = Join-Path $UiProjectDir "bin\Debug\net8.0\app.config.local.json"
+    $outputLocalConfig = Join-Path $UiProjectDir "bin\Debug\net10.0\app.config.local.json"
 
     $configPath = $projectLocalConfig
     if (-not (Test-Path $configPath)) {
@@ -413,7 +413,7 @@ if (-not $ApiOnly) {
     }
 
     if (-not $launchWithVisibleTerminals) {
-        $uiExePath = Join-Path $repoRoot "src\Daryva.UI\bin\Debug\net8.0\Daryva.exe"
+        $uiExePath = Join-Path $repoRoot "src\Daryva.UI\bin\Debug\net10.0\Daryva.exe"
         if (Test-Path $uiExePath) {
             $uiExeProcess = Start-Process -FilePath $uiExePath -WorkingDirectory (Split-Path -Parent $uiExePath) -PassThru
             $uiWindowVisible = Wait-ForUiWindow -UiProcess $uiExeProcess -TimeoutSeconds $UiStartupTimeoutSeconds
