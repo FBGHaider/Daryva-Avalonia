@@ -26,11 +26,17 @@
                        TextWrapping="Wrap"
                        TextAlignment="Center"
                        HorizontalAlignment="Center"/>
+            <TextBox Watermark="Email" Text="{Binding Email}" Width="300" HorizontalAlignment="Center"/>
+            <TextBox Watermark="Password" Text="{Binding Password}" PasswordChar="•" Width="300" HorizontalAlignment="Center"/>
             <Button Content="Sign in"
                     Command="{Binding SignInCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
                     HorizontalAlignment="Center"
                     MinWidth="200"/>
+            <Button Content="Don't have an account? Create one"
+                    Command="{Binding CreateAccountCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                    HorizontalAlignment="Center"/>
             <TextBlock Text="{Binding ErrorMessage}"
                        Foreground="{DynamicResource StatusDangerBrush}"
                        TextWrapping="Wrap"

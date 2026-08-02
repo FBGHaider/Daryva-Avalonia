@@ -1,97 +1,60 @@
-using System.Security.Claims;
 using Daryva.Services.Api;
 using Daryva.Services.AppReset;
 using Daryva.Services.Session;
 using Microsoft.Extensions.DependencyInjection;
-using Duende.IdentityModel.Client;
-using Duende.IdentityModel.OidcClient;
-using Duende.IdentityModel.OidcClient.Browser;
 
 namespace Daryva.Services.Auth;
 
 /// <summary>
-/// SaaS auth via OIDC Authorization Code + PKCE; system browser and loopback redirect.
-/// Persists tokens with <see cref="ITokenStore"/>; syncs to <see cref="IAuthSessionService"/> for existing ApiClient.
-/// Updates <see cref="ISessionContext"/> on sign-in/sign-out so session-scoped storage and UI stay correct.
+/// Local email/password auth against Daryva.Api. Session state lives in IAuthSessionService
+/// (read by ApiClient for outgoing requests); this class only coordinates the sign-in/refresh/
+/// sign-out lifecycle and raises StateChanged so MainViewModel can react uniformly.
 /// </summary>
 public sealed class AuthService : IAuthService
 {
-    private readonly ITokenStore _tokenStore;
+    private readonly IAuthApiService _authApiService;
     private readonly IAuthSessionService _authSession;
-    private readonly IConfigurationService _configuration;
     private readonly ISessionContext _sessionContext;
     private readonly IServiceProvider _serviceProvider;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
-    private OidcClient? _oidcClient;
 
     public event EventHandler<AuthStateChangedEventArgs>? StateChanged;
 
     public AuthService(
-        ITokenStore tokenStore,
+        IAuthApiService authApiService,
         IAuthSessionService authSession,
-        IConfigurationService configuration,
         ISessionContext sessionContext,
         IServiceProvider serviceProvider)
     {
-        _tokenStore = tokenStore;
+        _authApiService = authApiService;
         _authSession = authSession;
-        _configuration = configuration;
         _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
-    public async Task<bool> HasValidSessionAsync(CancellationToken cancellationToken = default)
+    public Task<bool> HasValidSessionAsync(CancellationToken cancellationToken = default)
     {
-        var token = await _tokenStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null || string.IsNullOrWhiteSpace(token.AccessToken))
-            return false;
-        if (token.ExpiresAtUtc <= DateTime.UtcNow)
-            return await TryRefreshAsync(cancellationToken).ConfigureAwait(false);
-        SyncToSessionIfNeeded(token);
-        return true;
+        if (!_authSession.IsAuthenticated || string.IsNullOrWhiteSpace(_authSession.AccessToken))
+            return Task.FromResult(false);
+        if (_authSession.AccessTokenExpiresAtUtc is { } expiresAtUtc && expiresAtUtc <= DateTime.UtcNow)
+            return TryRefreshAsync(cancellationToken);
+        return Task.FromResult(true);
     }
 
-    public async Task SignInAsync(CancellationToken cancellationToken = default)
+    public async Task<AuthSignInResult> SignInAsync(string email, string password, CancellationToken cancellationToken = default)
     {
-        var client = GetOrCreateOidcClient();
-        var loginRequest = new LoginRequest
-        {
-            FrontChannelExtraParameters = Parameters.FromObject(new { prompt = "login" })
-        };
-        var result = await client.LoginAsync(loginRequest, cancellationToken).ConfigureAwait(false);
-        if (result.IsError)
-        {
-            await _tokenStore.ClearAsync(cancellationToken).ConfigureAwait(false);
-            _authSession.ClearSession();
-            RaiseStateChanged(false);
-            var msg = result.Error ?? "Sign-in failed.";
-            if (!string.IsNullOrWhiteSpace(result.ErrorDescription))
-                msg += " " + result.ErrorDescription;
-            throw new InvalidOperationException(msg);
-        }
+        var result = await _authApiService.LoginAsync(email, password, cancellationToken).ConfigureAwait(false);
+        if (result.RequiresTwoFactor)
+            return new AuthSignInResult { RequiresTwoFactor = true, ChallengeToken = result.ChallengeToken };
 
-        var expiresAtUtc = result.AccessTokenExpiration.UtcDateTime;
-
-        var userId = result.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? result.User?.FindFirst("sub")?.Value ?? string.Empty;
-        var email = result.User?.FindFirst(ClaimTypes.Email)?.Value ?? result.User?.FindFirst("email")?.Value ?? string.Empty;
-        var stored = new StoredToken
-        {
-            AccessToken = result.AccessToken ?? string.Empty,
-            RefreshToken = result.RefreshToken,
-            ExpiresAtUtc = expiresAtUtc,
-            UserId = userId,
-            Email = email
-        };
-        await _tokenStore.SaveAsync(stored, cancellationToken).ConfigureAwait(false);
-        _authSession.SetSession(result.AccessToken ?? string.Empty, result.RefreshToken ?? string.Empty, expiresAtUtc, userId, email);
-        _sessionContext.SetFromToken(userId, email);
+        _sessionContext.SetFromToken(result.UserId ?? string.Empty, result.Email ?? string.Empty);
         RaiseStateChanged(true);
+        return new AuthSignInResult { RequiresTwoFactor = false };
     }
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
-        await _tokenStore.ClearAsync(cancellationToken).ConfigureAwait(false);
-        _authSession.ClearSession();
+        await _authApiService.LogoutAsync(cancellationToken).ConfigureAwait(false);
         var resetService = _serviceProvider.GetRequiredService<IAppResetService>();
         await resetService.ResetToSignedOutAsync(cancellationToken).ConfigureAwait(false);
         RaiseStateChanged(false);
@@ -99,18 +62,15 @@ public sealed class AuthService : IAuthService
 
     public async Task<string?> GetAccessTokenAsync(CancellationToken cancellationToken = default)
     {
-        var token = await _tokenStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null || string.IsNullOrWhiteSpace(token.AccessToken))
+        if (!_authSession.IsAuthenticated)
             return null;
-        if (token.ExpiresAtUtc <= DateTime.UtcNow)
+        if (_authSession.AccessTokenExpiresAtUtc is { } expiresAtUtc && expiresAtUtc <= DateTime.UtcNow)
         {
             var refreshed = await TryRefreshAsync(cancellationToken).ConfigureAwait(false);
             if (!refreshed)
                 return null;
-            token = await _tokenStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         }
-        SyncToSessionIfNeeded(token);
-        return token?.AccessToken;
+        return _authSession.AccessToken;
     }
 
     public async Task<bool> TryRefreshAsync(CancellationToken cancellationToken = default)
@@ -118,82 +78,30 @@ public sealed class AuthService : IAuthService
         await _refreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var token = await _tokenStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-            if (token == null || string.IsNullOrWhiteSpace(token.RefreshToken))
-                return false;
-            if (token.ExpiresAtUtc > DateTime.UtcNow.AddMinutes(1))
+            if (_authSession.AccessTokenExpiresAtUtc is { } expiresAtUtc && expiresAtUtc > DateTime.UtcNow.AddMinutes(1))
                 return true;
 
-            var client = GetOrCreateOidcClient();
-            var result = await client.RefreshTokenAsync(token.RefreshToken, default, null, cancellationToken).ConfigureAwait(false);
-            if (result.IsError || string.IsNullOrWhiteSpace(result.AccessToken))
+            var refreshToken = _authSession.RefreshToken;
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                return false;
+
+            try
             {
-                await _tokenStore.ClearAsync(cancellationToken).ConfigureAwait(false);
+                var tokens = await _authApiService.RefreshAsync(refreshToken, cancellationToken).ConfigureAwait(false);
+                _authSession.SetSession(tokens.AccessToken, tokens.RefreshToken, tokens.AccessTokenExpiresAt, tokens.UserId, tokens.Email);
+                return true;
+            }
+            catch
+            {
                 _authSession.ClearSession();
                 RaiseStateChanged(false);
                 return false;
             }
-
-            var expiresAtUtc = result.AccessTokenExpiration.UtcDateTime;
-
-            var stored = new StoredToken
-            {
-                AccessToken = result.AccessToken,
-                RefreshToken = result.RefreshToken ?? token.RefreshToken,
-                ExpiresAtUtc = expiresAtUtc,
-                UserId = _authSession.UserId,
-                Email = _authSession.Email
-            };
-            await _tokenStore.SaveAsync(stored, cancellationToken).ConfigureAwait(false);
-            _authSession.UpdateAccessToken(result.AccessToken, expiresAtUtc);
-            if (!string.IsNullOrWhiteSpace(result.RefreshToken))
-                _authSession.SetSession(result.AccessToken, result.RefreshToken, expiresAtUtc, _authSession.UserId ?? string.Empty, _authSession.Email ?? string.Empty);
-            return true;
         }
         finally
         {
             _refreshLock.Release();
         }
-    }
-
-    private OidcClient GetOrCreateOidcClient()
-    {
-        if (_oidcClient != null)
-            return _oidcClient;
-
-        var authority = _configuration.GetValue("Oidc:Authority")?.Trim();
-        var clientId = _configuration.GetValue("Oidc:ClientId")?.Trim();
-        if (string.IsNullOrEmpty(authority) || string.IsNullOrEmpty(clientId))
-            throw new InvalidOperationException("Oidc:Authority and Oidc:ClientId must be set in configuration.");
-
-        var redirectUri = $"http://127.0.0.1:{LoopbackBrowser.LoopbackPort}/callback";
-        var options = new OidcClientOptions
-        {
-            Authority = authority.TrimEnd('/') + "/",
-            ClientId = clientId,
-            ClientSecret = null, // Public client (PKCE only)
-            RedirectUri = redirectUri,
-            Scope = "openid profile email offline_access",
-            Browser = new LoopbackBrowser(),
-            // Clerk public clients must use auth method "none": no Authorization header, no client_secret in body.
-            BackchannelHandler = new ClerkNoSecretBackchannelHandler()
-        };
-        _oidcClient = new OidcClient(options);
-        return _oidcClient;
-    }
-
-    private void SyncToSessionIfNeeded(StoredToken? token)
-    {
-        if (token == null || string.IsNullOrWhiteSpace(token.AccessToken))
-            return;
-        if (_authSession.AccessToken == token.AccessToken)
-            return;
-        _authSession.SetSession(
-            token.AccessToken,
-            token.RefreshToken ?? string.Empty,
-            token.ExpiresAtUtc,
-            token.UserId ?? string.Empty,
-            token.Email ?? string.Empty);
     }
 
     private void RaiseStateChanged(bool isSignedIn)

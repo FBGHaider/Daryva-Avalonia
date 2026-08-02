@@ -189,7 +189,7 @@ public class SetupRequiredViewModel : BaseViewModel
             var msg = ex.Message ?? "";
             if (msg.Contains("401", StringComparison.OrdinalIgnoreCase) || msg.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase))
                 _dialogService.ShowMessage(
-                    "The API rejected your sign-in (401 Unauthorized). The API must be configured to accept your sign-in provider. In appsettings.Development.json set Jwt:Authority to your Clerk issuer URL (e.g. https://xxx.clerk.accounts.dev). See docs/CLERK_SETUP.md.",
+                    "The API rejected your sign-in (401 Unauthorized). Your session may have expired -- try signing out and back in.",
                     "Error");
             else
                 _dialogService.ShowMessage($"Could not create organisation: {msg}", "Error");

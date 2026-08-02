@@ -13,17 +13,35 @@ public class AuthApiService : IAuthApiService
         _authSession = authSession;
     }
 
-    public async Task<AuthTokensDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+    public async Task<LoginResultDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/login", new { email, password }, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var tokens = await response.Content.ReadFromJsonAsync<AuthTokensDto>(cancellationToken: cancellationToken)
+        var result = await response.Content.ReadFromJsonAsync<LoginResultDto>(cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException("Invalid login response.");
 
-        _authSession.SetSession(tokens.AccessToken, tokens.RefreshToken, tokens.AccessTokenExpiresAt, tokens.UserId, tokens.Email);
-        _apiClient.ApplyAuthState();
-        return tokens;
+        if (!result.RequiresTwoFactor && !string.IsNullOrWhiteSpace(result.AccessToken))
+        {
+            _authSession.SetSession(
+                result.AccessToken,
+                result.RefreshToken ?? string.Empty,
+                result.AccessTokenExpiresAt ?? DateTime.UtcNow,
+                result.UserId ?? string.Empty,
+                result.Email ?? string.Empty);
+            _apiClient.ApplyAuthState();
+        }
+
+        return result;
+    }
+
+    public async Task<AuthTokensDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/refresh", new { refreshToken }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<AuthTokensDto>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Invalid refresh response.");
     }
 
     public async Task<RegisterResultDto> RegisterAsync(string email, string password, string? firstName = null, string? lastName = null, CancellationToken cancellationToken = default)

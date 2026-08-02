@@ -265,7 +265,13 @@ public class OnboardingViewModel : BaseViewModel
                 return;
             }
 
-            await _authApiService.LoginAsync(LoginEmail.Trim(), LoginPassword);
+            var result = await _authApiService.LoginAsync(LoginEmail.Trim(), LoginPassword);
+            if (result.RequiresTwoFactor)
+            {
+                ErrorMessage = "This account has two-factor authentication enabled, which isn't supported in this app version yet. Please contact support.";
+                return;
+            }
+
             _configurationService.SetLocalValue("KeepMeLoggedIn", KeepMeLoggedIn ? "true" : "false");
             _configurationService.ReloadLocalConfig();
             IsAuthenticated = true;

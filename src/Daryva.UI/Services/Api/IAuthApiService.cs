@@ -20,6 +20,30 @@ public class AuthTokensDto
     public string Email { get; set; } = string.Empty;
 }
 
+public class LoginResultDto
+{
+    [JsonPropertyName("requiresTwoFactor")]
+    public bool RequiresTwoFactor { get; set; }
+
+    [JsonPropertyName("challengeToken")]
+    public string? ChallengeToken { get; set; }
+
+    [JsonPropertyName("accessToken")]
+    public string? AccessToken { get; set; }
+
+    [JsonPropertyName("refreshToken")]
+    public string? RefreshToken { get; set; }
+
+    [JsonPropertyName("accessTokenExpiresAt")]
+    public DateTime? AccessTokenExpiresAt { get; set; }
+
+    [JsonPropertyName("userId")]
+    public string? UserId { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+}
+
 public class MeDto
 {
     [JsonPropertyName("userId")]
@@ -61,7 +85,8 @@ public class VerifyEmailResultDto
 
 public interface IAuthApiService
 {
-    Task<AuthTokensDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<LoginResultDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<AuthTokensDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<RegisterResultDto> RegisterAsync(string email, string password, string? firstName = null, string? lastName = null, CancellationToken cancellationToken = default);
     Task<VerifyEmailResultDto> VerifyEmailAsync(string token, CancellationToken cancellationToken = default);
     Task<RegisterResultDto> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);

@@ -36,14 +36,15 @@ namespace Daryva.Services
 
             // API Client Services
             services.AddSingleton<IAuthSessionService, AuthSessionService>();
-            services.AddSingleton<ITokenStore, TokenStore>();
             services.AddSingleton<ISessionContext, SessionContext>();
             services.AddSingleton<IScopedStorage, ScopedStorage>();
             services.AddSingleton<IAppResetService, AppResetService>();
             services.AddSingleton<IAccountDataClearer, AccountDataClearer>();
-            services.AddSingleton<IAuthService, AuthService>();
             services.AddSingleton<IApiClient, ApiClient>();
-            services.AddScoped<IAuthApiService, AuthApiService>();
+            // Singleton, not scoped: this app has no per-request DI scope, and AuthService (singleton)
+            // depends on this directly -- a scoped registration here would be a captive-dependency bug.
+            services.AddSingleton<IAuthApiService, AuthApiService>();
+            services.AddSingleton<IAuthService, AuthService>();
             services.AddScoped<IOrganizationApiService, OrganizationApiService>();
             services.AddScoped<IMeApiService, MeApiService>();
             services.AddSingleton<IOrgContext, OrgContext.OrgContext>();
