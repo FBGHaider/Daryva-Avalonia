@@ -1,6 +1,7 @@
 using Daryva.MVVM.Commands;
 using Daryva.Services.Auth;
 using Daryva.Services.Navigation;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels;
 
@@ -13,17 +14,28 @@ public class SignInViewModel : BaseViewModel
 {
     private readonly IAuthService _authService;
     private readonly INavigationService _navigationService;
+    private readonly IServiceProvider _serviceProvider;
     private bool _isBusy;
     private string _email = string.Empty;
     private string _password = string.Empty;
     private string _errorMessage = string.Empty;
 
-    public SignInViewModel(IAuthService authService, INavigationService navigationService)
+    public SignInViewModel(IAuthService authService, INavigationService navigationService, IServiceProvider serviceProvider)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         SignInCommand = new RelayCommand(async _ => await SignInAsync());
-        CreateAccountCommand = new RelayCommand(_ => _navigationService.NavigateTo<OnboardingViewModel>());
+        CreateAccountCommand = new RelayCommand(_ => NavigateToCreateAccount());
+    }
+
+    private void NavigateToCreateAccount()
+    {
+        // Resolved on demand (not constructor-injected) so OnboardingViewModel isn't built just to show
+        // SignInView; it's only needed if the user actually clicks "Create account".
+        var onboarding = _serviceProvider.GetRequiredService<OnboardingViewModel>();
+        onboarding.IsLoginScene = false;
+        _navigationService.NavigateTo(onboarding);
     }
 
     public bool IsBusy
