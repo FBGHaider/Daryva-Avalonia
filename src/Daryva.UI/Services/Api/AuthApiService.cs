@@ -17,9 +17,15 @@ public class AuthApiService : IAuthApiService
     public async Task<LoginResultDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/login", new { email, password }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        var result = await response.Content.ReadFromJsonAsync<LoginResultDto>(cancellationToken: cancellationToken)
+        // Backend returns 401 with { error: "Invalid credentials." } (or a lockout message) --
+        // surface that instead of EnsureSuccessStatusCode's bare "status code doesn't indicate
+        // success", which is meaningless to a user trying to sign in.
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Invalid email or password.");
+
+        var result = JsonSerializer.Deserialize<LoginResultDto>(body)
             ?? throw new InvalidOperationException("Invalid login response.");
 
         if (!result.RequiresTwoFactor && !string.IsNullOrWhiteSpace(result.AccessToken))
@@ -48,12 +54,15 @@ public class AuthApiService : IAuthApiService
     public async Task<RegisterResultDto> RegisterAsync(string email, string password, string? firstName = null, string? lastName = null, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/register", new { email, password, firstName, lastName }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        var registerResult = await response.Content.ReadFromJsonAsync<RegisterResultDto>(cancellationToken: cancellationToken)
+        // Same fix as LoginAsync: e.g. 409 for an already-registered email should show the
+        // backend's actual message, not a bare status code.
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Failed to create account.");
+
+        return JsonSerializer.Deserialize<RegisterResultDto>(body)
             ?? throw new InvalidOperationException("Invalid register response.");
-
-        return registerResult;
     }
 
     public async Task<VerifyEmailResultDto> VerifyEmailAsync(string token, CancellationToken cancellationToken = default)
@@ -105,17 +114,21 @@ public class AuthApiService : IAuthApiService
         if (response.IsSuccessStatusCode)
             return new ResetPasswordResultDto { Success = true, Message = "Password has been reset." };
 
+        return new ResetPasswordResultDto { Success = false, Message = TryGetErrorMessage(body) ?? "Failed to reset password." };
+    }
+
+    /// <summary>Parses the API's generic `{ error: "..." }` failure body; null if the body isn't shaped that way.</summary>
+    private static string? TryGetErrorMessage(string body)
+    {
         try
         {
             var error = JsonSerializer.Deserialize<ErrorResponseDto>(body);
-            if (!string.IsNullOrWhiteSpace(error?.Error))
-                return new ResetPasswordResultDto { Success = false, Message = error.Error };
+            return string.IsNullOrWhiteSpace(error?.Error) ? null : error.Error;
         }
         catch (JsonException)
         {
+            return null;
         }
-
-        return new ResetPasswordResultDto { Success = false, Message = "Failed to reset password." };
     }
 
     public async Task<MeDto?> GetMeAsync(CancellationToken cancellationToken = default)

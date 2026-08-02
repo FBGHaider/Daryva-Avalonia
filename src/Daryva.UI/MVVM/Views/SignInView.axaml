@@ -41,6 +41,12 @@
                     Command="{Binding CreateAccountCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
                     HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       IsVisible="{Binding HasStatusMessage}"
+                       HorizontalAlignment="Center"/>
             <TextBlock Text="{Binding ErrorMessage}"
                        Foreground="{DynamicResource StatusDangerBrush}"
                        TextWrapping="Wrap"

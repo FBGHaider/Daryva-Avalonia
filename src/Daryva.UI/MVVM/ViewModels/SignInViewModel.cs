@@ -19,6 +19,7 @@ public class SignInViewModel : BaseViewModel
     private string _email = string.Empty;
     private string _password = string.Empty;
     private string _errorMessage = string.Empty;
+    private string _statusMessage = string.Empty;
 
     public SignInViewModel(IAuthService authService, INavigationService navigationService, IServiceProvider serviceProvider)
     {
@@ -77,6 +78,19 @@ public class SignInViewModel : BaseViewModel
 
     public bool HasErrorMessage => !string.IsNullOrWhiteSpace(ErrorMessage);
 
+    /// <summary>Neutral confirmation text (e.g. "Password reset -- please sign in"), distinct from ErrorMessage's red styling.</summary>
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        set
+        {
+            if (SetProperty(ref _statusMessage, value ?? string.Empty))
+                OnPropertyChanged(nameof(HasStatusMessage));
+        }
+    }
+
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+
     public RelayCommand SignInCommand { get; }
     public RelayCommand CreateAccountCommand { get; }
     public RelayCommand ForgotPasswordCommand { get; }
@@ -87,6 +101,7 @@ public class SignInViewModel : BaseViewModel
             return;
         IsBusy = true;
         ErrorMessage = string.Empty;
+        StatusMessage = string.Empty;
         try
         {
             if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))

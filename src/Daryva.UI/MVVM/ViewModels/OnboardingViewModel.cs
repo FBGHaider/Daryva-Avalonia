@@ -6,6 +6,7 @@ using Daryva.Services.Api;
 using Daryva.Services.Auth;
 using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels;
 
@@ -19,6 +20,7 @@ public class OnboardingViewModel : BaseViewModel
     private readonly IApiClient _apiClient;
     private readonly INavigationService _navigationService;
     private readonly IConfigurationService _configurationService;
+    private readonly IServiceProvider _serviceProvider;
 
     private bool _isBusy;
     private string _errorMessage = string.Empty;
@@ -35,10 +37,7 @@ public class OnboardingViewModel : BaseViewModel
     private string _inviteToken = string.Empty;
     private OrganizationDto? _selectedOrganization;
     private bool _keepMeLoggedIn;
-    private bool _isLoginScene = true;
-    private bool _isVerifyEmailScene;
-    private bool _isForgotPasswordScene;
-    private bool _isResetPasswordScene;
+    private AuthScene _authScene = AuthScene.Login;
     private string _verifyEmailAddress = string.Empty;
     private string _forgotPasswordEmail = string.Empty;
     private string _resetToken = string.Empty;
@@ -87,67 +86,53 @@ public class OnboardingViewModel : BaseViewModel
 
     public bool ShowAuthSection => !IsAuthenticated;
     public bool ShowOrgSection => IsAuthenticated;
-    public bool ShowLoginScene => ShowAuthSection && IsLoginScene && !IsVerifyEmailScene && !IsForgotPasswordScene && !IsResetPasswordScene;
-    public bool ShowRegisterScene => ShowAuthSection && !IsLoginScene && !IsVerifyEmailScene && !IsForgotPasswordScene && !IsResetPasswordScene;
-    public bool ShowVerifyEmailScene => ShowAuthSection && IsVerifyEmailScene && !IsForgotPasswordScene && !IsResetPasswordScene;
-    public bool ShowForgotPasswordScene => ShowAuthSection && IsForgotPasswordScene && !IsResetPasswordScene;
-    public bool ShowResetPasswordScene => ShowAuthSection && IsResetPasswordScene;
+    public bool ShowLoginScene => ShowAuthSection && _authScene == AuthScene.Login;
+    public bool ShowRegisterScene => ShowAuthSection && _authScene == AuthScene.Register;
+    public bool ShowVerifyEmailScene => ShowAuthSection && _authScene == AuthScene.VerifyEmail;
+    public bool ShowForgotPasswordScene => ShowAuthSection && _authScene == AuthScene.ForgotPassword;
+    public bool ShowResetPasswordScene => ShowAuthSection && _authScene == AuthScene.ResetPassword;
 
+    // Single source of truth for which auth scene is shown -- a set of independent bool flags
+    // (the previous design) is prone to getting out of sync: e.g. setting IsLoginScene = true is a
+    // SetProperty no-op (and so skips clearing the other flags) if _isLoginScene was never actually
+    // flipped away from its true default when entering another scene.
+    private enum AuthScene { Login, Register, VerifyEmail, ForgotPassword, ResetPassword }
+
+    /// <summary>True/false setter kept for external callers (SignInViewModel) that navigate here targeting a specific scene on a fresh instance.</summary>
     public bool IsLoginScene
     {
-        get => _isLoginScene;
-        set
-        {
-            if (SetProperty(ref _isLoginScene, value))
-            {
-                _isVerifyEmailScene = false;
-                _isForgotPasswordScene = false;
-                _isResetPasswordScene = false;
-                NotifySceneVisibilityChanged();
-            }
-        }
+        get => _authScene == AuthScene.Login;
+        set => SetScene(value ? AuthScene.Login : AuthScene.Register);
     }
 
     public bool IsVerifyEmailScene
     {
-        get => _isVerifyEmailScene;
-        set
-        {
-            if (SetProperty(ref _isVerifyEmailScene, value))
-            {
-                NotifySceneVisibilityChanged();
-            }
-        }
+        get => _authScene == AuthScene.VerifyEmail;
+        set { if (value) SetScene(AuthScene.VerifyEmail); }
     }
 
     public bool IsForgotPasswordScene
     {
-        get => _isForgotPasswordScene;
-        set
-        {
-            if (SetProperty(ref _isForgotPasswordScene, value))
-            {
-                if (value)
-                    _isResetPasswordScene = false;
-                NotifySceneVisibilityChanged();
-            }
-        }
+        get => _authScene == AuthScene.ForgotPassword;
+        set { if (value) SetScene(AuthScene.ForgotPassword); }
     }
 
     public bool IsResetPasswordScene
     {
-        get => _isResetPasswordScene;
-        set
-        {
-            if (SetProperty(ref _isResetPasswordScene, value))
-            {
-                NotifySceneVisibilityChanged();
-            }
-        }
+        get => _authScene == AuthScene.ResetPassword;
+        set { if (value) SetScene(AuthScene.ResetPassword); }
     }
 
-    private void NotifySceneVisibilityChanged()
+    private void SetScene(AuthScene scene)
     {
+        if (_authScene == scene)
+            return;
+
+        _authScene = scene;
+        OnPropertyChanged(nameof(IsLoginScene));
+        OnPropertyChanged(nameof(IsVerifyEmailScene));
+        OnPropertyChanged(nameof(IsForgotPasswordScene));
+        OnPropertyChanged(nameof(IsResetPasswordScene));
         OnPropertyChanged(nameof(ShowLoginScene));
         OnPropertyChanged(nameof(ShowRegisterScene));
         OnPropertyChanged(nameof(ShowVerifyEmailScene));
@@ -282,7 +267,8 @@ public class OnboardingViewModel : BaseViewModel
         IOrganizationApiService organizationApiService,
         IApiClient apiClient,
         INavigationService navigationService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IServiceProvider serviceProvider)
     {
         _authApiService = authApiService;
         _authSessionService = authSessionService;
@@ -292,6 +278,7 @@ public class OnboardingViewModel : BaseViewModel
         _apiClient = apiClient;
         _navigationService = navigationService;
         _configurationService = configurationService;
+        _serviceProvider = serviceProvider;
 
         LoginCommand = new RelayCommand(async _ => await LoginAsync());
         RegisterCommand = new RelayCommand(async _ => await RegisterAsync());
@@ -302,7 +289,7 @@ public class OnboardingViewModel : BaseViewModel
         JoinByInviteCommand = new RelayCommand(async _ => await JoinByInviteAsync());
         LogoutCommand = new RelayCommand(async _ => await LogoutAsync());
         ShowRegisterSceneCommand = new RelayCommand(_ => SwitchToRegisterScene());
-        ShowLoginSceneCommand = new RelayCommand(_ => SwitchToLoginScene());
+        ShowLoginSceneCommand = new RelayCommand(_ => _navigationService.NavigateTo<SignInViewModel>());
         ForgotPasswordCommand = new RelayCommand(_ => SwitchToForgotPasswordScene());
         ShowResetPasswordSceneCommand = new RelayCommand(_ => SwitchToResetPasswordScene());
         SubmitForgotPasswordCommand = new RelayCommand(async _ => await SubmitForgotPasswordAsync());
@@ -392,12 +379,6 @@ public class OnboardingViewModel : BaseViewModel
         IsLoginScene = false;
     }
 
-    private void SwitchToLoginScene()
-    {
-        IsVerifyEmailScene = false;
-        IsLoginScene = true;
-    }
-
     private void SwitchToForgotPasswordScene()
     {
         ForgotPasswordEmail = LoginEmail;
@@ -452,8 +433,10 @@ public class OnboardingViewModel : BaseViewModel
             ResetToken = string.Empty;
             ResetNewPassword = string.Empty;
             ResetConfirmPassword = string.Empty;
-            ErrorMessage = result.Message;
-            IsLoginScene = true;
+
+            var signIn = _serviceProvider.GetRequiredService<SignInViewModel>();
+            signIn.StatusMessage = string.IsNullOrWhiteSpace(result.Message) ? "Password reset. Please sign in." : result.Message;
+            _navigationService.NavigateTo(signIn);
         });
     }
 
