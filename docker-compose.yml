@@ -17,5 +17,16 @@ services:
       timeout: 5s
       retries: 5
 
+  # Local SMTP catch-all for dev: matches Smtp:Server=localhost, Smtp:Port=1025 in
+  # appsettings.Development.json. Every email the API sends lands here instead of a
+  # real inbox -- view them at http://localhost:5001.
+  smtp4dev:
+    image: rnwood/smtp4dev:v3
+    container_name: daryva-smtp4dev
+    ports:
+      - "1025:25"
+      - "5001:80"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
