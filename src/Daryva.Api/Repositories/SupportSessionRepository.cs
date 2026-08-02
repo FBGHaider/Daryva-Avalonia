@@ -44,9 +44,12 @@ public class SupportSessionRepository : ISupportSessionRepository
         return await query.OrderByDescending(s => s.StartedAt).ToListAsync(cancellationToken);
     }
 
-    public Task<bool> OrganizationExistsAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    public Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken cancellationToken = default)
     {
-        return _dbContext.Organizations.AnyAsync(o => o.Id == organizationId, cancellationToken);
+        return _dbContext.Organizations
+            .Where(o => o.Id == organizationId)
+            .Select(o => o.Name)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public void Add(SupportSession session)

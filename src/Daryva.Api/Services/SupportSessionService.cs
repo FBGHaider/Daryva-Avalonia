@@ -13,17 +13,26 @@ public class SupportSessionService : ISupportSessionService
     private const int MaxDurationMinutes = 240;
 
     private readonly ISupportSessionRepository _supportSessionRepository;
+    private readonly IOrganizationMemberRepository _organizationMemberRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<SupportSessionService> _logger;
 
     public SupportSessionService(
         ISupportSessionRepository supportSessionRepository,
+        IOrganizationMemberRepository organizationMemberRepository,
         IUnitOfWork unitOfWork,
-        IAuditLogger auditLogger)
+        IAuditLogger auditLogger,
+        IEmailSender emailSender,
+        ILogger<SupportSessionService> logger)
     {
         _supportSessionRepository = supportSessionRepository;
+        _organizationMemberRepository = organizationMemberRepository;
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _emailSender = emailSender;
+        _logger = logger;
     }
 
     public async Task<SupportSessionResponse> StartAsync(string adminUserId, StartSupportSessionRequest request, string? clientIp, CancellationToken cancellationToken = default)
@@ -34,7 +43,8 @@ public class SupportSessionService : ISupportSessionService
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new ArgumentException("A reason is required to start a support session.", nameof(request.Reason));
 
-        if (!await _supportSessionRepository.OrganizationExistsAsync(request.OrganizationId, cancellationToken))
+        var organizationName = await _supportSessionRepository.GetOrganizationNameAsync(request.OrganizationId, cancellationToken);
+        if (organizationName == null)
             throw new ArgumentException("Organization not found.", nameof(request.OrganizationId));
 
         var existing = await _supportSessionRepository.GetActiveSessionAsync(adminGuid, request.OrganizationId, cancellationToken);
@@ -61,7 +71,43 @@ public class SupportSessionService : ISupportSessionService
             metadata: new { session.Reason, durationMinutes }, supportSessionId: session.Id, ipAddress: clientIp);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        await NotifyLandlordsAsync(session, organizationName, cancellationToken);
+
         return ToResponse(session);
+    }
+
+    /// <summary>
+    /// Best-effort transactional email, not staged through IAuditLogger/IUnitOfWork -- the session
+    /// is already committed by the time this runs, so a failed send must not fail the request or
+    /// roll back the (already-persisted) session start.
+    /// </summary>
+    private async Task NotifyLandlordsAsync(SupportSession session, string organizationName, CancellationToken cancellationToken)
+    {
+        var members = await _organizationMemberRepository.GetByOrganizationIdAsync(session.OrganizationId, cancellationToken);
+        var recipients = members
+            .Where(m => m.Role == Domain.OrganizationMember.Roles.Landlord && !string.IsNullOrWhiteSpace(m.Email))
+            .Select(m => m.Email!)
+            .Distinct();
+
+        var subject = $"Daryva support access started on {organizationName}";
+        var body = $"A Daryva platform administrator has started a support session on your organization \"{organizationName}\".\n\n" +
+            $"Reason given: {session.Reason}\n" +
+            $"Started: {session.StartedAt:u}\n" +
+            $"Expires: {session.ExpiresAt:u} (or when manually ended)\n\n" +
+            "While active, the administrator can view and manage your organization's data to help resolve your issue. " +
+            "Every action they take is recorded in your organization's audit log.";
+
+        foreach (var email in recipients)
+        {
+            try
+            {
+                await _emailSender.SendEmailAsync(email, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send support-session-started notification to {Email}", email);
+            }
+        }
     }
 
     public async Task<SupportSessionResponse?> EndAsync(string adminUserId, Guid sessionId, string? clientIp, CancellationToken cancellationToken = default)

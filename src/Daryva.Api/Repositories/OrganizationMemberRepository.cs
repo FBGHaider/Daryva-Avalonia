@@ -16,4 +16,7 @@ public class OrganizationMemberRepository : IOrganizationMemberRepository
 
     public Task<OrganizationMember?> GetMembershipAsync(string userId, Guid organizationId, CancellationToken cancellationToken = default)
         => _dbContext.OrganizationMembers.FirstOrDefaultAsync(m => m.UserId == userId && m.OrganizationId == organizationId, cancellationToken);
+
+    public Task<List<OrganizationMember>> GetByOrganizationIdAsync(Guid organizationId, CancellationToken cancellationToken = default)
+        => _dbContext.OrganizationMembers.Where(m => m.OrganizationId == organizationId).ToListAsync(cancellationToken);
 }
