@@ -108,6 +108,7 @@ public class ErrorResponseDto
 public interface IAuthApiService
 {
     Task<LoginResultDto> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<AuthTokensDto> VerifyTwoFactorAsync(string challengeToken, string code, CancellationToken cancellationToken = default);
     Task<AuthTokensDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<RegisterResultDto> RegisterAsync(string email, string password, string? firstName = null, string? lastName = null, CancellationToken cancellationToken = default);
     Task<VerifyEmailResultDto> VerifyEmailAsync(string token, CancellationToken cancellationToken = default);

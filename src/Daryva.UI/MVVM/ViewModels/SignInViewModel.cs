@@ -20,6 +20,9 @@ public class SignInViewModel : BaseViewModel
     private string _password = string.Empty;
     private string _errorMessage = string.Empty;
     private string _statusMessage = string.Empty;
+    private bool _isTwoFactorScene;
+    private string _challengeToken = string.Empty;
+    private string _twoFactorCode = string.Empty;
 
     public SignInViewModel(IAuthService authService, INavigationService navigationService, IServiceProvider serviceProvider)
     {
@@ -29,6 +32,8 @@ public class SignInViewModel : BaseViewModel
         SignInCommand = new RelayCommand(async _ => await SignInAsync());
         CreateAccountCommand = new RelayCommand(_ => NavigateToCreateAccount());
         ForgotPasswordCommand = new RelayCommand(_ => NavigateToForgotPassword());
+        VerifyTwoFactorCommand = new RelayCommand(async _ => await VerifyTwoFactorAsync());
+        CancelTwoFactorCommand = new RelayCommand(_ => CancelTwoFactor());
     }
 
     private void NavigateToCreateAccount()
@@ -91,9 +96,25 @@ public class SignInViewModel : BaseViewModel
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
 
+    /// <summary>True once LoginAsync has come back with RequiresTwoFactor -- shows the code-entry panel instead of email/password.</summary>
+    public bool IsTwoFactorScene
+    {
+        get => _isTwoFactorScene;
+        set => SetProperty(ref _isTwoFactorScene, value);
+    }
+
+    /// <summary>Either a 6-digit authenticator code or a one-time recovery code -- the backend accepts both on the same field.</summary>
+    public string TwoFactorCode
+    {
+        get => _twoFactorCode;
+        set => SetProperty(ref _twoFactorCode, value);
+    }
+
     public RelayCommand SignInCommand { get; }
     public RelayCommand CreateAccountCommand { get; }
     public RelayCommand ForgotPasswordCommand { get; }
+    public RelayCommand VerifyTwoFactorCommand { get; }
+    public RelayCommand CancelTwoFactorCommand { get; }
 
     private async System.Threading.Tasks.Task SignInAsync()
     {
@@ -113,7 +134,9 @@ public class SignInViewModel : BaseViewModel
             var result = await _authService.SignInAsync(Email.Trim(), Password).ConfigureAwait(true);
             if (result.RequiresTwoFactor)
             {
-                ErrorMessage = "This account has two-factor authentication enabled, which isn't supported in this app version yet. Please contact support.";
+                _challengeToken = result.ChallengeToken ?? string.Empty;
+                Password = string.Empty;
+                IsTwoFactorScene = true;
                 return;
             }
 
@@ -128,5 +151,41 @@ public class SignInViewModel : BaseViewModel
         {
             IsBusy = false;
         }
+    }
+
+    private async System.Threading.Tasks.Task VerifyTwoFactorAsync()
+    {
+        if (IsBusy)
+            return;
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(TwoFactorCode))
+            {
+                ErrorMessage = "Enter the code from your authenticator app, or a recovery code.";
+                return;
+            }
+
+            await _authService.VerifyTwoFactorAsync(_challengeToken, TwoFactorCode.Trim()).ConfigureAwait(true);
+            TwoFactorCode = string.Empty;
+            // MainViewModel subscribes to IAuthService.StateChanged and navigates onward from here.
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void CancelTwoFactor()
+    {
+        _challengeToken = string.Empty;
+        TwoFactorCode = string.Empty;
+        ErrorMessage = string.Empty;
+        IsTwoFactorScene = false;
     }
 }

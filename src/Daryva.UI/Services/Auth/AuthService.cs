@@ -52,6 +52,13 @@ public sealed class AuthService : IAuthService
         return new AuthSignInResult { RequiresTwoFactor = false };
     }
 
+    public async Task VerifyTwoFactorAsync(string challengeToken, string code, CancellationToken cancellationToken = default)
+    {
+        var tokens = await _authApiService.VerifyTwoFactorAsync(challengeToken, code, cancellationToken).ConfigureAwait(false);
+        _sessionContext.SetFromToken(tokens.UserId, tokens.Email);
+        RaiseStateChanged(true);
+    }
+
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         await _authApiService.LogoutAsync(cancellationToken).ConfigureAwait(false);

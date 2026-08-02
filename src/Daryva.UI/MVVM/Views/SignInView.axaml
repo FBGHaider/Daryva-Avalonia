@@ -26,21 +26,48 @@
                        TextWrapping="Wrap"
                        TextAlignment="Center"
                        HorizontalAlignment="Center"/>
-            <TextBox Watermark="Email" Text="{Binding Email}" Width="300" HorizontalAlignment="Center"/>
-            <TextBox Watermark="Password" Text="{Binding Password}" PasswordChar="•" Width="300" HorizontalAlignment="Center"/>
-            <Button Content="Sign in"
-                    Command="{Binding SignInCommand}"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
-                    HorizontalAlignment="Center"
-                    MinWidth="200"/>
-            <Button Content="Forgot password?"
-                    Command="{Binding ForgotPasswordCommand}"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
-                    HorizontalAlignment="Center"/>
-            <Button Content="Don't have an account? Create one"
-                    Command="{Binding CreateAccountCommand}"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
-                    HorizontalAlignment="Center"/>
+            <StackPanel Spacing="20" IsVisible="{Binding IsTwoFactorScene, Converter={StaticResource InvertBoolConverter}}">
+                <TextBox Watermark="Email" Text="{Binding Email}" Width="300" HorizontalAlignment="Center"/>
+                <TextBox Watermark="Password" Text="{Binding Password}" PasswordChar="•" Width="300" HorizontalAlignment="Center"/>
+                <Button Content="Sign in"
+                        Command="{Binding SignInCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"
+                        MinWidth="200"/>
+                <Button Content="Forgot password?"
+                        Command="{Binding ForgotPasswordCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"/>
+                <Button Content="Don't have an account? Create one"
+                        Command="{Binding CreateAccountCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <StackPanel Spacing="20" IsVisible="{Binding IsTwoFactorScene}">
+                <TextBlock Text="Two-factor authentication"
+                           FontSize="20"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Enter the code from your authenticator app, or one of your recovery codes."
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Width="300"
+                           HorizontalAlignment="Center"/>
+                <TextBox Watermark="Code" Text="{Binding TwoFactorCode}" Width="300" HorizontalAlignment="Center"/>
+                <Button Content="Verify"
+                        Command="{Binding VerifyTwoFactorCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"
+                        MinWidth="200"/>
+                <Button Content="Back"
+                        Command="{Binding CancelTwoFactorCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBoolConverter}}"
+                        HorizontalAlignment="Center"/>
+            </StackPanel>
+
             <TextBlock Text="{Binding StatusMessage}"
                        Foreground="{DynamicResource SecondaryTextBrush}"
                        TextWrapping="Wrap"

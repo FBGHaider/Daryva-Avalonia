@@ -42,6 +42,22 @@ public class AuthApiService : IAuthApiService
         return result;
     }
 
+    public async Task<AuthTokensDto> VerifyTwoFactorAsync(string challengeToken, string code, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/2fa/verify", new { challengeToken, code }, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Invalid or expired code.");
+
+        var tokens = JsonSerializer.Deserialize<AuthTokensDto>(body)
+            ?? throw new InvalidOperationException("Invalid two-factor verification response.");
+
+        _authSession.SetSession(tokens.AccessToken, tokens.RefreshToken, tokens.AccessTokenExpiresAt, tokens.UserId, tokens.Email);
+        _apiClient.ApplyAuthState();
+        return tokens;
+    }
+
     public async Task<AuthTokensDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.HttpClient.PostAsJsonAsync("api/auth/refresh", new { refreshToken }, cancellationToken);
