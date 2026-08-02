@@ -29,6 +29,15 @@ public class AppUser
     /// via an explicit, logged Support Session scoped to that org.
     /// </summary>
     public bool IsPlatformAdmin { get; set; }
+
+    /// <summary>True once TOTP enrollment has been confirmed with a valid code. False while a secret is pending confirmation.</summary>
+    public bool TwoFactorEnabled { get; set; }
+
+    /// <summary>Base32 TOTP secret, encrypted at rest via ASP.NET Core Data Protection. Set on enroll, before confirmation.</summary>
+    public string? TwoFactorSecretEncrypted { get; set; }
+
+    /// <summary>JSON array of SHA-256 hashes of unused one-time recovery codes. Consumed entries are removed, not just marked.</summary>
+    public string? RecoveryCodesHash { get; set; }
 }
 
 /// <summary>

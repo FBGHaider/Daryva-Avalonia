@@ -74,6 +74,30 @@ public class ResetPasswordResponse
     public string Message { get; set; } = string.Empty;
 }
 
+public class TwoFactorEnrollResponse
+{
+    /// <summary>Base32 secret, for manual entry if the user can't scan the QR code.</summary>
+    public string Secret { get; set; } = string.Empty;
+
+    /// <summary>otpauth:// URI -- render as a QR code client-side.</summary>
+    public string OtpAuthUri { get; set; } = string.Empty;
+}
+
+public class TwoFactorConfirmRequest
+{
+    public string Code { get; set; } = string.Empty;
+}
+
+public class TwoFactorConfirmResponse
+{
+    public bool Success { get; set; }
+
+    /// <summary>One-time recovery codes, shown once on successful enrollment. Never retrievable again.</summary>
+    public List<string> RecoveryCodes { get; set; } = new();
+
+    public string Message { get; set; } = string.Empty;
+}
+
 public class MeResponse
 {
     public string UserId { get; set; } = string.Empty;

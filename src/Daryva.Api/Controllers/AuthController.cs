@@ -178,4 +178,29 @@ public class AuthController : ControllerBase
 
         return Ok(me);
     }
+
+    [Authorize]
+    [HttpPost("2fa/enroll")]
+    [ProducesResponseType(typeof(TwoFactorEnrollResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<TwoFactorEnrollResponse>> EnrollTwoFactor(CancellationToken cancellationToken = default)
+    {
+        var result = await _authService.EnrollTwoFactorAsync(_tenantContext.UserId, cancellationToken);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("2fa/confirm")]
+    [ProducesResponseType(typeof(TwoFactorConfirmResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<TwoFactorConfirmResponse>> ConfirmTwoFactor([FromBody] TwoFactorConfirmRequest request, CancellationToken cancellationToken = default)
+    {
+        var result = await _authService.ConfirmTwoFactorAsync(_tenantContext.UserId, request.Code, cancellationToken);
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
 }

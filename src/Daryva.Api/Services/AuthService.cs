@@ -9,8 +9,10 @@ using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security;
 using Daryva.Api.Services.Interfaces;
 using Konscious.Security.Cryptography;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using OtpNet;
 
 namespace Daryva.Api.Services;
 
@@ -27,6 +29,8 @@ public class AuthService : IAuthService
     private const int MaxFailedLoginAttempts = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan PasswordResetTokenLifetime = TimeSpan.FromHours(1);
+    private const string TwoFactorDataProtectionPurpose = "Daryva.TwoFactorSecret";
+    private const int RecoveryCodeCount = 10;
     private readonly IAppUserRepository _appUserRepository;
     private readonly IAuthRefreshTokenRepository _authRefreshTokenRepository;
     private readonly IUnitOfWork _unitOfWork;
@@ -35,6 +39,7 @@ public class AuthService : IAuthService
     private readonly IEmailSender _emailSender;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
+    private readonly IDataProtector _twoFactorProtector;
 
     public AuthService(
         IAppUserRepository appUserRepository,
@@ -44,6 +49,7 @@ public class AuthService : IAuthService
         IOptions<JwtOptions> jwtOptions,
         IEmailSender emailSender,
         IConfiguration configuration,
+        IDataProtectionProvider dataProtectionProvider,
         ILogger<AuthService> logger)
     {
         _appUserRepository = appUserRepository;
@@ -53,6 +59,7 @@ public class AuthService : IAuthService
         _jwtOptions = jwtOptions.Value;
         _emailSender = emailSender;
         _configuration = configuration;
+        _twoFactorProtector = dataProtectionProvider.CreateProtector(TwoFactorDataProtectionPurpose);
         _logger = logger;
     }
 
@@ -351,6 +358,76 @@ public class AuthService : IAuthService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ResetPasswordResponse { Success = true, Message = "Password has been reset. You can now log in with your new password." };
+    }
+
+    public async Task<TwoFactorEnrollResponse> EnrollTwoFactorAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(userId, out var userGuid))
+            throw new InvalidOperationException("Invalid user id.");
+
+        var user = await _appUserRepository.GetByIdAsync(userGuid, cancellationToken)
+            ?? throw new InvalidOperationException("User not found.");
+
+        var secretBytes = KeyGeneration.GenerateRandomKey(20);
+        var secretBase32 = Base32Encoding.ToString(secretBytes);
+
+        user.TwoFactorSecretEncrypted = _twoFactorProtector.Protect(secretBase32);
+        user.TwoFactorEnabled = false;
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var otpAuthUri = $"otpauth://totp/Daryva:{Uri.EscapeDataString(user.Email)}?secret={secretBase32}&issuer=Daryva&digits=6&period=30";
+
+        return new TwoFactorEnrollResponse
+        {
+            Secret = secretBase32,
+            OtpAuthUri = otpAuthUri
+        };
+    }
+
+    public async Task<TwoFactorConfirmResponse> ConfirmTwoFactorAsync(string userId, string code, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(userId, out var userGuid))
+            throw new InvalidOperationException("Invalid user id.");
+
+        var user = await _appUserRepository.GetByIdAsync(userGuid, cancellationToken)
+            ?? throw new InvalidOperationException("User not found.");
+
+        if (string.IsNullOrWhiteSpace(user.TwoFactorSecretEncrypted))
+            return new TwoFactorConfirmResponse { Success = false, Message = "No pending 2FA enrollment. Start enrollment first." };
+
+        if (string.IsNullOrWhiteSpace(code))
+            return new TwoFactorConfirmResponse { Success = false, Message = "Verification code is required." };
+
+        var secretBase32 = _twoFactorProtector.Unprotect(user.TwoFactorSecretEncrypted);
+        var totp = new Totp(Base32Encoding.ToBytes(secretBase32));
+        if (!totp.VerifyTotp(code.Trim(), out _, VerificationWindow.RfcSpecifiedNetworkDelay))
+            return new TwoFactorConfirmResponse { Success = false, Message = "Invalid verification code." };
+
+        var recoveryCodes = GenerateRecoveryCodes();
+        user.TwoFactorEnabled = true;
+        user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(recoveryCodes.Select(Sha256));
+
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TwoFactorEnabled,
+            targetType: nameof(AppUser), targetId: user.Id.ToString());
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new TwoFactorConfirmResponse
+        {
+            Success = true,
+            RecoveryCodes = recoveryCodes,
+            Message = "Two-factor authentication is now enabled. Store these recovery codes somewhere safe -- they won't be shown again."
+        };
+    }
+
+    private static List<string> GenerateRecoveryCodes()
+    {
+        var codes = new List<string>(RecoveryCodeCount);
+        for (var i = 0; i < RecoveryCodeCount; i++)
+        {
+            var bytes = RandomNumberGenerator.GetBytes(5);
+            codes.Add(Convert.ToHexString(bytes).ToLowerInvariant());
+        }
+        return codes;
     }
 
     private async Task<bool> TrySendPasswordResetEmailAsync(string email, string token, CancellationToken cancellationToken)

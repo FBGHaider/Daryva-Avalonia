@@ -13,4 +13,10 @@ public interface IAuthService
     Task<MeResponse?> GetMeAsync(string userId, CancellationToken cancellationToken = default);
     Task<ForgotPasswordResponse> ForgotPasswordAsync(string email, string? clientIp, CancellationToken cancellationToken = default);
     Task<ResetPasswordResponse> ResetPasswordAsync(string token, string newPassword, string? clientIp, CancellationToken cancellationToken = default);
+
+    /// <summary>Starts (or restarts) TOTP enrollment: generates a new secret, stores it encrypted with TwoFactorEnabled still false.</summary>
+    Task<TwoFactorEnrollResponse> EnrollTwoFactorAsync(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Verifies the code against the pending secret; on success sets TwoFactorEnabled and returns one-time recovery codes.</summary>
+    Task<TwoFactorConfirmResponse> ConfirmTwoFactorAsync(string userId, string code, CancellationToken cancellationToken = default);
 }

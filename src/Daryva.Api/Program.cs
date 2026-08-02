@@ -9,6 +9,7 @@ using Daryva.Api.Services.Seed;
 using Daryva.Api.Services.Seed.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -48,6 +49,23 @@ builder.Services.AddHttpContextAccessor();
 
 // Tenant context (scoped to request)
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+
+// Data Protection: encrypts 2FA secrets at rest. Default key storage is the container's local
+// filesystem, which is ephemeral -- without persisting keys to a mounted volume, every redeploy
+// would generate a new key and permanently strand every user's stored 2FA secret undecryptable.
+// DataProtection:KeyPath is set in docker-compose.prod.yml to a volume-mounted path; unset in
+// dev, where the framework default (host user profile) already persists across restarts.
+var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
+{
+    builder.Services.AddDataProtection()
+        .SetApplicationName("Daryva.Api")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
+}
+else
+{
+    builder.Services.AddDataProtection().SetApplicationName("Daryva.Api");
+}
 
 // Repositories + unit of work (services must not depend on AppDbContext directly)
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
