@@ -76,7 +76,14 @@ namespace Daryva.MVVM.ViewModels
             _navigationHandler = (s, vm) =>
             {
                 CurrentViewModel = vm;
-                IsOnboardingMode = vm is OnboardingViewModel;
+                // The nav sidebar must be hidden on every pre-authenticated/pre-org-selection
+                // screen, not just OnboardingViewModel -- computed here as the single source of
+                // truth on every navigation, rather than relying on each call site to separately
+                // remember to also set IsOnboardingMode = true right after navigating (which is
+                // exactly what SignInViewModel's "Forgot password"/"Back to login" and
+                // OnboardingViewModel's reset-success paths missed, leaving the sidebar visible
+                // and clickable while signed out).
+                IsOnboardingMode = vm is OnboardingViewModel || vm is SignInViewModel || vm is SetupRequiredViewModel;
                 _ = RefreshCurrentOrganizationLabelAsync();
                 // Update SelectedNavigationItem to match the current view model
                 if (vm != null && NavigationItems != null)
