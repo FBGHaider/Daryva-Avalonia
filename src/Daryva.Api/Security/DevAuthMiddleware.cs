@@ -6,9 +6,14 @@ namespace Daryva.Api.Security;
 /// <summary>
 /// Development-only authentication middleware.
 ///
-/// When enabled, injects a dev user only when the request is not already authenticated
-/// (no valid Bearer token). Must run after UseAuthentication() so Clerk/JWT takes precedence.
-/// Enables local testing without a token while still using real identity when the client sends one.
+/// When enabled, injects a dev user only when the request has no Authorization header at all.
+/// Must run after UseAuthentication() so real JWT auth takes precedence. Enables local testing
+/// without a token while still using real identity when the client sends one.
+///
+/// Deliberately does NOT fall back when a Bearer token IS present but failed to validate --
+/// doing so previously masked a real JWT config bug (see prod incident where Jwt:Authority
+/// pointed at a decommissioned OIDC provider): every rejected token silently became a valid
+/// dev@local session instead of surfacing as 401, so broken auth passed local testing.
 ///
 /// WARNING: This middleware must NEVER be enabled in production.
 /// </summary>
@@ -43,12 +48,20 @@ public class DevAuthMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Only inject dev user when no valid auth is present (e.g. no Bearer token or JWT failed).
-        // This must run after UseAuthentication() so Clerk/JWT can take precedence.
         if (_enabled)
         {
             var isAuthenticated = context.User?.Identity?.IsAuthenticated == true;
-            if (!isAuthenticated)
+            var hasAuthorizationHeader = !string.IsNullOrEmpty(context.Request.Headers.Authorization);
+
+            if (!isAuthenticated && hasAuthorizationHeader)
+            {
+                // A Bearer token WAS sent but failed real validation -- a genuine auth failure
+                // (bad signature, wrong issuer, expired token, misconfigured Jwt:Authority, etc.).
+                // Do not paper over it with a fake identity; let it surface as a real 401 so
+                // JWT config bugs can't hide behind DevAuth during local testing.
+                _logger.LogWarning("DevAuth: Authorization header present but token failed validation; not injecting dev user, letting request fail as unauthenticated.");
+            }
+            else if (!isAuthenticated)
             {
                 var claims = new List<Claim>
                 {
