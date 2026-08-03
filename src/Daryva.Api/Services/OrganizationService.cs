@@ -1,8 +1,8 @@
-using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
+using Daryva.Api.Repositories.Interfaces;
+using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -13,12 +13,29 @@ namespace Daryva.Api.Services;
 /// </summary>
 public class OrganizationService : IOrganizationService
 {
-    private readonly AppDbContext _dbContext;
+    private readonly IOrganizationRepository _organizationRepository;
+    private readonly IOrganizationMemberRepository _memberRepository;
+    private readonly IAppUserRepository _appUserRepository;
+    private readonly IAppUserProfileRepository _appUserProfileRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<OrganizationService> _logger;
 
-    public OrganizationService(AppDbContext dbContext, ILogger<OrganizationService> logger)
+    public OrganizationService(
+        IOrganizationRepository organizationRepository,
+        IOrganizationMemberRepository memberRepository,
+        IAppUserRepository appUserRepository,
+        IAppUserProfileRepository appUserProfileRepository,
+        IUnitOfWork unitOfWork,
+        ITenantContext tenantContext,
+        ILogger<OrganizationService> logger)
     {
-        _dbContext = dbContext;
+        _organizationRepository = organizationRepository;
+        _memberRepository = memberRepository;
+        _appUserRepository = appUserRepository;
+        _appUserProfileRepository = appUserProfileRepository;
+        _unitOfWork = unitOfWork;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
 
@@ -58,9 +75,9 @@ public class OrganizationService : IOrganizationService
             JoinedAt = DateTime.UtcNow
         };
 
-        _dbContext.Organizations.Add(org);
-        _dbContext.OrganizationMembers.Add(member);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _organizationRepository.Add(org);
+        _memberRepository.Add(member);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Created organization {OrgId} with owner {UserId}.", org.Id, userId);
 
@@ -71,10 +88,7 @@ public class OrganizationService : IOrganizationService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        var memberships = await _dbContext.OrganizationMembers
-            .Where(m => m.UserId == userId)
-            .Include(m => m.Organization)
-            .ToListAsync(cancellationToken);
+        var memberships = await _memberRepository.GetByUserIdWithOrganizationAsync(userId, cancellationToken);
 
         return memberships
             .Where(m => m.Organization != null)
@@ -87,8 +101,7 @@ public class OrganizationService : IOrganizationService
         string? suggestedName,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _dbContext.OrganizationMembers
-            .AnyAsync(m => m.UserId == userId, cancellationToken);
+        var existing = await _memberRepository.AnyForUserAsync(userId, cancellationToken);
         if (existing)
             return;
 
@@ -107,15 +120,11 @@ public class OrganizationService : IOrganizationService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        // Verify user is member
-        var membership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
-
+        var membership = await GetCallerMembershipAsync(orgId, userId, cancellationToken);
         if (membership == null)
             return null;
 
-        var org = await _dbContext.Organizations
-            .FirstOrDefaultAsync(o => o.Id == orgId, cancellationToken);
+        var org = await _organizationRepository.GetByIdAsync(orgId, cancellationToken);
 
         return org == null ? null : MapToResponse(org, membership.Role);
     }
@@ -126,14 +135,13 @@ public class OrganizationService : IOrganizationService
         UpdateOrganizationRequest request,
         CancellationToken cancellationToken = default)
     {
-        var membership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
+        var membership = await GetCallerMembershipAsync(orgId, userId, cancellationToken);
         if (membership == null)
             return null;
         if (!membership.IsPrimaryOwner)
             throw new InvalidOperationException("Only the owner can rename the organization.");
 
-        var org = await _dbContext.Organizations.FirstOrDefaultAsync(o => o.Id == orgId, cancellationToken);
+        var org = await _organizationRepository.GetByIdAsync(orgId, cancellationToken);
         if (org == null)
             return null;
 
@@ -147,7 +155,7 @@ public class OrganizationService : IOrganizationService
             org.Name = name;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("User {UserId} updated organization {OrgId} (name).", userId, orgId);
         return MapToResponse(org, membership.Role);
     }
@@ -158,10 +166,7 @@ public class OrganizationService : IOrganizationService
         AddMemberRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Verify caller is member of the org (could add role check for Admin/Owner only)
-        var callerMembership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
-
+        var callerMembership = await GetCallerMembershipAsync(orgId, userId, cancellationToken);
         if (callerMembership == null)
             throw new InvalidOperationException("You are not a member of this organization.");
 
@@ -170,9 +175,7 @@ public class OrganizationService : IOrganizationService
             throw new ArgumentException($"Invalid role: {request.Role}.", nameof(request.Role));
 
         // Check if member already exists by email
-        var existingMember = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.Email == request.Email, cancellationToken);
-
+        var existingMember = await _memberRepository.GetByEmailAsync(orgId, request.Email, cancellationToken);
         if (existingMember != null)
             throw new InvalidOperationException($"User with email {request.Email} is already a member.");
 
@@ -186,8 +189,8 @@ public class OrganizationService : IOrganizationService
             JoinedAt = DateTime.UtcNow
         };
 
-        _dbContext.OrganizationMembers.Add(newMember);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _memberRepository.Add(newMember);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
             "Added member {Email} to organization {OrgId} with role {Role}.",
@@ -201,23 +204,19 @@ public class OrganizationService : IOrganizationService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        var membership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
-
+        var membership = await GetCallerMembershipAsync(orgId, userId, cancellationToken);
         if (membership == null)
             return false;
 
         if (!membership.IsPrimaryOwner)
             throw new InvalidOperationException("Only organization owners can delete an organization.");
 
-        var org = await _dbContext.Organizations
-            .FirstOrDefaultAsync(o => o.Id == orgId, cancellationToken);
-
+        var org = await _organizationRepository.GetByIdAsync(orgId, cancellationToken);
         if (org == null)
             return false;
 
-        _dbContext.Organizations.Remove(org);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _organizationRepository.Remove(org);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Organization {OrgId} deleted by user {UserId}.", orgId, userId);
         return true;
@@ -228,21 +227,14 @@ public class OrganizationService : IOrganizationService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        // Verify user is member
-        var membership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
-
+        var membership = await GetCallerMembershipAsync(orgId, userId, cancellationToken);
         if (membership == null)
             return Enumerable.Empty<OrganizationMemberResponse>();
 
-        var members = await _dbContext.OrganizationMembers
-            .Where(m => m.OrganizationId == orgId)
-            .ToListAsync(cancellationToken);
+        var members = await _memberRepository.GetByOrganizationIdAsync(orgId, cancellationToken);
 
-        var userIds = members.Select(m => m.UserId).Distinct().ToList();
-        var profiles = await _dbContext.AppUserProfiles
-            .Where(p => userIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, cancellationToken);
+        var userIds = members.Select(m => m.UserId).Distinct();
+        var profiles = await _appUserProfileRepository.GetByIdsAsync(userIds, cancellationToken);
 
         return members.Select(m => MapToResponseWithProfile(m, profiles.GetValueOrDefault(m.UserId))).ToList();
     }
@@ -253,9 +245,7 @@ public class OrganizationService : IOrganizationService
         CreateOrgInviteRequest request,
         CancellationToken cancellationToken = default)
     {
-        var callerMembership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
-
+        var callerMembership = await GetCallerMembershipAsync(orgId, userId, cancellationToken);
         if (callerMembership == null)
             throw new InvalidOperationException("You are not a member of this organization.");
 
@@ -281,8 +271,8 @@ public class OrganizationService : IOrganizationService
             ExpiresAt = DateTime.UtcNow.AddDays(request.ExpiresInDays)
         };
 
-        _dbContext.OrganizationInvites.Add(invite);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _organizationRepository.AddInvite(invite);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new CreateOrgInviteResponse
         {
@@ -304,9 +294,7 @@ public class OrganizationService : IOrganizationService
             throw new ArgumentException("Invite token is required.", nameof(request.Token));
 
         var tokenHash = HashSecret(request.Token.Trim());
-        var invite = await _dbContext.OrganizationInvites
-            .Include(i => i.Organization)
-            .FirstOrDefaultAsync(i => i.TokenHash == tokenHash, cancellationToken);
+        var invite = await _organizationRepository.GetInviteByTokenHashAsync(tokenHash, cancellationToken);
 
         if (invite == null || invite.RevokedAt != null || invite.UsedAt != null || invite.ExpiresAt <= DateTime.UtcNow)
             throw new InvalidOperationException("Invite is invalid or expired.");
@@ -316,8 +304,7 @@ public class OrganizationService : IOrganizationService
         if (!string.IsNullOrWhiteSpace(invite.Email) && !string.Equals(invite.Email, userEmail, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Invite email does not match current user.");
 
-        var existingMembership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == invite.OrganizationId && m.UserId == userId, cancellationToken);
+        var existingMembership = await _memberRepository.GetMembershipAsync(userId, invite.OrganizationId, cancellationToken);
 
         if (existingMembership == null)
         {
@@ -330,13 +317,13 @@ public class OrganizationService : IOrganizationService
                 Role = invite.Role,
                 JoinedAt = DateTime.UtcNow
             };
-            _dbContext.OrganizationMembers.Add(member);
+            _memberRepository.Add(member);
         }
 
         invite.UsedAt = DateTime.UtcNow;
         invite.UsedByUserId = userId;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new JoinOrganizationResponse
         {
@@ -353,9 +340,7 @@ public class OrganizationService : IOrganizationService
         GenerateOrgJoinCodeRequest request,
         CancellationToken cancellationToken = default)
     {
-        var callerMembership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == orgId && m.UserId == userId, cancellationToken);
-
+        var callerMembership = await GetCallerMembershipAsync(orgId, userId, cancellationToken);
         if (callerMembership == null)
             throw new InvalidOperationException("You are not a member of this organization.");
 
@@ -365,10 +350,7 @@ public class OrganizationService : IOrganizationService
         if (!OrganizationMember.Roles.IsValid(request.Role))
             throw new ArgumentException($"Invalid role: {request.Role}.", nameof(request.Role));
 
-        var activeCodes = await _dbContext.OrganizationJoinCodes
-            .Where(c => c.OrganizationId == orgId && c.RevokedAt == null)
-            .ToListAsync(cancellationToken);
-
+        var activeCodes = await _organizationRepository.GetActiveJoinCodesAsync(orgId, cancellationToken);
         foreach (var activeCode in activeCodes)
         {
             activeCode.RevokedAt = DateTime.UtcNow;
@@ -386,8 +368,8 @@ public class OrganizationService : IOrganizationService
             ExpiresAt = request.ExpiresInDays.HasValue ? DateTime.UtcNow.AddDays(request.ExpiresInDays.Value) : null
         };
 
-        _dbContext.OrganizationJoinCodes.Add(joinCode);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _organizationRepository.AddJoinCode(joinCode);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new GenerateOrgJoinCodeResponse
         {
@@ -410,15 +392,12 @@ public class OrganizationService : IOrganizationService
         var normalizedCode = request.Code.Trim().ToUpperInvariant();
         var codeHash = HashSecret(normalizedCode);
 
-        var joinCode = await _dbContext.OrganizationJoinCodes
-            .Include(c => c.Organization)
-            .FirstOrDefaultAsync(c => c.CodeHash == codeHash, cancellationToken);
+        var joinCode = await _organizationRepository.GetJoinCodeByCodeHashAsync(codeHash, cancellationToken);
 
         if (joinCode == null || joinCode.RevokedAt != null || (joinCode.ExpiresAt.HasValue && joinCode.ExpiresAt.Value <= DateTime.UtcNow))
             throw new InvalidOperationException("Join code is invalid or expired.");
 
-        var existingMembership = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == joinCode.OrganizationId && m.UserId == userId, cancellationToken);
+        var existingMembership = await _memberRepository.GetMembershipAsync(userId, joinCode.OrganizationId, cancellationToken);
 
         if (existingMembership != null)
         {
@@ -443,8 +422,8 @@ public class OrganizationService : IOrganizationService
             JoinedAt = DateTime.UtcNow
         };
 
-        _dbContext.OrganizationMembers.Add(member);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _memberRepository.Add(member);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new JoinOrganizationResponse
         {
@@ -453,6 +432,38 @@ public class OrganizationService : IOrganizationService
             Role = joinCode.Role,
             AlreadyMember = false
         };
+    }
+
+    /// <summary>
+    /// Real membership if one exists; otherwise, if the caller is a platform admin with an active
+    /// Support Session on this exact org (per ITenantContext -- already resolved once per request
+    /// by TenantContextMiddleware, the same source OrgResourceAuthorizationHandler uses to grant
+    /// controller-level access), a synthetic elevated membership so this service doesn't reject a
+    /// controller-authorized support action as "not a member". IsPrimaryOwner is always false for
+    /// the synthetic case: Support Session elevation grants Landlord-equivalent rights, never
+    /// primary-owner-equivalent, so owner-only actions (rename/delete/manage join) still correctly
+    /// require the real owner -- only the *error path* changes (403 "only the owner can..." instead
+    /// of a misleading 404/"not a member" for an otherwise-authorized admin).
+    /// </summary>
+    private async Task<OrganizationMember?> GetCallerMembershipAsync(Guid orgId, string userId, CancellationToken cancellationToken)
+    {
+        var membership = await _memberRepository.GetMembershipAsync(userId, orgId, cancellationToken);
+        if (membership != null)
+            return membership;
+
+        if (_tenantContext.CurrentOrgId == orgId && _tenantContext.ActiveSupportSessionId.HasValue)
+        {
+            return new OrganizationMember
+            {
+                OrganizationId = orgId,
+                UserId = userId,
+                Email = null,
+                Role = _tenantContext.CurrentRole ?? OrganizationMember.Roles.Landlord,
+                IsPrimaryOwner = false
+            };
+        }
+
+        return null;
     }
 
     private static OrganizationResponse MapToResponse(Organization org, string? currentUserRole = null)
@@ -517,12 +528,12 @@ public class OrganizationService : IOrganizationService
 
         if (Guid.TryParse(userId, out var parsedUserId))
         {
-            var appUser = await _dbContext.AppUsers.FirstOrDefaultAsync(u => u.Id == parsedUserId, cancellationToken);
+            var appUser = await _appUserRepository.GetByIdAsync(parsedUserId, cancellationToken);
             if (appUser != null)
                 return appUser.Email;
         }
 
-        var profile = await _dbContext.AppUserProfiles.FindAsync(new object[] { userId }, cancellationToken);
+        var profile = await _appUserProfileRepository.GetByIdAsync(userId, cancellationToken);
         if (profile != null)
             return profile.Email;
 

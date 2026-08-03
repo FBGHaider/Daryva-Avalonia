@@ -19,4 +19,18 @@ public class OrganizationMemberRepository : IOrganizationMemberRepository
 
     public Task<List<OrganizationMember>> GetByOrganizationIdAsync(Guid organizationId, CancellationToken cancellationToken = default)
         => _dbContext.OrganizationMembers.Where(m => m.OrganizationId == organizationId).ToListAsync(cancellationToken);
+
+    public Task<List<OrganizationMember>> GetByUserIdWithOrganizationAsync(string userId, CancellationToken cancellationToken = default)
+        => _dbContext.OrganizationMembers
+            .Where(m => m.UserId == userId)
+            .Include(m => m.Organization)
+            .ToListAsync(cancellationToken);
+
+    public Task<bool> AnyForUserAsync(string userId, CancellationToken cancellationToken = default)
+        => _dbContext.OrganizationMembers.AnyAsync(m => m.UserId == userId, cancellationToken);
+
+    public Task<OrganizationMember?> GetByEmailAsync(Guid organizationId, string email, CancellationToken cancellationToken = default)
+        => _dbContext.OrganizationMembers.FirstOrDefaultAsync(m => m.OrganizationId == organizationId && m.Email == email, cancellationToken);
+
+    public void Add(OrganizationMember member) => _dbContext.OrganizationMembers.Add(member);
 }

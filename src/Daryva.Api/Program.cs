@@ -74,6 +74,8 @@ builder.Services.AddScoped<IAuthRefreshTokenRepository, AuthRefreshTokenReposito
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 builder.Services.AddScoped<IOrganizationMemberRepository, OrganizationMemberRepository>();
+builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+builder.Services.AddScoped<IAppUserProfileRepository, AppUserProfileRepository>();
 builder.Services.AddScoped<ISupportSessionRepository, SupportSessionRepository>();
 
 // Business logic services
