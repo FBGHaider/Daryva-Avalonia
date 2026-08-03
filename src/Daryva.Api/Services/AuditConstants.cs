@@ -32,11 +32,20 @@ public static class AuditEventTypes
     public const string TenancyDeleted = "TenancyDeleted";
     public const string TenanciesBulkDeleted = "TenanciesBulkDeleted";
     public const string DocumentDeleted = "DocumentDeleted";
+
+    /// <summary>Superseded by ExpenseArchived (task #44: expenses are archived, not hard-deleted) -- kept for historical audit log entries written before the switch.</summary>
     public const string ExpenseDeleted = "ExpenseDeleted";
+    public const string ExpenseArchived = "ExpenseArchived";
+
     public const string PaymentRecorded = "PaymentRecorded";
     public const string DepositReturnRecorded = "DepositReturnRecorded";
+
+    /// <summary>Superseded by PaymentVoided (task #44: payments are voided, not hard-deleted) -- kept for historical audit log entries written before the switch.</summary>
     public const string PaymentDeleted = "PaymentDeleted";
+    /// <summary>Superseded by PaymentsBulkVoided -- see PaymentDeleted.</summary>
     public const string PaymentsBulkDeleted = "PaymentsBulkDeleted";
+    public const string PaymentVoided = "PaymentVoided";
+    public const string PaymentsBulkVoided = "PaymentsBulkVoided";
 }
 
 /// <summary>

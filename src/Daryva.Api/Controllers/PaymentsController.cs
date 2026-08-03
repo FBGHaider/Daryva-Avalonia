@@ -135,7 +135,7 @@ public class PaymentsController : ControllerBase
                 return NotFound(new { error = "Tenancy not found." });
 
             var total = await _dbContext.DepositPayments
-                .Where(p => p.OrganizationId == orgId && groupIds.Contains(p.TenancyId))
+                .Where(p => p.OrganizationId == orgId && groupIds.Contains(p.TenancyId) && !p.IsVoided)
                 .SumAsync(p => p.AmountPaid, cancellationToken);
 
             return Ok(total);
@@ -171,7 +171,8 @@ public class PaymentsController : ControllerBase
                 .Where(p => p.OrganizationId == orgId &&
                             groupIds.Contains(p.TenancyId) &&
                             p.DatePaid >= periodStartUtc &&
-                            p.DatePaid < periodEndExclusiveUtc)
+                            p.DatePaid < periodEndExclusiveUtc &&
+                            !p.IsVoided)
                 .SumAsync(p => p.AmountPaid, cancellationToken);
 
             return Ok(total);
@@ -201,7 +202,7 @@ public class PaymentsController : ControllerBase
 
         var target = requiredAmount ?? tenancy.DepositAmount;
         var total = await _dbContext.DepositPayments
-            .Where(p => p.OrganizationId == orgId && p.TenancyId == tenancyId)
+            .Where(p => p.OrganizationId == orgId && p.TenancyId == tenancyId && !p.IsVoided)
             .SumAsync(p => p.AmountPaid, cancellationToken);
 
         var status = total >= target
@@ -242,7 +243,8 @@ public class PaymentsController : ControllerBase
                 .Where(p => p.OrganizationId == orgId &&
                             groupIds.Contains(p.TenancyId) &&
                             p.DatePaid >= periodStartUtc &&
-                            p.DatePaid < periodEndExclusiveUtc)
+                            p.DatePaid < periodEndExclusiveUtc &&
+                            !p.IsVoided)
                 .SumAsync(p => p.AmountPaid, cancellationToken);
         }
 
@@ -312,7 +314,7 @@ public class PaymentsController : ControllerBase
 
         var depositPayments = await _dbContext.DepositPayments
             .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId))
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && !p.IsVoided)
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
@@ -396,6 +398,7 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        var orgId = _tenantContext.CurrentOrgId.Value;
         var includeRent = string.IsNullOrWhiteSpace(paymentType) || paymentType == "All" || paymentType == "Rent";
         var includeDeposit = string.IsNullOrWhiteSpace(paymentType) || paymentType == "All" || paymentType == "Deposit";
         var normalizedMethod = NormalizeMethod(method);
@@ -415,6 +418,7 @@ public class PaymentsController : ControllerBase
                     .ThenInclude(t => t.Tenant)
                 .Include(p => p.Tenancy)
                     .ThenInclude(t => t.House)
+                .Where(p => p.OrganizationId == orgId && !p.IsVoided)
                 .AsQueryable();
 
             if (startDateUtc.HasValue) rentQuery = rentQuery.Where(p => p.DatePaid >= startDateUtc.Value);
@@ -455,6 +459,7 @@ public class PaymentsController : ControllerBase
                     .ThenInclude(t => t.Tenant)
                 .Include(p => p.Tenancy)
                     .ThenInclude(t => t.House)
+                .Where(p => p.OrganizationId == orgId && !p.IsVoided)
                 .AsQueryable();
 
             if (startDateUtc.HasValue) depositQuery = depositQuery.Where(p => p.DatePaid >= startDateUtc.Value);
@@ -596,8 +601,8 @@ public class PaymentsController : ControllerBase
         return NoContent();
     }
 
-    // See task #44: this hard-deletes financial records rather than voiding them -- gated with
-    // Payments.Void as the closest existing permission until that's redesigned.
+    // Voids rather than hard-deletes (task #44): financial records are kept for history, just
+    // excluded from ledgers/totals/transactions everywhere those queries filter !IsVoided.
     [HttpDelete("transactions")]
     [Authorize(Policy = Permissions.Payments.Void)]
     public async Task<IActionResult> DeleteAllTransactions(CancellationToken cancellationToken = default)
@@ -607,20 +612,21 @@ public class PaymentsController : ControllerBase
 
         var orgId = _tenantContext.CurrentOrgId.Value;
 
-        // ExecuteDeleteAsync bypasses the change tracker, so it commits immediately and independently
+        // ExecuteUpdateAsync bypasses the change tracker, so it commits immediately and independently
         // of the audit entry below -- the audit log is staged and saved separately afterward.
-        var rentDeleted = await _dbContext.RentPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
-        var depositDeleted = await _dbContext.DepositPayments.Where(p => p.OrganizationId == orgId).ExecuteDeleteAsync(cancellationToken);
+        var rentVoided = await _dbContext.RentPayments.Where(p => p.OrganizationId == orgId && !p.IsVoided)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsVoided, true), cancellationToken);
+        var depositVoided = await _dbContext.DepositPayments.Where(p => p.OrganizationId == orgId && !p.IsVoided)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsVoided, true), cancellationToken);
 
-        LogAudit(AuditEventTypes.PaymentsBulkDeleted, orgId, nameof(Organization), orgId.ToString(),
-            metadata: new { rentPaymentsDeleted = rentDeleted, depositPaymentsDeleted = depositDeleted });
+        LogAudit(AuditEventTypes.PaymentsBulkVoided, orgId, nameof(Organization), orgId.ToString(),
+            metadata: new { rentPaymentsVoided = rentVoided, depositPaymentsVoided = depositVoided });
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return NoContent();
     }
 
-    // See task #44: this hard-deletes the payment row rather than voiding it -- gated with
-    // Payments.Void as the closest existing permission until that's redesigned.
+    // Voids rather than hard-deletes (task #44): see DeleteAllTransactions above.
     [HttpDelete("transactions/{paymentType}/{paymentId:guid}")]
     [Authorize(Policy = Permissions.Payments.Void)]
     public async Task<IActionResult> UnrecordPayment(
@@ -641,8 +647,8 @@ public class PaymentsController : ControllerBase
                 return NotFound();
             }
 
-            _dbContext.RentPayments.Remove(payment);
-            LogAudit(AuditEventTypes.PaymentDeleted, orgId, nameof(RentPayment), payment.Id.ToString(),
+            payment.IsVoided = true;
+            LogAudit(AuditEventTypes.PaymentVoided, orgId, nameof(RentPayment), payment.Id.ToString(),
                 metadata: new { paymentType = "Rent", payment.AmountPaid });
             await _dbContext.SaveChangesAsync(cancellationToken);
             return NoContent();
@@ -656,8 +662,8 @@ public class PaymentsController : ControllerBase
                 return NotFound();
             }
 
-            _dbContext.DepositPayments.Remove(payment);
-            LogAudit(AuditEventTypes.PaymentDeleted, orgId, nameof(DepositPayment), payment.Id.ToString(),
+            payment.IsVoided = true;
+            LogAudit(AuditEventTypes.PaymentVoided, orgId, nameof(DepositPayment), payment.Id.ToString(),
                 metadata: new { paymentType = "Deposit", payment.AmountPaid });
             await _dbContext.SaveChangesAsync(cancellationToken);
             return NoContent();

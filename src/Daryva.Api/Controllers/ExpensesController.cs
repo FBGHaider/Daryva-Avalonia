@@ -26,16 +26,19 @@ public class ExpensesController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>GET /api/expenses?includeArchived=false</summary>
     [HttpGet]
     [Authorize(Policy = Permissions.Expenses.View)]
-    public async Task<ActionResult<IEnumerable<ExpenseResponse>>> GetExpenses(CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<ExpenseResponse>>> GetExpenses(
+        [FromQuery] bool includeArchived = false,
+        CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
         try
         {
-            var expenses = await _expenseService.GetAllExpensesAsync(cancellationToken);
+            var expenses = await _expenseService.GetAllExpensesAsync(includeArchived, cancellationToken);
             var response = expenses.Select(MapToResponse).ToList();
             return Ok(response);
         }
@@ -45,10 +48,12 @@ public class ExpensesController : ControllerBase
         }
     }
 
+    /// <summary>GET /api/expenses/house/{houseId}?includeArchived=false</summary>
     [HttpGet("house/{houseId:guid}")]
     [Authorize(Policy = Permissions.Expenses.View)]
     public async Task<ActionResult<IEnumerable<ExpenseResponse>>> GetExpensesByHouse(
         Guid houseId,
+        [FromQuery] bool includeArchived = false,
         CancellationToken cancellationToken = default)
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
@@ -56,7 +61,7 @@ public class ExpensesController : ControllerBase
 
         try
         {
-            var expenses = await _expenseService.GetExpensesByHouseAsync(houseId, cancellationToken);
+            var expenses = await _expenseService.GetExpensesByHouseAsync(houseId, includeArchived, cancellationToken);
             var response = expenses.Select(MapToResponse).ToList();
             return Ok(response);
         }
@@ -166,7 +171,7 @@ public class ExpensesController : ControllerBase
             if (expense == null)
                 return NotFound();
 
-            await _expenseService.DeleteExpenseAsync(expenseId, cancellationToken);
+            await _expenseService.ArchiveExpenseAsync(expenseId, cancellationToken);
             return NoContent();
         }
         catch (Exception ex)
@@ -187,7 +192,8 @@ public class ExpensesController : ControllerBase
             Amount = expense.Amount,
             Vendor = expense.Vendor,
             Notes = expense.Notes,
-            ReceiptDocumentId = expense.ReceiptDocumentId
+            ReceiptDocumentId = expense.ReceiptDocumentId,
+            IsArchived = expense.IsArchived
         };
     }
 }
@@ -224,4 +230,5 @@ public class ExpenseResponse
     public string? Vendor { get; set; }
     public string? Notes { get; set; }
     public Guid? ReceiptDocumentId { get; set; }
+    public bool IsArchived { get; set; }
 }

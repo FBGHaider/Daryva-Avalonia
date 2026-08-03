@@ -70,7 +70,8 @@ public class RentLedgerService : IRentLedgerService
             .Where(p => p.OrganizationId == orgId &&
                         tenancyIds.Contains(p.TenancyId) &&
                         p.DatePaid >= periodStartUtc &&
-                        p.DatePaid < periodEndExclusiveUtc)
+                        p.DatePaid < periodEndExclusiveUtc &&
+                        !p.IsVoided)
             .OrderByDescending(p => p.DatePaid)
             .ToListAsync(cancellationToken);
 
@@ -104,7 +105,7 @@ public class RentLedgerService : IRentLedgerService
 
         var totalDepositByTenancy = await _dbContext.DepositPayments
             .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId))
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && !p.IsVoided)
             .GroupBy(p => p.TenancyId)
             .Select(g => new { g.Key, Amount = g.Sum(x => x.AmountPaid) })
             .ToDictionaryAsync(x => x.Key, x => x.Amount, cancellationToken);

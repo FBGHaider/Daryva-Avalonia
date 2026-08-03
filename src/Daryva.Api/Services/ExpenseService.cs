@@ -21,21 +21,30 @@ public class ExpenseService : IExpenseService
         _auditLogger = auditLogger;
     }
 
-    public async Task<IEnumerable<Expense>> GetAllExpensesAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Expense>> GetAllExpensesAsync(bool includeArchived = false, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Expenses
+        var query = _dbContext.Expenses
             .Include(e => e.House)
             .AsNoTracking()
-            .ToListAsync(cancellationToken);
+            .AsQueryable();
+
+        if (!includeArchived)
+            query = query.Where(e => !e.IsArchived);
+
+        return await query.ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<Expense>> GetExpensesByHouseAsync(Guid houseId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Expense>> GetExpensesByHouseAsync(Guid houseId, bool includeArchived = false, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Expenses
+        var query = _dbContext.Expenses
             .Include(e => e.House)
             .AsNoTracking()
-            .Where(e => e.HouseId == houseId)
-            .ToListAsync(cancellationToken);
+            .Where(e => e.HouseId == houseId);
+
+        if (!includeArchived)
+            query = query.Where(e => !e.IsArchived);
+
+        return await query.ToListAsync(cancellationToken);
     }
 
     public async Task<Expense?> GetExpenseByIdAsync(Guid expenseId, CancellationToken cancellationToken = default)
@@ -59,13 +68,13 @@ public class ExpenseService : IExpenseService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteExpenseAsync(Guid expenseId, CancellationToken cancellationToken = default)
+    public async Task ArchiveExpenseAsync(Guid expenseId, CancellationToken cancellationToken = default)
     {
-        var expense = await GetExpenseByIdAsync(expenseId, cancellationToken);
+        var expense = await _dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == expenseId, cancellationToken);
         if (expense != null)
         {
-            _dbContext.Expenses.Remove(expense);
-            LogAudit(AuditEventTypes.ExpenseDeleted, expense.OrganizationId, nameof(Expense), expense.Id.ToString());
+            expense.IsArchived = true;
+            LogAudit(AuditEventTypes.ExpenseArchived, expense.OrganizationId, nameof(Expense), expense.Id.ToString());
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
     }

@@ -61,6 +61,9 @@ public class Expense : IOrgScopedEntity
     public string? Notes { get; set; }
     public Guid? ReceiptDocumentId { get; set; }
 
+    /// <summary>Soft-deleted: excluded from lists/totals by default but kept for financial history.</summary>
+    public bool IsArchived { get; set; }
+
     // Navigation
     public Organization Organization { get; set; } = null!;
     public House House { get; set; } = null!;
@@ -111,6 +114,9 @@ public class RentPayment : IOrgScopedEntity
     public string? Notes { get; set; }
     public string? CollectedBy { get; set; }
 
+    /// <summary>Voided: excluded from ledgers/totals/transactions by default but kept for financial history.</summary>
+    public bool IsVoided { get; set; }
+
     // Navigation
     public Organization Organization { get; set; } = null!;
     public Tenancy Tenancy { get; set; } = null!;
@@ -130,6 +136,9 @@ public class DepositPayment : IOrgScopedEntity
     public string? ProtectionScheme { get; set; }
     public string? ProtectionReference { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>Voided: excluded from ledgers/totals/transactions by default but kept for financial history.</summary>
+    public bool IsVoided { get; set; }
 
     // Navigation
     public Organization Organization { get; set; } = null!;
