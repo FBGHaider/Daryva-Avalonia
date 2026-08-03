@@ -68,6 +68,7 @@ namespace Daryva.MVVM.ViewModels
                 new NavigationItem { Title = "Documents", Icon = "📄", ViewModelType = typeof(DocumentsViewModel) },
                 new NavigationItem { Title = "Notifications", Icon = "🔔", ViewModelType = typeof(NotificationsViewModel) },
                 new NavigationItem { Title = "Organisation", Icon = "🏢", ViewModelType = typeof(OrganisationViewModel) },
+                new NavigationItem { Title = "Audit Log", Icon = "📋", ViewModelType = typeof(AuditLogViewModel) },
                 new NavigationItem { Title = "Account", Icon = "👤", ViewModelType = typeof(AccountViewModel) },
                 new NavigationItem { Title = "Settings", Icon = "⚙️", ViewModelType = typeof(SettingsViewModel) }
             };
@@ -397,6 +398,8 @@ namespace Daryva.MVVM.ViewModels
                 NavigateToNotifications();
             else if (item.ViewModelType == typeof(OrganisationViewModel))
                 NavigateToOrganisation();
+            else if (item.ViewModelType == typeof(AuditLogViewModel))
+                NavigateToAuditLog();
             else if (item.ViewModelType == typeof(AccountViewModel))
                 NavigateToAccount();
             else if (item.ViewModelType == typeof(SettingsViewModel))
@@ -449,6 +452,12 @@ namespace Daryva.MVVM.ViewModels
         {
             _navigationService.NavigateTo<OrganisationViewModel>();
             SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(OrganisationViewModel));
+        }
+
+        private void NavigateToAuditLog()
+        {
+            _navigationService.NavigateTo<AuditLogViewModel>();
+            SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(AuditLogViewModel));
         }
 
         private void NavigateToAccount()

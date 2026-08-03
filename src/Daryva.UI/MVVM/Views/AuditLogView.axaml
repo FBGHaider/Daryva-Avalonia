@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+             x:Class="Daryva.MVVM.Views.AuditLogView"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Border.command-bar">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+    </UserControl.Styles>
+    <Border Padding="24" ClipToBounds="True" HorizontalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" HorizontalAlignment="Stretch">
+            <!-- Command Bar -->
+            <Border Grid.Row="0" Margin="0,0,0,16">
+                <Border Classes="command-bar">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4" Margin="0,0,16,0" VerticalAlignment="Center">
+                            <TextBlock Text="Audit Log" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Account, membership, and record activity for your organization." FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button Content="Refresh" Command="{Binding RefreshCommand}" Classes="secondary"/>
+                            <Button Content="Clear filters" Command="{Binding ClearFiltersCommand}"
+                                    Background="Transparent" Foreground="{DynamicResource TextMutedBrush}" BorderThickness="0" Padding="8,4" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+                            <ComboBox ItemsSource="{Binding EventTypeOptions}" SelectedItem="{Binding SelectedEventType}" Width="220"/>
+                            <DatePicker SelectedDate="{Binding FromDate}"/>
+                            <TextBlock Text="to" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <DatePicker SelectedDate="{Binding ToDate}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Border>
+
+            <!-- Error banner -->
+            <Border Grid.Row="1" Margin="0,0,0,16" Padding="14,10" CornerRadius="8"
+                    Background="{DynamicResource StatusDangerBrush}"
+                    IsVisible="{Binding HasError}">
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="White" TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- Table + Empty State -->
+            <Border Grid.Row="2" Padding="0" ClipToBounds="True" HorizontalAlignment="Stretch">
+                <Grid RowDefinitions="*">
+                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="0"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            ClipToBounds="True"
+                            IsVisible="{Binding HasEntries}">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,14">
+                                <Grid ColumnDefinitions="170,220,180,220,140,90">
+                                    <TextBlock Grid.Column="0" Text="When" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                    <TextBlock Grid.Column="1" Text="Event" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                    <TextBlock Grid.Column="2" Text="Actor" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                    <TextBlock Grid.Column="3" Text="Target" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                    <TextBlock Grid.Column="4" Text="IP address" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                    <TextBlock Grid.Column="5" Text="Details" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </Grid>
+                            </Border>
+                            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Entries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,14" Background="Transparent">
+                                                <Grid ColumnDefinitions="170,220,180,220,140,90">
+                                                    <TextBlock Grid.Column="0" Text="{Binding CreatedAtDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" Margin="0,0,12,0"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding EventTypeDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" FontSize="13" Margin="0,0,12,0"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding ActorDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="13" Margin="0,0,12,0"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding TargetDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis" FontSize="12" Margin="0,0,12,0"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding IpAddressDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" Margin="0,0,12,0"/>
+                                                    <Button Grid.Column="5" Content="View" FontSize="12" Padding="10,4" CornerRadius="6"
+                                                            Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0"
+                                                            Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <!-- Empty state -->
+                    <Border IsVisible="{Binding IsEmpty}"
+                            Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="48"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                            <TextBlock Text="📋" FontSize="40" HorizontalAlignment="Center" Opacity="0.5"/>
+                            <TextBlock Text="No audit log entries found" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Try widening the date range or clearing filters." Foreground="{DynamicResource TextMutedBrush}" FontSize="13" HorizontalAlignment="Center" TextAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Pagination footer -->
+            <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,16,0,0" IsVisible="{Binding HasEntries}">
+                <TextBlock Grid.Column="0" Text="{Binding PageSummary}" Foreground="{DynamicResource TextMutedBrush}" FontSize="13" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Content="Previous" Classes="secondary" Command="{Binding PreviousPageCommand}"/>
+                    <Button Content="Next" Classes="secondary" Command="{Binding NextPageCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

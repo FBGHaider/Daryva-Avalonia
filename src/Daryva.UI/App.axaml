@@ -88,6 +88,9 @@
         <DataTemplate DataType="viewModels:OrganisationViewModel">
             <views:OrganisationView />
         </DataTemplate>
+        <DataTemplate DataType="viewModels:AuditLogViewModel">
+            <views:AuditLogView />
+        </DataTemplate>
         <DataTemplate DataType="viewModels:AccountProfileSectionViewModel">
             <views:AccountProfileSectionView />
         </DataTemplate>
