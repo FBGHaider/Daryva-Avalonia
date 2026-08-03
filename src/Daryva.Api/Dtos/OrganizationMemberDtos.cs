@@ -13,7 +13,8 @@ public class AddMemberRequest
     public required string Email { get; set; }
 
     /// <summary>
-    /// Role for the new member: "Owner", "Admin", "Member", "ReadOnly".
+    /// Role for the new member. Only "Landlord" is currently valid -- see
+    /// OrganizationMember.Roles.IsValid.
     /// </summary>
     public required string Role { get; set; }
 }
@@ -47,6 +48,13 @@ public class OrganizationMemberResponse
     /// Role within the organization.
     /// </summary>
     public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True for the org's primary owner -- exclusive rights (rename org, delete org, transfer
+    /// ownership) that aren't shared across every co-managing Landlord. Exactly one member per
+    /// org should have this set.
+    /// </summary>
+    public bool IsPrimaryOwner { get; set; }
 
     /// <summary>
     /// Timestamp when member joined the organization.

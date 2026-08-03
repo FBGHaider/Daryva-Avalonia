@@ -55,6 +55,9 @@ public class OrganizationMemberDto
     [JsonPropertyName("role")]
     public string Role { get; set; } = string.Empty;
 
+    [JsonPropertyName("isPrimaryOwner")]
+    public bool IsPrimaryOwner { get; set; }
+
     [JsonPropertyName("joinedAt")]
     public DateTime JoinedAt { get; set; }
 }

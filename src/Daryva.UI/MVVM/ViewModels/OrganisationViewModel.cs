@@ -27,10 +27,10 @@ namespace Daryva.MVVM.ViewModels
 
         private Organisation? _currentOrganisation;
         private Organisation? _selectedOrganisation;
-        private OrgRole? _currentUserRole;
+        /// <summary>Null until member list resolves whether the signed-in user is this org's primary owner.</summary>
+        private bool? _isCurrentUserPrimaryOwner;
         private string _memberSearchText = string.Empty;
         private string _inviteEmail = string.Empty;
-        private OrgRole _inviteRole = OrgRole.Member;
         private int _housesCount;
         private int _activeTenantsCount;
         private bool _isBusy;
@@ -58,7 +58,6 @@ namespace Daryva.MVVM.ViewModels
 
             Organisations = new ObservableCollection<Organisation>();
             Members = new ObservableCollection<MemberVm>();
-            RoleOptions = new ObservableCollection<OrgRole> { OrgRole.Owner, OrgRole.Admin, OrgRole.Member, OrgRole.ReadOnly };
 
             LoadCommand = new RelayCommand(async _ => await LoadAsync());
             RefreshCommand = new RelayCommand(async _ => await LoadAsync());
@@ -67,7 +66,6 @@ namespace Daryva.MVVM.ViewModels
             RenameOrgCommand = new RelayCommand(async _ => await RenameOrgAsync(), _ => CanRenameOrg);
             RemoveOrgCommand = new RelayCommand(async _ => await RemoveOrgAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
             InviteMemberCommand = new RelayCommand(async _ => await InviteMemberAsync(), _ => CanInvite && !string.IsNullOrWhiteSpace(InviteEmail));
-            ChangeRoleCommand = new RelayCommand<MemberVm>(async m => await ChangeRoleAsync(m), m => CanChangeRoleFor(m));
             RemoveMemberCommand = new RelayCommand<MemberVm>(async m => await RemoveMemberAsync(m), m => CanRemoveMember(m));
             CopyRecoveryCodeCommand = new RelayCommand(async _ => await CopyRecoveryCodeAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
             RestoreOrgCommand = new RelayCommand(async _ => await RestoreOrgByIdAsync());
@@ -91,7 +89,6 @@ namespace Daryva.MVVM.ViewModels
 
         public ObservableCollection<Organisation> Organisations { get; }
         public ObservableCollection<MemberVm> Members { get; }
-        public ObservableCollection<OrgRole> RoleOptions { get; }
 
         public Organisation? CurrentOrganisation
         {
@@ -158,12 +155,6 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        public OrgRole InviteRole
-        {
-            get => _inviteRole;
-            set => SetProperty(ref _inviteRole, value);
-        }
-
         public int HousesCount
         {
             get => _housesCount;
@@ -182,31 +173,36 @@ namespace Daryva.MVVM.ViewModels
             private set => SetProperty(ref _isBusy, value);
         }
 
-        public OrgRole? CurrentUserRole
+        /// <summary>
+        /// Null until the member list resolves. IsPrimaryOwner is the only real distinction the
+        /// backend makes between org members (see Domain/OrganizationMember.cs) -- there is no
+        /// Admin/Member/ReadOnly tier, so this replaces what was previously a 4-value OrgRole enum
+        /// that didn't correspond to anything the server actually enforces.
+        /// </summary>
+        public bool? IsCurrentUserPrimaryOwner
         {
-            get => _currentUserRole;
+            get => _isCurrentUserPrimaryOwner;
             private set
             {
-                if (SetProperty(ref _currentUserRole, value))
+                if (SetProperty(ref _isCurrentUserPrimaryOwner, value))
                 {
                     OnPropertyChanged(nameof(CanRenameOrg));
                     OnPropertyChanged(nameof(CanInvite));
                     ((RelayCommand)RenameOrgCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)InviteMemberCommand).RaiseCanExecuteChanged();
-                    foreach (var m in Members)
-                    {
-                        ((RelayCommand)ChangeRoleCommand).RaiseCanExecuteChanged();
-                        ((RelayCommand)RemoveMemberCommand).RaiseCanExecuteChanged();
-                    }
+                    RemoveMemberCommand.RaiseCanExecuteChanged();
                 }
             }
         }
 
-        public bool CanRenameOrg => CurrentOrganisation != null && (CurrentUserRole == OrgRole.Owner || CurrentUserRole == null);
-        public bool CanInvite => CurrentUserRole == OrgRole.Owner || CurrentUserRole == OrgRole.Admin;
+        // Rename/delete are exclusive owner rights server-side (OrganizationService.UpdateOrganizationAsync/
+        // DeleteOrganizationAsync both 403 non-owners); "unresolved" (null) defaults to allowed so the
+        // button isn't stuck disabled before the member list loads -- the server is the real gate either way.
+        public bool CanRenameOrg => CurrentOrganisation != null && IsCurrentUserPrimaryOwner != false;
+        // Every Landlord (owner or not) holds Organization.ManageMembers -- see RolePermissions.cs.
+        public bool CanInvite => CurrentOrganisation != null;
         public bool IsMembersListEmpty => Members.Count == 0;
-        public bool CanChangeRoleFor(MemberVm? m) => CurrentUserRole == OrgRole.Owner && m != null && m.Role != OrgRole.Owner && m.Member.Id != default;
-        public bool CanRemoveMember(MemberVm? m) => (CurrentUserRole == OrgRole.Owner || CurrentUserRole == OrgRole.Admin) && m != null && (CurrentUserRole == OrgRole.Owner || m.Role != OrgRole.Owner);
+        public bool CanRemoveMember(MemberVm? m) => IsCurrentUserPrimaryOwner == true && m != null && !m.IsPrimaryOwner;
 
         public ICommand LoadCommand { get; }
         public ICommand RefreshCommand { get; }
@@ -215,8 +211,7 @@ namespace Daryva.MVVM.ViewModels
         public ICommand RenameOrgCommand { get; }
         public ICommand RemoveOrgCommand { get; }
         public ICommand InviteMemberCommand { get; }
-        public ICommand ChangeRoleCommand { get; }
-        public ICommand RemoveMemberCommand { get; }
+        public RelayCommand<MemberVm> RemoveMemberCommand { get; }
         public ICommand CopyRecoveryCodeCommand { get; }
         public ICommand RestoreOrgCommand { get; }
         public ICommand RestoreFromBackupCommand { get; }
@@ -283,7 +278,7 @@ namespace Daryva.MVVM.ViewModels
                     {
                         _allMembers.Clear();
                         Members.Clear();
-                        CurrentUserRole = null;
+                        IsCurrentUserPrimaryOwner = null;
                         HousesCount = 0;
                         ActiveTenantsCount = 0;
                     });
@@ -304,15 +299,12 @@ namespace Daryva.MVVM.ViewModels
         {
             var list = await _memberService.GetMembersAsync(orgId);
             var currentEmail = _authSession.Email ?? string.Empty;
-            var currentUserRole = list
-                .Where(m => string.Equals(m.Email, currentEmail, StringComparison.OrdinalIgnoreCase))
-                .Select(m => (OrgRole?)m.Role)
-                .FirstOrDefault();
+            var currentMember = list.FirstOrDefault(m => string.Equals(m.Email, currentEmail, StringComparison.OrdinalIgnoreCase));
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _allMembers = list.Select(m => new MemberVm(m, string.Equals(m.Email, currentEmail, StringComparison.OrdinalIgnoreCase))).ToList();
-                    CurrentUserRole = currentUserRole;
+                    IsCurrentUserPrimaryOwner = currentMember?.IsPrimaryOwner;
                     ApplyMemberFilter();
                     OnPropertyChanged(nameof(IsMembersListEmpty));
                 });
@@ -488,7 +480,7 @@ namespace Daryva.MVVM.ViewModels
             IsBusy = true;
             try
             {
-                var member = await _memberService.InviteMemberAsync(CurrentOrganisation.Id, email, InviteRole);
+                var member = await _memberService.InviteMemberAsync(CurrentOrganisation.Id, email);
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     var currentEmail = _authSession.Email ?? string.Empty;
@@ -497,42 +489,6 @@ namespace Daryva.MVVM.ViewModels
                     InviteEmail = string.Empty;
                     ((RelayCommand)InviteMemberCommand).RaiseCanExecuteChanged();
                     _dialogService.ShowMessage($"Invite sent to {email}.", "Invite sent");
-                });
-            }
-            catch (Exception ex)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                    _dialogService.ShowMessage(ex.Message, "Error"));
-            }
-            finally
-            {
-                await Dispatcher.UIThread.InvokeAsync(() => IsBusy = false);
-            }
-        }
-
-        private async Task ChangeRoleAsync(MemberVm? memberVm)
-        {
-            if (memberVm == null || !CanChangeRoleFor(memberVm)) return;
-            var options = new[] { OrgRole.Admin, OrgRole.Member, OrgRole.ReadOnly };
-            var current = memberVm.Role;
-            // Simple approach: show message with role choices; user could pick from menu in UI. For now use a dialog.
-            var choice = await _dialogService.ShowInputDialogAsync(
-                "Enter new role (Admin, Member, ReadOnly):", "Change role", current.ToString());
-            if (string.IsNullOrWhiteSpace(choice)) return;
-            if (!Enum.TryParse<OrgRole>(choice.Trim(), true, out var newRole) || newRole == OrgRole.Owner || newRole == current)
-            {
-                _dialogService.ShowMessage("Invalid role. Use Admin, Member, or ReadOnly.", "Validation");
-                return;
-            }
-            if (IsBusy) return;
-            IsBusy = true;
-            try
-            {
-                await _memberService.UpdateRoleAsync(memberVm.Id, newRole);
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    memberVm.Role = newRole;
-                    _dialogService.ShowMessage($"Role updated to {newRole}.", "Updated");
                 });
             }
             catch (Exception ex)

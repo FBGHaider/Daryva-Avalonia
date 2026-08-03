@@ -472,6 +472,7 @@ public class OrganizationService : IOrganizationService
             Email = member.Email,
             DisplayName = null,
             Role = member.Role,
+            IsPrimaryOwner = member.IsPrimaryOwner,
             JoinedAt = member.JoinedAt
         };
 
@@ -488,6 +489,7 @@ public class OrganizationService : IOrganizationService
             Email = displayEmail ?? "Signed-in user",
             DisplayName = displayDisplayName,
             Role = member.Role,
+            IsPrimaryOwner = member.IsPrimaryOwner,
             JoinedAt = member.JoinedAt
         };
     }

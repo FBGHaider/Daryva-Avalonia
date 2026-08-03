@@ -33,7 +33,8 @@ public class OrganisationMemberApiDecorator : IOrganisationMemberService
                 OrganisationId = orgId,
                 Email = d.Email ?? string.Empty,
                 DisplayName = d.DisplayName,
-                Role = ParseRole(d.Role),
+                Role = d.Role,
+                IsPrimaryOwner = d.IsPrimaryOwner,
                 Status = MemberStatus.Active,
                 JoinedAt = d.JoinedAt
             }).ToList();
@@ -48,24 +49,12 @@ public class OrganisationMemberApiDecorator : IOrganisationMemberService
         }
     }
 
-    public Task<OrganisationMember> InviteMemberAsync(Guid orgId, string email, OrgRole role, CancellationToken cancellationToken = default)
-        => _localService.InviteMemberAsync(orgId, email, role, cancellationToken);
+    public Task<OrganisationMember> InviteMemberAsync(Guid orgId, string email, CancellationToken cancellationToken = default)
+        => _localService.InviteMemberAsync(orgId, email, cancellationToken);
 
-    public Task<OrganisationMember> AddMemberAsync(Guid orgId, string email, OrgRole role, MemberStatus status = MemberStatus.Active, string? displayName = null, CancellationToken cancellationToken = default)
-        => _localService.AddMemberAsync(orgId, email, role, status, displayName, cancellationToken);
-
-    public Task UpdateRoleAsync(Guid memberId, OrgRole role, CancellationToken cancellationToken = default)
-        => _localService.UpdateRoleAsync(memberId, role, cancellationToken);
+    public Task<OrganisationMember> AddMemberAsync(Guid orgId, string email, MemberStatus status = MemberStatus.Active, string? displayName = null, bool isPrimaryOwner = false, CancellationToken cancellationToken = default)
+        => _localService.AddMemberAsync(orgId, email, status, displayName, isPrimaryOwner, cancellationToken);
 
     public Task RemoveMemberAsync(Guid memberId, CancellationToken cancellationToken = default)
         => _localService.RemoveMemberAsync(memberId, cancellationToken);
-
-    private static OrgRole ParseRole(string role)
-    {
-        if (string.IsNullOrWhiteSpace(role)) return OrgRole.Member;
-        if (string.Equals(role, "Owner", StringComparison.OrdinalIgnoreCase)) return OrgRole.Owner;
-        if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)) return OrgRole.Admin;
-        if (string.Equals(role, "ReadOnly", StringComparison.OrdinalIgnoreCase)) return OrgRole.ReadOnly;
-        return OrgRole.Member;
-    }
 }

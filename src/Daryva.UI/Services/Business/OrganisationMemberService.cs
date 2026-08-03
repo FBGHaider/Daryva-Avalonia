@@ -30,13 +30,13 @@ namespace Daryva.Services.Business
             return list.Where(m => m.OrganisationId == orgId).ToList();
         }
 
-        public async Task<OrganisationMember> InviteMemberAsync(Guid orgId, string email, OrgRole role, CancellationToken cancellationToken = default)
+        public async Task<OrganisationMember> InviteMemberAsync(Guid orgId, string email, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(email)) throw new ArgumentException("Email is required.", nameof(email));
-            return await AddMemberAsync(orgId, email.Trim(), role, MemberStatus.Pending, null, cancellationToken).ConfigureAwait(false);
+            return await AddMemberAsync(orgId, email.Trim(), MemberStatus.Pending, null, isPrimaryOwner: false, cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<OrganisationMember> AddMemberAsync(Guid orgId, string email, OrgRole role, MemberStatus status = MemberStatus.Active, string? displayName = null, CancellationToken cancellationToken = default)
+        public async Task<OrganisationMember> AddMemberAsync(Guid orgId, string email, MemberStatus status = MemberStatus.Active, string? displayName = null, bool isPrimaryOwner = false, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(email)) throw new ArgumentException("Email is required.", nameof(email));
             var list = await ReadMembersAsync(cancellationToken).ConfigureAwait(false);
@@ -48,7 +48,8 @@ namespace Daryva.Services.Business
                 OrganisationId = orgId,
                 Email = email.Trim(),
                 DisplayName = displayName?.Trim(),
-                Role = role,
+                Role = OrganisationMember.LandlordRole,
+                IsPrimaryOwner = isPrimaryOwner,
                 Status = status,
                 JoinedAt = DateTime.UtcNow
             };
@@ -57,22 +58,13 @@ namespace Daryva.Services.Business
             return member;
         }
 
-        public async Task UpdateRoleAsync(Guid memberId, OrgRole role, CancellationToken cancellationToken = default)
-        {
-            var list = await ReadMembersAsync(cancellationToken).ConfigureAwait(false);
-            var member = list.FirstOrDefault(m => m.Id == memberId);
-            if (member == null) throw new InvalidOperationException("Member not found.");
-            member.Role = role;
-            await WriteMembersAsync(list, cancellationToken).ConfigureAwait(false);
-        }
-
         public async Task RemoveMemberAsync(Guid memberId, CancellationToken cancellationToken = default)
         {
             var list = await ReadMembersAsync(cancellationToken).ConfigureAwait(false);
             var member = list.FirstOrDefault(m => m.Id == memberId);
             if (member == null) throw new InvalidOperationException("Member not found.");
-            var ownerCount = list.Count(m => m.OrganisationId == member.OrganisationId && m.Role == OrgRole.Owner && m.Status == MemberStatus.Active);
-            if (member.Role == OrgRole.Owner && member.Status == MemberStatus.Active && ownerCount <= 1)
+            var ownerCount = list.Count(m => m.OrganisationId == member.OrganisationId && m.IsPrimaryOwner && m.Status == MemberStatus.Active);
+            if (member.IsPrimaryOwner && member.Status == MemberStatus.Active && ownerCount <= 1)
                 throw new InvalidOperationException("Cannot remove the last owner.");
             list.Remove(member);
             await WriteMembersAsync(list, cancellationToken).ConfigureAwait(false);

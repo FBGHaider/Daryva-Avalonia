@@ -219,7 +219,7 @@ namespace Daryva.Services.Business
             var email = _authSession.Email ?? "user@local";
             try
             {
-                await _memberService.AddMemberAsync(org.Id, email, OrgRole.Owner, MemberStatus.Active, null, cancellationToken).ConfigureAwait(false);
+                await _memberService.AddMemberAsync(org.Id, email, MemberStatus.Active, null, isPrimaryOwner: true, cancellationToken).ConfigureAwait(false);
             }
             catch (InvalidOperationException)
             {

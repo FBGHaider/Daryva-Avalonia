@@ -5,7 +5,7 @@
              x:CompileBindings="False"
              x:Name="Root">
     <UserControl.Resources>
-        <converters:OrgRoleToBadgeBrushConverter x:Key="OrgRoleToBadgeBrushConverter"/>
+        <converters:IsPrimaryOwnerToBadgeBrushConverter x:Key="IsPrimaryOwnerToBadgeBrushConverter"/>
         <converters:MemberStatusToBadgeBrushConverter x:Key="MemberStatusToBadgeBrushConverter"/>
     </UserControl.Resources>
     <UserControl.Styles>
@@ -131,13 +131,12 @@
                                         <Border Classes="member-row">
                                             <Border.ContextMenu>
                                                 <ContextMenu>
-                                                    <MenuItem Header="Change role" Command="{Binding DataContext.ChangeRoleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                                                     <MenuItem Header="Remove" Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                                                 </ContextMenu>
                                             </Border.ContextMenu>
                                             <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                                                 <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                                <Border Grid.Column="1" Classes="badge-role" Background="{Binding Role, Converter={StaticResource OrgRoleToBadgeBrushConverter}}" Margin="8,0">
+                                                <Border Grid.Column="1" Classes="badge-role" Background="{Binding IsPrimaryOwner, Converter={StaticResource IsPrimaryOwnerToBadgeBrushConverter}}" Margin="8,0">
                                                     <TextBlock Text="{Binding RoleDisplay}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 </Border>
                                                 <Border Grid.Column="2" Classes="badge-status" Background="{Binding Status, Converter={StaticResource MemberStatusToBadgeBrushConverter}}" Margin="0,0,8,0">
@@ -147,7 +146,6 @@
                                                 <Button Grid.Column="4" Classes="member-action-btn" Content="⋯" ToolTip.Tip="Actions">
                                                     <Button.Flyout>
                                                         <MenuFlyout Placement="Bottom">
-                                                            <MenuItem Header="Change role" Command="{Binding DataContext.ChangeRoleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                                                             <MenuItem Header="Remove" Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                                                         </MenuFlyout>
                                                     </Button.Flyout>
@@ -163,19 +161,11 @@
                         <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,14,0,0">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="Invite member" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                <Grid ColumnDefinitions="*,Auto">
                                     <TextBox Grid.Column="0" Text="{Binding InviteEmail}" Watermark="Email address" Margin="0,0,12,0"/>
-                                    <ComboBox Grid.Column="1" ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding InviteRole}" MinWidth="120" Margin="0,0,12,0"
-                                              Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding}" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                    <Button Grid.Column="2" Content="Send invite" Classes="primary" Command="{Binding InviteMemberCommand}"/>
+                                    <Button Grid.Column="1" Content="Send invite" Classes="primary" Command="{Binding InviteMemberCommand}"/>
                                 </Grid>
-                                <TextBlock Text="Enter an email address and role, then click Send invite." Classes="text-muted" FontSize="12" Margin="0,4,0,0"/>
+                                <TextBlock Text="Enter an email address, then click Send invite. New members join as co-managing Landlords." Classes="text-muted" FontSize="12" Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

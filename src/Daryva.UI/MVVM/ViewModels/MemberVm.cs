@@ -8,7 +8,7 @@ namespace Daryva.MVVM.ViewModels
     /// </summary>
     public class MemberVm : BaseViewModel
     {
-        private OrgRole _role;
+        private bool _isPrimaryOwner;
         private MemberStatus _status;
 
         public MemberVm(OrganisationMember member, bool isCurrentUser)
@@ -18,7 +18,7 @@ namespace Daryva.MVVM.ViewModels
             OrganisationId = member.OrganisationId;
             DisplayName = member.DisplayName;
             Email = member.Email;
-            _role = member.Role;
+            _isPrimaryOwner = member.IsPrimaryOwner;
             _status = member.Status;
             JoinedAt = member.JoinedAt;
             IsCurrentUser = isCurrentUser;
@@ -31,14 +31,15 @@ namespace Daryva.MVVM.ViewModels
         public string? DisplayName { get; }
         public string Email { get; }
 
-        public OrgRole Role
+        /// <summary>True for the org's one primary owner; every other member is a co-managing Landlord.</summary>
+        public bool IsPrimaryOwner
         {
-            get => _role;
+            get => _isPrimaryOwner;
             set
             {
-                if (SetProperty(ref _role, value))
+                if (SetProperty(ref _isPrimaryOwner, value))
                 {
-                    Member.Role = value;
+                    Member.IsPrimaryOwner = value;
                     OnPropertyChanged(nameof(RoleDisplay));
                 }
             }
@@ -60,7 +61,7 @@ namespace Daryva.MVVM.ViewModels
         public DateTime JoinedAt { get; }
         public bool IsCurrentUser { get; }
 
-        public string RoleDisplay => Role.ToString();
+        public string RoleDisplay => IsPrimaryOwner ? "Owner" : "Landlord";
         public string StatusDisplay => Status.ToString();
 
         /// <summary>Display name or email, with " (You)" suffix when current user.</summary>
