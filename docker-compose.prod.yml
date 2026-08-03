@@ -15,7 +15,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: ${API_CONNECTION_STRING:?set_in_server_env}
-      Jwt__Authority: ${JWT_AUTHORITY:-https://merry-marmoset-71.clerk.accounts.dev}
+      # Empty by default: Daryva has its own Argon2id/JWT auth (Jwt__SigningKey below), not Clerk.
+      # A ":-<default>" fallback here would silently re-enable Clerk-authority validation any time
+      # JWT_AUTHORITY is unset OR empty on the server, since compose treats both the same way.
+      Jwt__Authority: ${JWT_AUTHORITY:-}
       Jwt__Audience: daryva-api
       Jwt__Issuer: daryva-api
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?set_in_server_env}
