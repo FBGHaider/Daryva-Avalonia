@@ -62,6 +62,11 @@ namespace Daryva.Services
 
             // Load app.config.local.json: try next to exe first (so project file is used when running from IDE), then AppData
             var localConfigPathToUse = File.Exists(BaseDirLocalConfigPath) ? BaseDirLocalConfigPath : LocalConfigPath;
+            // SaveLocalConfig() must write back to whichever file this actually loaded from -- previously
+            // this was never set, so SetLocalValue() always wrote to the AppData path even when config was
+            // loaded from next to the exe (the normal case for a dev/IDE run), silently losing anything
+            // persisted via SetLocalValue (e.g. the last-selected org id) on the next launch.
+            _localConfigPathUsed = localConfigPathToUse;
             if (File.Exists(localConfigPathToUse))
             {
                 try

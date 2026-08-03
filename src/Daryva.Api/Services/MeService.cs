@@ -70,8 +70,11 @@ public class MeService : IMeService
             var devPlaceholderMembers = new List<OrganizationMember>();
             if (!string.Equals(sub, _devUserId, StringComparison.OrdinalIgnoreCase))
             {
+                // EndsWith(string, StringComparison) can't be translated to SQL by Npgsql -- emails are
+                // already normalized lowercase everywhere they're written (see AuthService.NormalizeEmail),
+                // so a plain lowercase comparison is equivalent and translates to a normal SQL LIKE.
                 devPlaceholderMembers = await _db.OrganizationMembers
-                    .Where(m => m.UserId == _devUserId && m.Email != null && m.Email.EndsWith("@local", StringComparison.OrdinalIgnoreCase))
+                    .Where(m => m.UserId == _devUserId && m.Email != null && m.Email.ToLower().EndsWith("@local"))
                     .ToListAsync(cancellationToken);
                 foreach (var m in devPlaceholderMembers)
                 {
