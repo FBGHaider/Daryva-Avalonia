@@ -13,6 +13,7 @@ public class MeService : IMeService
     private readonly IOrganizationService _orgService;
     private readonly ILogger<MeService> _logger;
     private readonly string _devUserId;
+    private readonly bool _devAuthEnabled;
 
     public MeService(AppDbContext db, IOrganizationService orgService, ILogger<MeService> logger, IConfiguration configuration)
     {
@@ -20,6 +21,7 @@ public class MeService : IMeService
         _orgService = orgService;
         _logger = logger;
         _devUserId = configuration.GetValue<string>("DevAuth:UserId") ?? "dev-user-1";
+        _devAuthEnabled = configuration.GetValue<bool>("DevAuth:Enabled");
     }
 
     public async Task EnsureUserProfileAsync(string sub, string? email, CancellationToken cancellationToken = default)
@@ -66,9 +68,15 @@ public class MeService : IMeService
             }
 
             // Migrate dev placeholder to real identity: org members created as dev-user-1 / dev@local
-            // become this user so the team list shows the signed-in email.
+            // become this user so the team list shows the signed-in email. Local-dev-only convenience
+            // for reconciling DevAuthMiddleware-created test data with a real login -- gated on
+            // DevAuth:Enabled (never true in production) because it is otherwise completely unscoped:
+            // it hands over EVERY dev-user-1/@local org membership to whichever real account happens
+            // to call /api/me next, real or not. This previously ran unconditionally and, the first
+            // time this query stopped throwing (see the EndsWith fix above), silently reassigned two
+            // real production organizations to an unrelated verification test account.
             var devPlaceholderMembers = new List<OrganizationMember>();
-            if (!string.Equals(sub, _devUserId, StringComparison.OrdinalIgnoreCase))
+            if (_devAuthEnabled && !string.Equals(sub, _devUserId, StringComparison.OrdinalIgnoreCase))
             {
                 // EndsWith(string, StringComparison) can't be translated to SQL by Npgsql -- emails are
                 // already normalized lowercase everywhere they're written (see AuthService.NormalizeEmail),
