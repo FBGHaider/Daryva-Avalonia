@@ -106,6 +106,17 @@ public class ApiClient : IApiClient
 
             response.Dispose();
 
+            // A 401 with no session at all (background polling while signed out, or while sitting on
+            // a pre-auth screen like Forgot Password/Sign Up) is expected and routine -- there was
+            // nothing to sign out of. Only a request that HAD a session which then failed to refresh
+            // represents a genuine session death worth reacting to. Without this check, any stray
+            // unauthenticated background call (notification polling, org-label refresh on every
+            // navigation, etc.) would call SignOutAsync -> StateChanged(false) -> MainViewModel
+            // forcibly navigating away from whatever pre-auth screen the user was actually on.
+            var hadSession = _authSession.IsAuthenticated;
+            if (!hadSession)
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized) { RequestMessage = request };
+
             var refreshed = await RefreshAccessTokenAsync(cancellationToken);
             if (!refreshed)
             {

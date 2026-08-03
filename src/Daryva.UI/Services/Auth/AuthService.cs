@@ -61,6 +61,13 @@ public sealed class AuthService : IAuthService
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
+        // No-op if already signed out (defense in depth alongside ApiAuthHandler's own
+        // hadSession check) -- there's nothing to sign out of, and raising StateChanged here
+        // would forcibly navigate the user away from wherever they currently are, including
+        // pre-auth screens like Forgot Password/Sign Up.
+        if (!_authSession.IsAuthenticated)
+            return;
+
         await _authApiService.LogoutAsync(cancellationToken).ConfigureAwait(false);
         var resetService = _serviceProvider.GetRequiredService<IAppResetService>();
         await resetService.ResetToSignedOutAsync(cancellationToken).ConfigureAwait(false);
