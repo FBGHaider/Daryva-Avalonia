@@ -550,6 +550,51 @@ public class BulkImportService : IBulkImportService
             await SaveWithErrorRecoveryAsync(_dbContext, "DepositPayments", errors, _logger, cancellationToken);
             _logger.LogInformation("Imported {Count} deposit payments", response.Stats.DepositPaymentsImported);
 
+            // ========== 7a. IMPORT DEPOSIT RETURNS ==========
+            foreach (var importReturn in request.DepositReturns)
+            {
+                try
+                {
+                    if (importReturn.AmountReturned < 0)
+                    {
+                        errors.Add($"Deposit Return {importReturn.OldId}: AmountReturned cannot be negative");
+                        continue;
+                    }
+
+                    if (importReturn.ReturnedDate == default)
+                    {
+                        errors.Add($"Deposit Return {importReturn.OldId}: ReturnedDate is required");
+                        continue;
+                    }
+
+                    if (!tenancyIdMap.TryGetValue(importReturn.OldTenancyId, out var tenancyId))
+                    {
+                        errors.Add($"Deposit Return {importReturn.OldId}: Tenancy ID {importReturn.OldTenancyId} not found");
+                        continue;
+                    }
+
+                    var depositReturn = new DepositReturn
+                    {
+                        Id = Guid.NewGuid(),
+                        OrganizationId = organizationId,
+                        TenancyId = tenancyId,
+                        ReturnedDate = importReturn.ReturnedDate,
+                        AmountReturned = importReturn.AmountReturned,
+                        Notes = string.IsNullOrWhiteSpace(importReturn.Notes) ? null : importReturn.Notes.Trim()
+                    };
+
+                    _dbContext.DepositReturns.Add(depositReturn);
+                    response.Stats.DepositReturnsImported++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Deposit Return {importReturn.OldId}: {ex.Message}");
+                }
+            }
+
+            await SaveWithErrorRecoveryAsync(_dbContext, "DepositReturns", errors, _logger, cancellationToken);
+            _logger.LogInformation("Imported {Count} deposit returns", response.Stats.DepositReturnsImported);
+
             // ========== 8. IMPORT NOTIFICATION TEMPLATES ==========
             foreach (var importTemplate in request.NotificationTemplates)
             {

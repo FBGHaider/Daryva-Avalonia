@@ -137,6 +137,14 @@ public class BackupController : ControllerBase
                 ProtectionReference = d.ProtectionReference,
                 Notes = d.Notes
             }).ToList(),
+            DepositReturns = depositReturns.Select(dr => new ImportDepositReturn
+            {
+                OldId = dr.Id.GetHashCode(),
+                OldTenancyId = tenancyIdMap[dr.TenancyId],
+                ReturnedDate = NormalizeToUtc(dr.ReturnedDate),
+                AmountReturned = dr.AmountReturned,
+                Notes = dr.Notes
+            }).ToList(),
             NotificationTemplates = templates.Select(t => new ImportNotificationTemplate
             {
                 OldId = templateIdMap[t.Id],
