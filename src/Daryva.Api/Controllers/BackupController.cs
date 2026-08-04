@@ -59,7 +59,8 @@ public class BackupController : ControllerBase
                 City = h.City,
                 Postcode = h.Postcode,
                 TotalRooms = h.TotalRooms,
-                CreatedAt = NormalizeToUtc(h.CreatedAt)
+                CreatedAt = NormalizeToUtc(h.CreatedAt),
+                IsArchived = h.IsArchived
             }).ToList(),
             Tenants = tenants.Select(t => new ImportTenant
             {
@@ -95,7 +96,8 @@ public class BackupController : ControllerBase
                 Amount = e.Amount,
                 Vendor = e.Vendor,
                 Notes = e.Notes,
-                OldReceiptDocumentId = e.ReceiptDocumentId.HasValue && documentIdMap.TryGetValue(e.ReceiptDocumentId.Value, out var docId) ? docId : null
+                OldReceiptDocumentId = e.ReceiptDocumentId.HasValue && documentIdMap.TryGetValue(e.ReceiptDocumentId.Value, out var docId) ? docId : null,
+                IsArchived = e.IsArchived
             }).ToList(),
             Documents = documents.Select(d => new ImportDocument
             {
@@ -124,7 +126,8 @@ public class BackupController : ControllerBase
                 PaymentMethod = r.PaymentMethod,
                 ReferenceNumber = r.ReferenceNumber,
                 Notes = r.Notes,
-                CollectedBy = r.CollectedBy
+                CollectedBy = r.CollectedBy,
+                IsVoided = r.IsVoided
             }).ToList(),
             DepositPayments = depositPayments.Select(d => new ImportDepositPayment
             {
@@ -135,7 +138,8 @@ public class BackupController : ControllerBase
                 PaymentMethod = d.PaymentMethod,
                 ProtectionScheme = d.ProtectionScheme,
                 ProtectionReference = d.ProtectionReference,
-                Notes = d.Notes
+                Notes = d.Notes,
+                IsVoided = d.IsVoided
             }).ToList(),
             DepositReturns = depositReturns.Select(dr => new ImportDepositReturn
             {

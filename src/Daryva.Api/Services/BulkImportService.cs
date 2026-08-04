@@ -154,7 +154,8 @@ public class BulkImportService : IBulkImportService
                         City = city,
                         Postcode = postcode,
                         TotalRooms = importHouse.TotalRooms,
-                        CreatedAt = importHouse.CreatedAt > DateTime.MinValue ? importHouse.CreatedAt : DateTime.UtcNow
+                        CreatedAt = importHouse.CreatedAt > DateTime.MinValue ? importHouse.CreatedAt : DateTime.UtcNow,
+                        IsArchived = importHouse.IsArchived
                     };
 
                     _dbContext.Houses.Add(house);
@@ -425,7 +426,8 @@ public class BulkImportService : IBulkImportService
                         Amount = importExpense.Amount,
                         Vendor = string.IsNullOrWhiteSpace(importExpense.Vendor) ? null : importExpense.Vendor.Trim(),
                         Notes = string.IsNullOrWhiteSpace(importExpense.Notes) ? null : importExpense.Notes.Trim(),
-                        ReceiptDocumentId = receiptDocId
+                        ReceiptDocumentId = receiptDocId,
+                        IsArchived = importExpense.IsArchived
                     };
 
                     _dbContext.Expenses.Add(expense);
@@ -479,7 +481,8 @@ public class BulkImportService : IBulkImportService
                         PaymentMethod = importPayment.PaymentMethod.Trim(),
                         ReferenceNumber = string.IsNullOrWhiteSpace(importPayment.ReferenceNumber) ? null : importPayment.ReferenceNumber.Trim(),
                         Notes = string.IsNullOrWhiteSpace(importPayment.Notes) ? null : importPayment.Notes.Trim(),
-                        CollectedBy = string.IsNullOrWhiteSpace(importPayment.CollectedBy) ? null : importPayment.CollectedBy.Trim()
+                        CollectedBy = string.IsNullOrWhiteSpace(importPayment.CollectedBy) ? null : importPayment.CollectedBy.Trim(),
+                        IsVoided = importPayment.IsVoided
                     };
 
                     _dbContext.RentPayments.Add(payment);
@@ -534,7 +537,8 @@ public class BulkImportService : IBulkImportService
                         PaymentMethod = importDeposit.PaymentMethod.Trim(),
                         ProtectionScheme = string.IsNullOrWhiteSpace(importDeposit.ProtectionScheme) ? null : importDeposit.ProtectionScheme.Trim(),
                         ProtectionReference = string.IsNullOrWhiteSpace(importDeposit.ProtectionReference) ? null : importDeposit.ProtectionReference.Trim(),
-                        Notes = string.IsNullOrWhiteSpace(importDeposit.Notes) ? null : importDeposit.Notes.Trim()
+                        Notes = string.IsNullOrWhiteSpace(importDeposit.Notes) ? null : importDeposit.Notes.Trim(),
+                        IsVoided = importDeposit.IsVoided
                     };
 
                     _dbContext.DepositPayments.Add(deposit);

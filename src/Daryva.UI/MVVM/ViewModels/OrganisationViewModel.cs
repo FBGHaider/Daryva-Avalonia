@@ -301,6 +301,26 @@ namespace Daryva.MVVM.ViewModels
             IsBusy = true;
             try
             {
+                await LoadCoreAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => IsBusy = false);
+            }
+        }
+
+        /// <summary>
+        /// The actual load logic, with no IsBusy guard of its own -- callers that are already
+        /// inside their own IsBusy=true block (RemoveOrgAsync, RestoreOrgByIdAsync,
+        /// RestoreFromBackupAsync, RepairRentFromFileAsync) call this directly. LoadAsync's own
+        /// "if (IsBusy) return" guard previously made those calls silent no-ops (IsBusy was still
+        /// true at that point), so the org/member/stats list never visibly refreshed after those
+        /// operations succeeded.
+        /// </summary>
+        private async Task LoadCoreAsync()
+        {
+            try
+            {
                 IReadOnlyList<Organisation> orgs;
                 Guid? currentId;
                 if (_orgContext.ActiveSupportSession is { } activeSession)
@@ -349,10 +369,6 @@ namespace Daryva.MVVM.ViewModels
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                     _dialogService.ShowMessage($"Could not load organisations: {ex.Message}", "Error"));
-            }
-            finally
-            {
-                await Dispatcher.UIThread.InvokeAsync(() => IsBusy = false);
             }
         }
 
@@ -513,7 +529,7 @@ namespace Daryva.MVVM.ViewModels
                 await _organizationApiService.DeleteOrganizationAsync(org.Id);
                 await _orgService.RemoveOrganisationFromLocalAsync(org.Id).ConfigureAwait(false);
                 await _orgContext.RefreshAsync().ConfigureAwait(false);
-                await LoadAsync();
+                await LoadCoreAsync();
                 await Dispatcher.UIThread.InvokeAsync(() =>
                     _dialogService.ShowMessage($"Organisation \"{name}\" has been removed.", "Removed"));
             }
@@ -661,7 +677,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 var org = await _organizationApiService.GetOrganizationAsync(orgId);
                 await _orgContext.SetCurrentOrgFromRecoveryAsync(orgId, org.Name);
-                await LoadAsync();
+                await LoadCoreAsync();
                 await Dispatcher.UIThread.InvokeAsync(() =>
                     _dialogService.ShowMessage($"Switched to organisation \"{org.Name}\". Your data for this org is intact.", "Organisation restored"));
             }
@@ -724,7 +740,7 @@ namespace Daryva.MVVM.ViewModels
                         if (result.Stats != null)
                             msg += $"\n\nHouses: {result.Stats.HousesImported}, Tenants: {result.Stats.TenantsImported}, Tenancies: {result.Stats.TenanciesImported}, Expenses: {result.Stats.ExpensesImported}, Rent payments: {result.Stats.RentPaymentsImported}, Deposit payments: {result.Stats.DepositPaymentsImported}, Deposit returns: {result.Stats.DepositReturnsImported}.";
                         _dialogService.ShowMessage(msg, "Backup restored");
-                        _ = LoadAsync();
+                        _ = LoadCoreAsync();
                     }
                     else
                     {
@@ -816,7 +832,7 @@ namespace Daryva.MVVM.ViewModels
                         msg += "\n\nIssues:\n" + string.Join("\n", result.Errors.Take(15)) + (result.Errors.Count > 15 ? "\n..." : "");
                     _dialogService.ShowMessage(msg, "Rent repair");
                     if (result.UpdatedCount > 0)
-                        _ = LoadAsync();
+                        _ = LoadCoreAsync();
                 });
             }
             catch (Exception ex)

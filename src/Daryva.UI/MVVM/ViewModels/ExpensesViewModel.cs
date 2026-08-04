@@ -23,7 +23,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
-        private readonly IOrgContext _orgContext = null!;
+        private readonly IOrgContext _orgContext;
 
         private string _selectedTab = "Summary"; // "Summary" (first) or "List"
         private int _selectedTabIndex = 0;
@@ -40,7 +40,8 @@ namespace Daryva.MVVM.ViewModels
             IDocumentService documentService,
             IDialogService dialogService,
             IServiceProvider serviceProvider,
-            ISettingsService settingsService)
+            ISettingsService settingsService,
+            IOrgContext orgContext)
         {
             _expenseService = expenseService ?? throw new ArgumentNullException(nameof(expenseService));
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
@@ -48,6 +49,7 @@ namespace Daryva.MVVM.ViewModels
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
 
             Expenses = new ObservableCollection<ExpenseRowViewModel>();
             Houses = new ObservableCollection<House>();
@@ -109,13 +111,14 @@ namespace Daryva.MVVM.ViewModels
                 SearchTerm = "";
             });
 
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChanged;
+
             // Load initial data asynchronously on UI thread
             _ = LoadInitialDataAsync();
         }
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            if (_orgContext == null) return;
             Dispatcher.UIThread.Post(() => _ = LoadInitialDataAsync());
         }
 

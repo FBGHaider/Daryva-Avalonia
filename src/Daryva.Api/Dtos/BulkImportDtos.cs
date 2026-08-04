@@ -28,6 +28,7 @@ public class ImportHouse
     public string Postcode { get; set; } = string.Empty;
     public int TotalRooms { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsArchived { get; set; }
 }
 
 public class ImportTenant
@@ -67,6 +68,7 @@ public class ImportExpense
     public string? Vendor { get; set; }
     public string? Notes { get; set; }
     public int? OldReceiptDocumentId { get; set; }
+    public bool IsArchived { get; set; }
 }
 
 public class ImportDocument
@@ -98,6 +100,7 @@ public class ImportRentPayment
     public string? ReferenceNumber { get; set; }
     public string? Notes { get; set; }
     public string? CollectedBy { get; set; }
+    public bool IsVoided { get; set; }
 }
 
 public class ImportDepositPayment
@@ -110,6 +113,7 @@ public class ImportDepositPayment
     public string? ProtectionScheme { get; set; }
     public string? ProtectionReference { get; set; }
     public string? Notes { get; set; }
+    public bool IsVoided { get; set; }
 }
 
 public class ImportNotificationTemplate
