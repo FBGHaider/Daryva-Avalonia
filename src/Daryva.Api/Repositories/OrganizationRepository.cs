@@ -42,13 +42,17 @@ public class OrganizationRepository : IOrganizationRepository
 
     public async Task<(List<Organization> Items, int TotalCount)> SearchAllAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Organizations.AsNoTracking().AsQueryable();
+        // Support Mode's org browse is a targeted lookup ("find the org whose owner emailed us a
+        // support request"), not a directory -- an admin should never see every organization on the
+        // platform just by opening the page. No search term means no results, not "everything".
+        if (string.IsNullOrWhiteSpace(search))
+            return (new List<Organization>(), 0);
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim().ToLower();
-            query = query.Where(o => o.Name.ToLower().Contains(term));
-        }
+        var term = search.Trim().ToLower();
+        var query = _dbContext.Organizations
+            .AsNoTracking()
+            .Where(o => _dbContext.OrganizationMembers
+                .Any(m => m.OrganizationId == o.Id && m.Email != null && m.Email.ToLower().Contains(term)));
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query

@@ -106,7 +106,8 @@ public class OrgsController : ControllerBase
 
     /// <summary>
     /// List ALL organizations, not scoped to the caller's own memberships -- platform admin only.
-    /// Used by Support Mode to find the org to start a session on.
+    /// Used by Support Mode to find the org to start a session on. Search matches org member
+    /// emails (not org name) -- a blank search returns no results, not every organization.
     ///
     /// GET /api/orgs/all?search=&amp;page=&amp;pageSize=
     /// </summary>

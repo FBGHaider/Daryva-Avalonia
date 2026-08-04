@@ -150,6 +150,18 @@ namespace Daryva.MVVM.ViewModels
             if (IsBusy)
                 return;
 
+            // An empty search must not fall back to browsing every organization on the platform --
+            // the backend already refuses to (SearchAllAsync), but bail out here too so a blank
+            // Search click doesn't even round-trip, and clears any stale results from a prior search.
+            if (string.IsNullOrWhiteSpace(OrgSearchText))
+            {
+                OrgSearchResults.Clear();
+                HasSearched = false;
+                ErrorMessage = string.Empty;
+                OnPropertyChanged(nameof(HasNoSearchResults));
+                return;
+            }
+
             IsBusy = true;
             ErrorMessage = string.Empty;
             try

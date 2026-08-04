@@ -52,7 +52,7 @@
                     <StackPanel Spacing="12">
                         <TextBlock Text="Find an organization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBox Grid.Column="0" Watermark="Search by organization name" Text="{Binding OrgSearchText}" Margin="0,0,12,0"/>
+                            <TextBox Grid.Column="0" Watermark="Search by owner's email" Text="{Binding OrgSearchText}" Margin="0,0,12,0"/>
                             <Button Grid.Column="1" Content="Search" Classes="primary" Command="{Binding SearchOrgsCommand}" IsEnabled="{Binding !IsBusy}"/>
                         </Grid>
 
