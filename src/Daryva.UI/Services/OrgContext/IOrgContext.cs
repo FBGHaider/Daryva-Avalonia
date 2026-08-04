@@ -15,6 +15,11 @@ public interface IOrgContext
     /// <summary>AppUser.IsPlatformAdmin for the signed-in user, from GET /api/me. False until RefreshAsync has run at least once.</summary>
     bool IsPlatformAdmin { get; }
 
+    /// <summary>Non-null while acting inside an org entered via EnterSupportOrgAsync -- drives the
+    /// always-visible "live support session" banner. Cleared by RefreshAsync, ClearForSignOut, and
+    /// ExitSupportOrgAsync.</summary>
+    ActiveSupportSessionInfo? ActiveSupportSession { get; }
+
     Task RefreshAsync(CancellationToken cancellationToken = default);
     Task SetCurrentOrgAsync(Guid orgId, CancellationToken cancellationToken = default);
 
@@ -33,7 +38,18 @@ public interface IOrgContext
     /// support-org selection can never silently outlive its actual server-side session. No-ops if
     /// IsPlatformAdmin is false.
     /// </summary>
-    Task EnterSupportOrgAsync(Guid orgId, string orgName, CancellationToken cancellationToken = default);
+    Task EnterSupportOrgAsync(Guid orgId, string orgName, Guid sessionId, DateTime expiresAtUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reverses EnterSupportOrgAsync: drops the synthetic Support org, clears ActiveSupportSession,
+    /// and re-syncs from /api/me (RefreshAsync) so CurrentOrgId falls back to a real membership (or
+    /// null, for an admin with none). Raises CurrentOrgChanged so already-open org-scoped screens
+    /// (Houses, Dashboard, etc., which all subscribe to it) reload instead of continuing to show
+    /// stale data or erroring against an org they no longer have access to. No-ops if
+    /// ActiveSupportSession is already null. Call this whenever the session behind the current
+    /// EnterSupportOrgAsync ends -- manually, or because it expired.
+    /// </summary>
+    Task ExitSupportOrgAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Raised when the current org changes (e.g. after SetCurrentOrgAsync). Subscribe to trigger app-wide data refresh.

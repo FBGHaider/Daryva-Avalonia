@@ -28,6 +28,7 @@ public sealed class OrgContext : IOrgContext
     private Guid? _currentOrgId;
     /// <summary>Current user id from /api/me; used to detect user change and clear org selection.</summary>
     private string? _currentUserId;
+    private ActiveSupportSessionInfo? _activeSupportSession;
 
     public Guid? CurrentOrgId => _currentOrgId;
     public IReadOnlyList<OrgSummary> Orgs => _orgs;
@@ -35,6 +36,7 @@ public sealed class OrgContext : IOrgContext
     public bool RequiresOnboarding { get; private set; }
     public bool RequiresProfile { get; private set; }
     public bool IsPlatformAdmin { get; private set; }
+    public ActiveSupportSessionInfo? ActiveSupportSession => _activeSupportSession;
 
     public event EventHandler<CurrentOrgChangedEventArgs>? CurrentOrgChanged;
     public event EventHandler? CurrentOrgDetailsChanged;
@@ -57,6 +59,10 @@ public sealed class OrgContext : IOrgContext
 
     public async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
+        // A full resync from /api/me always supersedes any client-side Support-Session elevation --
+        // re-entering one requires a fresh, explicit EnterSupportOrgAsync call. See EnterSupportOrgAsync.
+        _activeSupportSession = null;
+
         if (!_sessionContext.IsAuthenticated)
         {
             _orgs.Clear();
@@ -124,6 +130,7 @@ public sealed class OrgContext : IOrgContext
         _currentOrgId = null;
         _currentUserId = null;
         IsPlatformAdmin = false;
+        _activeSupportSession = null;
         ClearPersistedCurrentOrg();
     }
 
@@ -216,6 +223,12 @@ public sealed class OrgContext : IOrgContext
     {
         if (!_orgs.Any(o => o.Id == orgId))
             return Task.CompletedTask;
+        // Defense in depth: EnterSupportOrgAsync's single-org _orgs list means this guard alone
+        // already blocks switching to another org mid-session, but if that ever changes, don't leave
+        // ActiveSupportSession (and the red banner) pointing at a session this client is no longer
+        // acting inside of.
+        if (_activeSupportSession != null && _activeSupportSession.OrganizationId != orgId)
+            _activeSupportSession = null;
         _currentOrgId = orgId;
         SavePersistedCurrentOrg(orgId);
         CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
@@ -226,21 +239,41 @@ public sealed class OrgContext : IOrgContext
     {
         if (!_orgs.Any(o => o.Id == orgId))
             _orgs.Add(new OrgSummary { Id = orgId, Name = name ?? "Organisation", Role = "Member" });
+        if (_activeSupportSession != null && _activeSupportSession.OrganizationId != orgId)
+            _activeSupportSession = null;
         _currentOrgId = orgId;
         SavePersistedCurrentOrg(orgId);
         CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
         return Task.CompletedTask;
     }
 
-    public Task EnterSupportOrgAsync(Guid orgId, string orgName, CancellationToken cancellationToken = default)
+    public Task EnterSupportOrgAsync(Guid orgId, string orgName, Guid sessionId, DateTime expiresAtUtc, CancellationToken cancellationToken = default)
     {
         if (!IsPlatformAdmin)
             return Task.CompletedTask;
-        _orgs.RemoveAll(o => o.Id == orgId);
-        _orgs.Add(new OrgSummary { Id = orgId, Name = orgName, Role = OrgSummary.SupportSessionRole });
+        // Replace, not merge: Support Mode is a single-org act-as elevation. Keeping the admin's own
+        // real orgs in the list let them show up (and be switchable to) in every org-scoped screen
+        // -- e.g. the Organisation tab, which reads this list -- while supposedly "inside" the
+        // support-session org. There is exactly one org in scope while a session is active.
+        _orgs = new List<OrgSummary> { new OrgSummary { Id = orgId, Name = orgName, Role = OrgSummary.SupportSessionRole } };
         _currentOrgId = orgId;
+        _activeSupportSession = new ActiveSupportSessionInfo
+        {
+            SessionId = sessionId,
+            OrganizationId = orgId,
+            OrganizationName = orgName,
+            ExpiresAtUtc = expiresAtUtc
+        };
         // Deliberately NOT persisted via SavePersistedCurrentOrg -- see interface doc comment.
         CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
         return Task.CompletedTask;
+    }
+
+    public async Task ExitSupportOrgAsync(CancellationToken cancellationToken = default)
+    {
+        if (_activeSupportSession == null)
+            return;
+        await RefreshAsync(cancellationToken).ConfigureAwait(false);
+        CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = _currentOrgId });
     }
 }

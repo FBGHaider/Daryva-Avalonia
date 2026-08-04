@@ -76,15 +76,55 @@
                     <StackPanel Grid.Row="0" Margin="0,0,0,20" Spacing="4">
                         <TextBlock Text="Account" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="Manage your profile, security and notification preferences."
-                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
-                        <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0">
+                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"
+                                   IsVisible="{Binding !IsRestrictedBySupportSession}"/>
+                        <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"
+                                   IsVisible="{Binding !IsRestrictedBySupportSession}">
                             <Run Text="Account"/>
                             <Run Text=" / "/>
                             <Run Text="{Binding SelectedSection}"/>
                         </TextBlock>
+
+                        <!-- Support Session context: shows who owns the org being supported, not the
+                             signed-in admin's own email. Account management stays locked below. -->
+                        <Border Background="{DynamicResource Surface2Brush}" CornerRadius="8" Padding="12,8"
+                                IsVisible="{Binding IsRestrictedBySupportSession}">
+                            <StackPanel Spacing="2">
+                                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}">
+                                    <Run Text="🔒 Org owner: "/>
+                                    <Run Text="{Binding SupportSessionOwnerEmail}" FontWeight="Bold"/>
+                                </TextBlock>
+                                <TextBlock Text="Account management is disabled during a support session -- this is the signed-in admin's own account, not the landlord's."
+                                           FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
-                    <ContentControl Grid.Row="1" Content="{Binding CurrentSectionViewModel}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+                    <Grid Grid.Row="1">
+                        <Grid.Styles>
+                            <Style Selector="ContentControl#AccountSectionContent.support-session-blurred">
+                                <Setter Property="Effect">
+                                    <Setter.Value>
+                                        <BlurEffect Radius="8"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Grid.Styles>
+                        <ContentControl x:Name="AccountSectionContent" Content="{Binding CurrentSectionViewModel}"
+                                        VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                        Classes.support-session-blurred="{Binding IsRestrictedBySupportSession}"/>
+
+                        <!-- Blocks all pointer input to the (blurred) section content beneath while locked. -->
+                        <Border Background="#66000000" CornerRadius="8"
+                                IsVisible="{Binding IsRestrictedBySupportSession}"
+                                IsHitTestVisible="{Binding IsRestrictedBySupportSession}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                                <TextBlock Text="🔒" FontSize="32" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Locked during support session" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="White" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

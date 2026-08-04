@@ -6,6 +6,7 @@ using Daryva.Services.Business;
 using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
 using Daryva.Services.Auth;
+using Daryva.Services.Dialog;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
@@ -25,6 +26,8 @@ namespace Daryva.MVVM.ViewModels
         private readonly IAuthSessionService _authSessionService;
         private readonly IOrgContext _orgContext;
         private readonly IAuthService _authService;
+        private readonly ISupportSessionApiService _supportSessionApiService;
+        private readonly IDialogService _dialogService;
         private BaseViewModel? _currentViewModel;
         private NavigationItem? _selectedNavigationItem;
         private EventHandler<BaseViewModel?>? _navigationHandler;
@@ -32,6 +35,8 @@ namespace Daryva.MVVM.ViewModels
         private bool _isOnboardingMode;
         private string _currentOrganizationName = "(No org selected)";
         private Guid? _lastDisplayedOrgId;
+        private bool _isEndingSupportSession;
+        private DispatcherTimer? _supportSessionCountdownTimer;
 
         public MainViewModel(
             INavigationService navigationService,
@@ -42,6 +47,8 @@ namespace Daryva.MVVM.ViewModels
             IAuthSessionService authSessionService,
             IOrgContext orgContext,
             IAuthService authService,
+            ISupportSessionApiService supportSessionApiService,
+            IDialogService dialogService,
             IOrganisationService? organisationService = null)
         {
             _navigationService = navigationService;
@@ -52,10 +59,15 @@ namespace Daryva.MVVM.ViewModels
             _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
             _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+            _supportSessionApiService = supportSessionApiService ?? throw new ArgumentNullException(nameof(supportSessionApiService));
+            _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _organisationService = organisationService;
 
             _authService.StateChanged += OnAuthStateChanged;
             _orgContext.CurrentOrgDetailsChanged += OnCurrentOrgDetailsChanged;
+            _orgContext.CurrentOrgChanged += OnCurrentOrgChangedForSupportBanner;
+
+            EndActiveSupportSessionCommand = new MVVM.Commands.RelayCommand(async _ => await EndActiveSupportSessionAsync(), _ => !_isEndingSupportSession && _orgContext.ActiveSupportSession != null);
 
             // Initialize navigation items
             NavigationItems = new ObservableCollection<NavigationItem>
@@ -140,12 +152,17 @@ namespace Daryva.MVVM.ViewModels
         /// Idempotently adds the "Support Mode" nav item for platform admins (checked after
         /// IOrgContext.RefreshAsync resolves IsPlatformAdmin), and removes it if the signed-in
         /// account is not an admin (e.g. a non-admin signed in without an intervening sign-out
-        /// re-using the same MainViewModel instance, since it's a singleton).
+        /// re-using the same MainViewModel instance, since it's a singleton) -- OR while a Support
+        /// Session is currently active: the red banner is the only way to end it while acting inside
+        /// another org's data, so the nav item (which would let the admin browse for and start a
+        /// second, overlapping session) is hidden until that one ends. Called again on every
+        /// CurrentOrgChanged (see OnCurrentOrgChangedForSupportBanner) so it reacts immediately to
+        /// entering/exiting a session, not just at sign-in.
         /// </summary>
         private void EnsureAdminNavItems()
         {
             var supportItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(SupportModeViewModel));
-            if (_orgContext.IsPlatformAdmin)
+            if (_orgContext.IsPlatformAdmin && _orgContext.ActiveSupportSession == null)
             {
                 if (supportItem == null)
                 {
@@ -313,6 +330,89 @@ namespace Daryva.MVVM.ViewModels
         {
             get => _currentOrganizationName;
             set => SetProperty(ref _currentOrganizationName, value);
+        }
+
+        /// <summary>Whether the signed-in admin is currently acting inside an org entered via
+        /// Support Mode -- drives the always-visible red banner so it's obvious from any tab,
+        /// not just the Support Mode screen.</summary>
+        public bool IsInSupportSession => _orgContext.ActiveSupportSession != null;
+        public string SupportSessionOrgName => _orgContext.ActiveSupportSession?.OrganizationName ?? string.Empty;
+
+        /// <summary>Live "in Xm" / "in Xh Ym" countdown, not a fixed clock time -- ticked by
+        /// _supportSessionCountdownTimer so the banner visibly counts down instead of looking stuck.</summary>
+        public string SupportSessionExpiresDisplay
+        {
+            get
+            {
+                var active = _orgContext.ActiveSupportSession;
+                if (active == null)
+                    return string.Empty;
+                var remaining = active.ExpiresAtUtc - DateTime.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                    return "expired";
+                return remaining.TotalHours >= 1
+                    ? $"in {(int)remaining.TotalHours}h {remaining.Minutes}m"
+                    : $"in {Math.Max(1, (int)remaining.TotalMinutes)}m";
+            }
+        }
+
+        public MVVM.Commands.RelayCommand EndActiveSupportSessionCommand { get; }
+
+        private void OnCurrentOrgChangedForSupportBanner(object? sender, CurrentOrgChangedEventArgs e)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                EnsureAdminNavItems();
+                OnPropertyChanged(nameof(IsInSupportSession));
+                OnPropertyChanged(nameof(SupportSessionOrgName));
+                OnPropertyChanged(nameof(SupportSessionExpiresDisplay));
+                EndActiveSupportSessionCommand.RaiseCanExecuteChanged();
+
+                if (IsInSupportSession)
+                {
+                    if (_supportSessionCountdownTimer == null)
+                    {
+                        _supportSessionCountdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+                        _supportSessionCountdownTimer.Tick += (_, _) => OnPropertyChanged(nameof(SupportSessionExpiresDisplay));
+                    }
+                    _supportSessionCountdownTimer.Start();
+                }
+                else
+                {
+                    _supportSessionCountdownTimer?.Stop();
+                }
+            });
+        }
+
+        private async Task EndActiveSupportSessionAsync()
+        {
+            var active = _orgContext.ActiveSupportSession;
+            if (active == null || _isEndingSupportSession)
+                return;
+
+            var confirmed = await _dialogService.ShowConfirmationAsync(
+                $"End the support session on \"{active.OrganizationName}\"?",
+                "End support session");
+            if (!confirmed)
+                return;
+
+            _isEndingSupportSession = true;
+            EndActiveSupportSessionCommand.RaiseCanExecuteChanged();
+            try
+            {
+                await _supportSessionApiService.EndSessionAsync(active.SessionId).ConfigureAwait(true);
+                await _orgContext.ExitSupportOrgAsync().ConfigureAwait(true);
+                NavigateToDashboard();
+            }
+            catch (Exception ex)
+            {
+                await _dialogService.ShowMessageAsync($"Could not end support session: {ex.Message}", "Error");
+            }
+            finally
+            {
+                _isEndingSupportSession = false;
+                EndActiveSupportSessionCommand.RaiseCanExecuteChanged();
+            }
         }
 
         private void NavigateToOnboarding()

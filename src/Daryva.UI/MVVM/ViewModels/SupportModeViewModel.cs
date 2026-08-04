@@ -73,7 +73,11 @@ namespace Daryva.MVVM.ViewModels
         public bool IsBusy
         {
             get => _isBusy;
-            set => SetProperty(ref _isBusy, value);
+            set
+            {
+                if (SetProperty(ref _isBusy, value))
+                    StartSessionCommand.RaiseCanExecuteChanged();
+            }
         }
 
         public string ErrorMessage
@@ -169,19 +173,23 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task StartSessionAsync()
         {
-            if (!CanStartSession() || SelectedOrg == null)
-                return;
-
-            var confirmed = await _dialogService.ShowConfirmationAsync(
-                $"Start a support session on \"{SelectedOrg.Name}\"? The organization's Landlord will be notified by email, and every action you take will be recorded in their audit log.",
-                "Start support session");
-            if (!confirmed)
+            // Guard set before the confirmation dialog (not just checked at the top): CanStartSession()
+            // is only re-consulted by the UI when RaiseCanExecuteChanged fires, so a second click while
+            // the first click's dialog is still open would otherwise re-enter this method and, if
+            // confirmed twice, start two real sessions -- exactly what happened during testing.
+            if (IsBusy || !CanStartSession() || SelectedOrg == null)
                 return;
 
             IsBusy = true;
-            ErrorMessage = string.Empty;
             try
             {
+                var confirmed = await _dialogService.ShowConfirmationAsync(
+                    $"Start a support session on \"{SelectedOrg.Name}\"? The organization's Landlord will be notified by email, and every action you take will be recorded in their audit log.",
+                    "Start support session");
+                if (!confirmed)
+                    return;
+
+                ErrorMessage = string.Empty;
                 await _supportSessionApiService.StartSessionAsync(SelectedOrg.Id, Reason.Trim()).ConfigureAwait(true);
                 Reason = string.Empty;
                 SelectedOrg = null;
@@ -189,7 +197,7 @@ namespace Daryva.MVVM.ViewModels
                 OrgSearchText = string.Empty;
                 HasSearched = false;
                 OnPropertyChanged(nameof(HasNoSearchResults));
-                await LoadSessionsAsync().ConfigureAwait(true);
+                await RefreshSessionsCoreAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -203,21 +211,29 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task EndSessionAsync(SupportSessionVm? session)
         {
-            if (session == null)
-                return;
-
-            var confirmed = await _dialogService.ShowConfirmationAsync(
-                $"End the support session on \"{session.OrganizationName}\"?",
-                "End support session");
-            if (!confirmed)
+            if (session == null || IsBusy)
                 return;
 
             IsBusy = true;
-            ErrorMessage = string.Empty;
             try
             {
+                var confirmed = await _dialogService.ShowConfirmationAsync(
+                    $"End the support session on \"{session.OrganizationName}\"?",
+                    "End support session");
+                if (!confirmed)
+                    return;
+
+                ErrorMessage = string.Empty;
                 await _supportSessionApiService.EndSessionAsync(session.Id).ConfigureAwait(true);
-                await LoadSessionsAsync().ConfigureAwait(true);
+                await RefreshSessionsCoreAsync().ConfigureAwait(true);
+
+                // If this is the org the admin is currently "inside" via EnterSupportOrgAsync, the
+                // client's org context now points at an org with no active session -- every subsequent
+                // request from any open tab would 403 with a raw "not a member" error until something
+                // reverts it. Drop back to the admin's real orgs immediately instead of leaving that
+                // for the admin to discover the hard way.
+                if (_orgContext.ActiveSupportSession?.SessionId == session.Id)
+                    await _orgContext.ExitSupportOrgAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -231,10 +247,10 @@ namespace Daryva.MVVM.ViewModels
 
         private async Task EnterOrganizationAsync(SupportSessionVm? session)
         {
-            if (session == null || !session.IsActive)
+            if (session == null || !session.IsActive || IsBusy)
                 return;
 
-            await _orgContext.EnterSupportOrgAsync(session.OrganizationId, session.OrganizationName).ConfigureAwait(true);
+            await _orgContext.EnterSupportOrgAsync(session.OrganizationId, session.OrganizationName, session.Id, session.ExpiresAtUtc).ConfigureAwait(true);
             _navigationService.NavigateTo<DashboardViewModel>();
         }
 
@@ -247,20 +263,7 @@ namespace Daryva.MVVM.ViewModels
             ErrorMessage = string.Empty;
             try
             {
-                var sessions = await _supportSessionApiService.ListSessionsAsync(includeEnded: true).ConfigureAwait(true);
-
-                ActiveSessions.Clear();
-                PastSessions.Clear();
-                foreach (var dto in sessions.OrderByDescending(s => s.StartedAt))
-                {
-                    var vm = SupportSessionVm.FromDto(dto);
-                    if (vm.IsActive)
-                        ActiveSessions.Add(vm);
-                    else
-                        PastSessions.Add(vm);
-                }
-                OnPropertyChanged(nameof(HasActiveSessions));
-                OnPropertyChanged(nameof(HasPastSessions));
+                await RefreshSessionsCoreAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -270,6 +273,31 @@ namespace Daryva.MVVM.ViewModels
             {
                 IsBusy = false;
             }
+        }
+
+        /// <summary>
+        /// The actual fetch-and-repopulate logic, with no IsBusy guard of its own -- callers that are
+        /// already inside their own IsBusy=true block (StartSessionAsync, EndSessionAsync) call this
+        /// directly. LoadSessionsAsync's "if (IsBusy) return" guard previously made it a silent no-op
+        /// whenever it was called from inside Start/End (IsBusy was still true at that point), which is
+        /// why the session list never visibly updated after starting or ending one.
+        /// </summary>
+        private async Task RefreshSessionsCoreAsync()
+        {
+            var sessions = await _supportSessionApiService.ListSessionsAsync(includeEnded: true).ConfigureAwait(true);
+
+            ActiveSessions.Clear();
+            PastSessions.Clear();
+            foreach (var dto in sessions.OrderByDescending(s => s.StartedAt))
+            {
+                var vm = SupportSessionVm.FromDto(dto);
+                if (vm.IsActive)
+                    ActiveSessions.Add(vm);
+                else
+                    PastSessions.Add(vm);
+            }
+            OnPropertyChanged(nameof(HasActiveSessions));
+            OnPropertyChanged(nameof(HasPastSessions));
         }
     }
 }

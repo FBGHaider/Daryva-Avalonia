@@ -45,13 +45,34 @@
         <Style Selector="ListBox#NavigationList ListBoxItem:pointerover /template/ Border#NavBorder">
             <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
         </Style>
+        <Style Selector="Border#SupportSessionRootBorder.support-session-active">
+            <Setter Property="BorderBrush" Value="#E5484D"/>
+            <Setter Property="BorderThickness" Value="4"/>
+        </Style>
     </Window.Styles>
+    <Border x:Name="SupportSessionRootBorder" BorderThickness="0" Classes.support-session-active="{Binding IsInSupportSession}">
+    <DockPanel>
+        <!-- Live support session banner: always visible while acting inside another org's data via
+             Support Mode, from any tab, not just the Support Mode screen itself. -->
+        <Border DockPanel.Dock="Top" Background="#E5484D" Padding="14,8" IsVisible="{Binding IsInSupportSession}">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Foreground="White" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="13">
+                    <Run Text="🔴 Live support session on "/>
+                    <Run Text="{Binding SupportSessionOrgName}" FontWeight="Bold"/>
+                    <Run Text=" — expires "/>
+                    <Run Text="{Binding SupportSessionExpiresDisplay}"/>
+                </TextBlock>
+                <Button Grid.Column="1" Content="End session" Command="{Binding EndActiveSupportSessionCommand}"
+                        Background="White" Foreground="#E5484D" BorderThickness="0" Padding="12,6" CornerRadius="6" Cursor="Hand"/>
+            </Grid>
+        </Border>
+
     <Grid x:Name="MainGrid" RowDefinitions="*" Background="{DynamicResource PrimaryBackgroundBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{Binding NavigationColumnWidth}"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        
+
         <!-- Left Navigation Rail -->
         <Border Grid.Row="0" Grid.Column="0" 
                 Background="{DynamicResource NavigationBackgroundBrush}" 
@@ -160,4 +181,6 @@
                        Margin="0"
                        IsVisible="{Binding IsOnboardingMode}"/>
     </Grid>
+    </DockPanel>
+    </Border>
 </Window>

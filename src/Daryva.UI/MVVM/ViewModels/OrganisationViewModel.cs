@@ -62,14 +62,17 @@ namespace Daryva.MVVM.ViewModels
             LoadCommand = new RelayCommand(async _ => await LoadAsync());
             RefreshCommand = new RelayCommand(async _ => await LoadAsync());
             SwitchOrgCommand = new RelayCommand(async _ => await SwitchOrgAsync(), _ => SelectedOrganisation != null && SelectedOrganisation.Id != CurrentOrganisation?.Id);
-            CreateOrgCommand = new RelayCommand(async _ => await CreateOrgAsync());
+            CreateOrgCommand = new RelayCommand(async _ => await CreateOrgAsync(), _ => !IsInSupportSession);
             RenameOrgCommand = new RelayCommand(async _ => await RenameOrgAsync(), _ => CanRenameOrg);
-            RemoveOrgCommand = new RelayCommand(async _ => await RemoveOrgAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
+            // Disabled during a Support Session: this is real, destructive action against the org
+            // being impersonated (deletes all its houses/tenants/etc.), not something an admin should
+            // be able to trigger by accident while helping out.
+            RemoveOrgCommand = new RelayCommand(async _ => await RemoveOrgAsync(), _ => !IsInSupportSession && (SelectedOrganisation ?? CurrentOrganisation) != null);
             InviteMemberCommand = new RelayCommand(async _ => await InviteMemberAsync(), _ => CanInvite && !string.IsNullOrWhiteSpace(InviteEmail));
             RemoveMemberCommand = new RelayCommand<MemberVm>(async m => await RemoveMemberAsync(m), m => CanRemoveMember(m));
             CopyRecoveryCodeCommand = new RelayCommand(async _ => await CopyRecoveryCodeAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
-            RestoreOrgCommand = new RelayCommand(async _ => await RestoreOrgByIdAsync());
-            RestoreFromBackupCommand = new RelayCommand(async _ => await RestoreFromBackupAsync(), _ => CurrentOrganisation != null);
+            RestoreOrgCommand = new RelayCommand(async _ => await RestoreOrgByIdAsync(), _ => !IsInSupportSession);
+            RestoreFromBackupCommand = new RelayCommand(async _ => await RestoreFromBackupAsync(), _ => !IsInSupportSession && CurrentOrganisation != null);
             BackupNowCommand = new RelayCommand(async _ => await BackupNowAsync(), _ => CurrentOrganisation != null);
             ExportForRentRepairCommand = new RelayCommand(async _ => await ExportForRentRepairAsync(), _ => CurrentOrganisation != null);
             RepairRentFromFileCommand = new RelayCommand(async _ => await RepairRentFromFileAsync(), _ => CurrentOrganisation != null);
@@ -109,6 +112,8 @@ namespace Daryva.MVVM.ViewModels
                     ((RelayCommand)CopyRecoveryCodeCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RestoreFromBackupCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)BackupNowCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)CreateOrgCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)RestoreOrgCommand).RaiseCanExecuteChanged();
                 }
             }
         }
@@ -172,6 +177,10 @@ namespace Daryva.MVVM.ViewModels
             get => _isBusy;
             private set => SetProperty(ref _isBusy, value);
         }
+
+        /// <summary>Whether the caller is currently acting inside an org entered via Support Mode --
+        /// gates org create/remove/restore, none of which make sense (or are safe) while impersonating.</summary>
+        private bool IsInSupportSession => _orgContext.ActiveSupportSession != null;
 
         /// <summary>
         /// Null until the member list resolves. IsPrimaryOwner is the only real distinction the
@@ -255,8 +264,23 @@ namespace Daryva.MVVM.ViewModels
             IsBusy = true;
             try
             {
-                var orgs = await _orgService.GetMyOrganisationsAsync();
-                var currentId = await _orgService.GetCurrentOrganisationIdAsync();
+                IReadOnlyList<Organisation> orgs;
+                Guid? currentId;
+                if (_orgContext.ActiveSupportSession is { } activeSession)
+                {
+                    // Support Session: GetMyOrganisationsAsync hits GET /api/orgs, which always
+                    // returns the CALLER's own real memberships regardless of X-Org-Id -- for a
+                    // platform admin that means their own admin org(s), not the org they're acting
+                    // inside of. Show only the org the session grants access to.
+                    var dto = await _organizationApiService.GetOrganizationAsync(activeSession.OrganizationId).ConfigureAwait(false);
+                    orgs = new List<Organisation> { new Organisation { Id = dto.Id, Name = dto.Name, CreatedAt = dto.CreatedAt, PlanTier = null } };
+                    currentId = activeSession.OrganizationId;
+                }
+                else
+                {
+                    orgs = await _orgService.GetMyOrganisationsAsync();
+                    currentId = await _orgService.GetCurrentOrganisationIdAsync();
+                }
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
