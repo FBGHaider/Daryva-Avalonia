@@ -33,6 +33,7 @@ namespace Daryva.MVVM.ViewModels
         private decimal _totalRentPaidForPeriod = 0;
         private int? _preselectedTenancyId;
         private bool _useDepositForRent;
+        private bool _isSaving;
 
         public RecordPaymentViewModel(
             IPaymentService paymentService,
@@ -402,21 +403,40 @@ namespace Daryva.MVVM.ViewModels
 
         private bool CanSave()
         {
+            if (_isSaving) return false;
             if (SelectedTenancy == null || !PaymentDate.HasValue) return false;
             if (UseDepositForRent)
                 return RentAmount > 0 && DepositAmount == 0 && RentAmount <= TotalDepositPaid && RentAmount <= RentRemaining + 100;
             return (DepositAmount > 0 || RentAmount > 0) &&
+                   DepositAmount >= 0 &&
                    DepositAmount <= DepositRemaining + 100 &&
                    RentAmount >= 0;
         }
 
         private async Task SaveAsync()
         {
-            if (SelectedTenancy == null) return;
+            // Guard set before any validation/await, and CanSave() re-checked here too: RelayCommand
+            // doesn't re-consult CanExecute between the click and Execute firing, so without this a
+            // fast double-click on Save before the first API call returns would send two separate
+            // RecordPaymentAsync requests, creating two payment rows for one user action.
+            if (_isSaving || !CanSave() || SelectedTenancy == null)
+                return;
 
+            _isSaving = true;
+            ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
             try
             {
-                // Validate deposit amount
+                // Validate deposit amount -- explicit negative check first: DepositAmount <= DepositRemaining+100
+                // alone doesn't catch a negative value (it's trivially "not more than" any positive remaining
+                // amount), and the server silently no-ops a non-positive DepositAmount rather than erroring,
+                // which previously meant a typo'd negative deposit showed "Payment recorded successfully!"
+                // while quietly recording nothing.
+                if (DepositAmount < 0)
+                {
+                    _dialogService.ShowMessage("Deposit amount cannot be negative.", "Validation Error");
+                    return;
+                }
+
                 if (DepositAmount > DepositRemaining + 100)
                 {
                     _dialogService.ShowMessage($"Deposit payment cannot exceed remaining deposit (£{DepositRemaining:N2}) plus a small overpayment allowance.", "Validation Error");
@@ -427,6 +447,12 @@ namespace Daryva.MVVM.ViewModels
                 if (RentAmount < 0)
                 {
                     _dialogService.ShowMessage("Rent amount cannot be negative.", "Validation Error");
+                    return;
+                }
+
+                if (DepositAmount == 0 && RentAmount == 0)
+                {
+                    _dialogService.ShowMessage("Enter a deposit and/or rent amount greater than zero.", "Validation Error");
                     return;
                 }
 
@@ -455,13 +481,18 @@ namespace Daryva.MVVM.ViewModels
 
                 // Notify dashboard to refresh
                 DashboardViewModel.NotifyPaymentDataChanged();
-                
+
                 _dialogService.ShowMessage("Payment recorded successfully!", "Success");
                 CloseRequested?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error recording payment: {ex.Message}", "Error");
+            }
+            finally
+            {
+                _isSaving = false;
+                ((RelayCommand)SaveCommand).RaiseCanExecuteChanged();
             }
         }
     }

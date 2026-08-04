@@ -127,7 +127,8 @@ public class BackupController : ControllerBase
                 ReferenceNumber = r.ReferenceNumber,
                 Notes = r.Notes,
                 CollectedBy = r.CollectedBy,
-                IsVoided = r.IsVoided
+                IsVoided = r.IsVoided,
+                PaidFromDeposit = r.PaidFromDeposit
             }).ToList(),
             DepositPayments = depositPayments.Select(d => new ImportDepositPayment
             {

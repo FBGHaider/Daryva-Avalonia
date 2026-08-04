@@ -482,7 +482,8 @@ public class BulkImportService : IBulkImportService
                         ReferenceNumber = string.IsNullOrWhiteSpace(importPayment.ReferenceNumber) ? null : importPayment.ReferenceNumber.Trim(),
                         Notes = string.IsNullOrWhiteSpace(importPayment.Notes) ? null : importPayment.Notes.Trim(),
                         CollectedBy = string.IsNullOrWhiteSpace(importPayment.CollectedBy) ? null : importPayment.CollectedBy.Trim(),
-                        IsVoided = importPayment.IsVoided
+                        IsVoided = importPayment.IsVoided,
+                        PaidFromDeposit = importPayment.PaidFromDeposit
                     };
 
                     _dbContext.RentPayments.Add(payment);

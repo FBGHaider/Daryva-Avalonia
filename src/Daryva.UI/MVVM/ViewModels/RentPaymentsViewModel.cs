@@ -33,8 +33,16 @@ namespace Daryva.MVVM.ViewModels
             ExportLedgerCommand = new RelayCommand(_ => LedgerViewModel.ExportLedgerCommand.Execute(null));
             RefreshCommand = new RelayCommand(_ =>
             {
+                // Reload the House/Tenant filter dropdowns too, not just the ledger/transaction rows.
+                // Without this, switching org (or a platform admin entering/exiting a Support Session
+                // on a different org) left the filter ComboBoxes showing the PREVIOUS org's houses and
+                // tenants -- and if a non-"All" house filter was still selected, the ledger could
+                // silently show zero rows for a house that isn't even in the new org, with no error.
+                LedgerViewModel.LoadHousesCommand.Execute(null);
                 LedgerViewModel.LoadLedgerCommand.Execute(null);
                 LedgerViewModel.LoadDepositLedgerCommand.Execute(null);
+                TransactionsViewModel.LoadHousesCommand.Execute(null);
+                TransactionsViewModel.LoadTenantsCommand.Execute(null);
                 TransactionsViewModel.LoadTransactionsCommand.Execute(null);
             });
 

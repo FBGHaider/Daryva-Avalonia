@@ -117,6 +117,16 @@ public class RentPayment : IOrgScopedEntity
     /// <summary>Voided: excluded from ledgers/totals/transactions by default but kept for financial history.</summary>
     public bool IsVoided { get; set; }
 
+    /// <summary>
+    /// True when this rent was settled by drawing down the tenant's deposit rather than new money
+    /// (RecordPaymentRequest.UseDepositForRent) -- no cash changed hands. Every deposit-remaining
+    /// calculation (GetTotalDepositPaid, deposit-return reminders) must subtract the sum of
+    /// non-voided payments with this flag set from the raw deposit-paid total, or the same deposit
+    /// can be "used for rent" every month indefinitely and the full original amount still gets
+    /// flagged for return at move-out even though it was already spent.
+    /// </summary>
+    public bool PaidFromDeposit { get; set; }
+
     // Navigation
     public Organization Organization { get; set; } = null!;
     public Tenancy Tenancy { get; set; } = null!;

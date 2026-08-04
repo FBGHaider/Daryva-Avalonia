@@ -101,6 +101,7 @@ public class ImportRentPayment
     public string? Notes { get; set; }
     public string? CollectedBy { get; set; }
     public bool IsVoided { get; set; }
+    public bool PaidFromDeposit { get; set; }
 }
 
 public class ImportDepositPayment

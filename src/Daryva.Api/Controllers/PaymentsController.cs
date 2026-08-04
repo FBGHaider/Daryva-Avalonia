@@ -57,6 +57,14 @@ public class PaymentsController : ControllerBase
         if (tenancy == null)
             return NotFound(new { error = "Tenancy not found." });
 
+        // Sanity ceiling, not a real business limit -- catches a fat-fingered extra zero (e.g.
+        // 5000000 instead of 500) with no server-side pushback otherwise possible today.
+        const decimal maxSanePaymentAmount = 1_000_000m;
+        if (request.RentAmount > maxSanePaymentAmount || request.DepositAmount > maxSanePaymentAmount)
+        {
+            return BadRequest(new { error = $"Payment amount looks too large (over £{maxSanePaymentAmount:N0}) -- check for a typo." });
+        }
+
         try
         {
             // Store the calendar date (year/month/day) the user selected at midnight UTC so the rent
@@ -97,7 +105,8 @@ public class PaymentsController : ControllerBase
                     PaymentMethod = request.PaymentMethod ?? string.Empty,
                     ReferenceNumber = request.Reference,
                     Notes = request.Notes,
-                    CollectedBy = request.CollectedBy
+                    CollectedBy = request.CollectedBy,
+                    PaidFromDeposit = request.UseDepositForRent
                 };
 
                 _dbContext.RentPayments.Add(rentPayment);
@@ -134,9 +143,7 @@ public class PaymentsController : ControllerBase
             if (groupIds == null || groupIds.Count == 0)
                 return NotFound(new { error = "Tenancy not found." });
 
-            var total = await _dbContext.DepositPayments
-                .Where(p => p.OrganizationId == orgId && groupIds.Contains(p.TenancyId) && !p.IsVoided)
-                .SumAsync(p => p.AmountPaid, cancellationToken);
+            var total = await GetAvailableDepositAsync(orgId, groupIds, cancellationToken);
 
             return Ok(total);
         }
@@ -144,6 +151,26 @@ public class PaymentsController : ControllerBase
         {
             return StatusCode(500, new { error = "Failed to get deposit total.", detail = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Deposit actually still available for this tenancy group -- raw non-voided deposit payments,
+    /// minus whatever's already been drawn down via UseDepositForRent (RentPayment.PaidFromDeposit).
+    /// Every "how much deposit is left" figure (record-payment dialog, deposit-return reminders)
+    /// must go through this, not a raw DepositPayments sum, or the same deposit can be applied to
+    /// rent indefinitely and still show as fully available/refundable at move-out.
+    /// </summary>
+    private async Task<decimal> GetAvailableDepositAsync(Guid orgId, IReadOnlyCollection<Guid> tenancyIds, CancellationToken cancellationToken)
+    {
+        var totalPaid = await _dbContext.DepositPayments
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && !p.IsVoided)
+            .SumAsync(p => p.AmountPaid, cancellationToken);
+
+        var usedForRent = await _dbContext.RentPayments
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && !p.IsVoided && p.PaidFromDeposit)
+            .SumAsync(p => p.AmountPaid, cancellationToken);
+
+        return Math.Max(0m, totalPaid - usedForRent);
     }
 
     [HttpGet("totals/rent/{tenancyId:guid}")]
@@ -402,8 +429,13 @@ public class PaymentsController : ControllerBase
         var includeRent = string.IsNullOrWhiteSpace(paymentType) || paymentType == "All" || paymentType == "Rent";
         var includeDeposit = string.IsNullOrWhiteSpace(paymentType) || paymentType == "All" || paymentType == "Deposit";
         var normalizedMethod = NormalizeMethod(method);
-        var startDateUtc = startDate?.ToUniversalTime();
-        var endDateUtc = endDate?.ToUniversalTime();
+        // SpecifyKind, not ToUniversalTime(): model-bound DateTime? from a plain date query string
+        // (no timezone offset) comes in as DateTimeKind.Unspecified, and ToUniversalTime() on an
+        // Unspecified value assumes it's in the SERVER's local timezone and shifts it -- silently
+        // moving the requested date range depending on host TZ, unlike every other date computation
+        // in this file/RentLedgerService which deliberately avoids this via SpecifyKind(..., Utc).
+        var startDateUtc = startDate.HasValue ? DateTime.SpecifyKind(startDate.Value, DateTimeKind.Utc) : (DateTime?)null;
+        var endDateUtc = endDate.HasValue ? DateTime.SpecifyKind(endDate.Value, DateTimeKind.Utc) : (DateTime?)null;
         var endDateIsDateOnly = endDate.HasValue && endDate.Value.TimeOfDay == TimeSpan.Zero;
         var endDateExclusiveUtc = endDateIsDateOnly && endDateUtc.HasValue
             ? DateTime.SpecifyKind(endDateUtc.Value.Date.AddDays(1), DateTimeKind.Utc)
@@ -522,22 +554,37 @@ public class PaymentsController : ControllerBase
             .ToListAsync(cancellationToken);
 
         var tenancyIds = endedTenancies.Select(t => t.Id).ToList();
+        // Raw deposit paid, minus whatever's already been drawn down via UseDepositForRent -- see
+        // GetAvailableDepositAsync's doc comment. Without this, a deposit spent on rent mid-tenancy
+        // still shows as fully owed back to the tenant at move-out.
         var depositTotals = await _dbContext.DepositPayments
             .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId))
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && !p.IsVoided)
             .GroupBy(p => p.TenancyId)
             .Select(g => new { TenancyId = g.Key, Total = g.Sum(x => x.AmountPaid) })
             .ToDictionaryAsync(x => x.TenancyId, x => x.Total, cancellationToken);
 
+        var depositUsedForRent = await _dbContext.RentPayments
+            .AsNoTracking()
+            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && !p.IsVoided && p.PaidFromDeposit)
+            .GroupBy(p => p.TenancyId)
+            .Select(g => new { TenancyId = g.Key, Total = g.Sum(x => x.AmountPaid) })
+            .ToDictionaryAsync(x => x.TenancyId, x => x.Total, cancellationToken);
+
+        var availableDeposit = tenancyIds.ToDictionary(
+            id => id,
+            id => Math.Max(0m,
+                depositTotals.GetValueOrDefault(id, 0m) - depositUsedForRent.GetValueOrDefault(id, 0m)));
+
         var result = endedTenancies
-            .Where(t => t.Tenant != null && t.House != null && depositTotals.TryGetValue(t.Id, out var total) && total > 0)
+            .Where(t => t.Tenant != null && t.House != null && availableDeposit.TryGetValue(t.Id, out var total) && total > 0)
             .Select(t => new DepositReturnReminderResponse
             {
                 TenancyId = t.Id,
                 TenantName = t.Tenant!.FullName,
                 HouseAddress = $"{t.House!.AddressLine1}, {t.House.City}",
                 LeaveDate = t.MoveOutDate!.Value,
-                AmountToReturn = depositTotals[t.Id]
+                AmountToReturn = availableDeposit[t.Id]
             })
             .OrderBy(r => r.LeaveDate)
             .ToList();
@@ -571,6 +618,16 @@ public class PaymentsController : ControllerBase
             .AnyAsync(r => r.TenancyId == request.TenancyId && r.OrganizationId == orgId, cancellationToken);
         if (alreadyReturned)
             return Conflict(new { error = "A deposit return has already been recorded for this tenancy." });
+
+        var groupIds = await _rentLedgerService.GetTenancyIdsInSameGroupAsync(request.TenancyId, cancellationToken);
+        var availableDeposit = await GetAvailableDepositAsync(orgId, groupIds ?? new List<Guid> { request.TenancyId }, cancellationToken);
+        if (request.AmountReturned > availableDeposit)
+        {
+            return BadRequest(new
+            {
+                error = $"Amount returned (£{request.AmountReturned:0.00}) exceeds the deposit actually available for this tenancy (£{availableDeposit:0.00})."
+            });
+        }
 
         var returnedDateUtc = request.ReturnedDate.Kind == DateTimeKind.Utc
             ? request.ReturnedDate
@@ -612,16 +669,29 @@ public class PaymentsController : ControllerBase
 
         var orgId = _tenantContext.CurrentOrgId.Value;
 
-        // ExecuteUpdateAsync bypasses the change tracker, so it commits immediately and independently
-        // of the audit entry below -- the audit log is staged and saved separately afterward.
-        var rentVoided = await _dbContext.RentPayments.Where(p => p.OrganizationId == orgId && !p.IsVoided)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsVoided, true), cancellationToken);
-        var depositVoided = await _dbContext.DepositPayments.Where(p => p.OrganizationId == orgId && !p.IsVoided)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsVoided, true), cancellationToken);
+        // ExecuteUpdateAsync bypasses the change tracker and commits immediately on its own -- without
+        // an explicit transaction wrapping it and the audit entry below, a crash/timeout between the
+        // two ExecuteUpdateAsync calls (or between them and the final SaveChangesAsync) would leave an
+        // org's entire payment history permanently voided with NO audit record of who did it or when.
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var rentVoided = await _dbContext.RentPayments.Where(p => p.OrganizationId == orgId && !p.IsVoided)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsVoided, true), cancellationToken);
+            var depositVoided = await _dbContext.DepositPayments.Where(p => p.OrganizationId == orgId && !p.IsVoided)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsVoided, true), cancellationToken);
 
-        LogAudit(AuditEventTypes.PaymentsBulkVoided, orgId, nameof(Organization), orgId.ToString(),
-            metadata: new { rentPaymentsVoided = rentVoided, depositPaymentsVoided = depositVoided });
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            LogAudit(AuditEventTypes.PaymentsBulkVoided, orgId, nameof(Organization), orgId.ToString(),
+                metadata: new { rentPaymentsVoided = rentVoided, depositPaymentsVoided = depositVoided });
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
 
         return NoContent();
     }
@@ -641,11 +711,18 @@ public class PaymentsController : ControllerBase
 
         if (paymentType.Equals("Rent", StringComparison.OrdinalIgnoreCase))
         {
-            var payment = await _dbContext.RentPayments.FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
+            // Explicit OrganizationId check even though RentPayment also carries a global EF query
+            // filter on CurrentOrgId -- this is a write action, and every other write in this
+            // controller double-checks org ownership explicitly rather than relying solely on the
+            // implicit filter, which is one .IgnoreQueryFilters() away from a cross-tenant bug.
+            var payment = await _dbContext.RentPayments.FirstOrDefaultAsync(p => p.Id == paymentId && p.OrganizationId == orgId, cancellationToken);
             if (payment == null)
             {
                 return NotFound();
             }
+
+            if (payment.IsVoided)
+                return NoContent();
 
             payment.IsVoided = true;
             LogAudit(AuditEventTypes.PaymentVoided, orgId, nameof(RentPayment), payment.Id.ToString(),
@@ -656,11 +733,14 @@ public class PaymentsController : ControllerBase
 
         if (paymentType.Equals("Deposit", StringComparison.OrdinalIgnoreCase))
         {
-            var payment = await _dbContext.DepositPayments.FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
+            var payment = await _dbContext.DepositPayments.FirstOrDefaultAsync(p => p.Id == paymentId && p.OrganizationId == orgId, cancellationToken);
             if (payment == null)
             {
                 return NotFound();
             }
+
+            if (payment.IsVoided)
+                return NoContent();
 
             payment.IsVoided = true;
             LogAudit(AuditEventTypes.PaymentVoided, orgId, nameof(DepositPayment), payment.Id.ToString(),
