@@ -1,6 +1,7 @@
 using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,14 +12,16 @@ public class MeService : IMeService
 {
     private readonly AppDbContext _db;
     private readonly IOrganizationService _orgService;
+    private readonly IAppUserRepository _appUserRepository;
     private readonly ILogger<MeService> _logger;
     private readonly string _devUserId;
     private readonly bool _devAuthEnabled;
 
-    public MeService(AppDbContext db, IOrganizationService orgService, ILogger<MeService> logger, IConfiguration configuration)
+    public MeService(AppDbContext db, IOrganizationService orgService, IAppUserRepository appUserRepository, ILogger<MeService> logger, IConfiguration configuration)
     {
         _db = db;
         _orgService = orgService;
+        _appUserRepository = appUserRepository;
         _logger = logger;
         _devUserId = configuration.GetValue<string>("DevAuth:UserId") ?? "dev-user-1";
         _devAuthEnabled = configuration.GetValue<bool>("DevAuth:Enabled");
@@ -119,6 +122,16 @@ public class MeService : IMeService
         var requiresOrgSetup = orgList.Count == 0;
         var requiresProfileSetup = string.IsNullOrWhiteSpace(profile.DisplayName);
 
+        // AppUserProfile.Id is the local-auth AppUser.Id (as a string) for local accounts; OIDC/Dev
+        // identities have no AppUser row at all, so IsPlatformAdmin is false for them (platform admin
+        // is a local-auth-only concept, same as TenantContext's resolution of it).
+        var isPlatformAdmin = false;
+        if (Guid.TryParse(userId, out var userGuid))
+        {
+            var appUser = await _appUserRepository.GetByIdAsync(userGuid, cancellationToken);
+            isPlatformAdmin = appUser?.IsPlatformAdmin ?? false;
+        }
+
         return new MeResponseDto
         {
             User = new MeUserDto
@@ -129,7 +142,8 @@ public class MeService : IMeService
                 Phone = profile.Phone,
                 TimeZoneId = profile.TimeZoneId,
                 CreatedAt = profile.CreatedAt,
-                LastLoginAt = profile.LastLoginAt
+                LastLoginAt = profile.LastLoginAt,
+                IsPlatformAdmin = isPlatformAdmin
             },
             Organisations = orgList,
             RequiresOrgSetup = requiresOrgSetup,

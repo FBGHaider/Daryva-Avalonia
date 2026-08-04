@@ -56,6 +56,7 @@ namespace Daryva.Services
             services.AddScoped<INotificationApiService, NotificationApiService>();
             services.AddScoped<IPaymentApiService, PaymentApiService>();
             services.AddScoped<IAuditLogApiService, AuditLogApiService>();
+            services.AddScoped<ISupportSessionApiService, SupportSessionApiService>();
 
             // Database Services
             services.AddScoped<IDbContextFactory, DbContextFactory>();
@@ -171,6 +172,7 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.AccountViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.OrganisationViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.AuditLogViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.SupportModeViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.OnboardingViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.SetupRequiredViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.SignInViewModel>();

@@ -16,6 +16,7 @@ public class SupportSessionResponse
     public Guid Id { get; set; }
     public Guid AdminUserId { get; set; }
     public Guid OrganizationId { get; set; }
+    public string OrganizationName { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
     public DateTime StartedAt { get; set; }
     public DateTime ExpiresAt { get; set; }

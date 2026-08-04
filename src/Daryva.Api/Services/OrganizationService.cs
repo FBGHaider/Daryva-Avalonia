@@ -434,6 +434,45 @@ public class OrganizationService : IOrganizationService
         };
     }
 
+    public async Task<AdminOrganizationListResponse> GetAllOrganizationsAsync(
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize <= 0 ? 50 : pageSize, 1, 200);
+
+        var (orgs, totalCount) = await _organizationRepository.SearchAllAsync(search, page, pageSize, cancellationToken);
+
+        var orgIds = orgs.Select(o => o.Id).ToList();
+        var members = await _memberRepository.GetByOrganizationIdsAsync(orgIds, cancellationToken);
+        var membersByOrg = members.GroupBy(m => m.OrganizationId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var items = orgs.Select(o =>
+        {
+            membersByOrg.TryGetValue(o.Id, out var orgMembers);
+            orgMembers ??= new List<OrganizationMember>();
+            var owner = orgMembers.FirstOrDefault(m => m.IsPrimaryOwner) ?? orgMembers.FirstOrDefault();
+            return new AdminOrganizationSummaryResponse
+            {
+                Id = o.Id,
+                Name = o.Name,
+                CreatedAt = o.CreatedAt,
+                OwnerEmail = owner?.Email,
+                MemberCount = orgMembers.Count
+            };
+        }).ToList();
+
+        return new AdminOrganizationListResponse
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
     /// <summary>
     /// Real membership if one exists; otherwise, if the caller is a platform admin with an active
     /// Support Session on this exact org (per ITenantContext -- already resolved once per request

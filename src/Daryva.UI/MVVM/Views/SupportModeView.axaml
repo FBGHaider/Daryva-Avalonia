@@ -1,0 +1,175 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="800"
+             x:Class="Daryva.MVVM.Views.SupportModeView"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Border.command-bar">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+    </UserControl.Styles>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Border Padding="24" ClipToBounds="True" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding Subtitle}" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                </StackPanel>
+
+                <Border Padding="14,10" CornerRadius="8" Background="{DynamicResource StatusDangerBrush}" IsVisible="{Binding HasErrorMessage}">
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="White" TextWrapping="Wrap"/>
+                </Border>
+
+                <!-- Org search -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Find an organization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Watermark="Search by organization name" Text="{Binding OrgSearchText}" Margin="0,0,12,0"/>
+                            <Button Grid.Column="1" Content="Search" Classes="primary" Command="{Binding SearchOrgsCommand}" IsEnabled="{Binding !IsBusy}"/>
+                        </Grid>
+
+                        <TextBlock Text="No organizations found." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding HasNoSearchResults}"/>
+
+                        <ItemsControl ItemsSource="{Binding OrgSearchResults}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
+                                                    <Run Text="{Binding OwnerEmail}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding MemberCount}"/>
+                                                    <Run Text=" member(s) · created "/>
+                                                    <Run Text="{Binding CreatedAt, StringFormat='{}{0:dd MMM yyyy}'}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="Select" Classes="secondary"
+                                                    Command="{Binding DataContext.SelectOrgCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Start session -->
+                <Border Classes="settings-card" IsVisible="{Binding HasSelectedOrg}">
+                    <StackPanel Spacing="12">
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}">
+                            <Run Text="Start support session on "/>
+                            <Run Text="{Binding SelectedOrg.Name}" FontWeight="Bold"/>
+                        </TextBlock>
+                        <TextBlock Text="A reason is required. The organization's Landlord is notified by email when the session starts, and every action you take is recorded in their audit log." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <TextBox Watermark="Reason (e.g. &quot;Ticket #482: rent ledger out of sync&quot;)" Text="{Binding Reason}" AcceptsReturn="False"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Start session" Classes="primary" Command="{Binding StartSessionCommand}"/>
+                            <Button Content="Cancel" Classes="secondary" Command="{Binding ClearSelectedOrgCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Active sessions -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Active sessions" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Button Grid.Column="1" Content="Refresh" Classes="secondary" Command="{Binding RefreshSessionsCommand}"/>
+                        </Grid>
+                        <TextBlock Text="No active sessions." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding !HasActiveSessions}"/>
+                        <ItemsControl ItemsSource="{Binding ActiveSessions}" IsVisible="{Binding HasActiveSessions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding OrganizationName}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Text="{Binding Reason}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                                <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
+                                                    <Run Text="Started "/>
+                                                    <Run Text="{Binding StartedAtDisplay}"/>
+                                                    <Run Text=" · expires "/>
+                                                    <Run Text="{Binding ExpiresAtDisplay}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+                                                <Button Content="Enter organization" Classes="primary"
+                                                        Command="{Binding DataContext.EnterOrganizationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Button Content="End session" Classes="secondary"
+                                                        Command="{Binding DataContext.EndSessionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Past sessions -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Past sessions" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="No past sessions." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding !HasPastSessions}"/>
+                        <ItemsControl ItemsSource="{Binding PastSessions}" IsVisible="{Binding HasPastSessions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <StackPanel Spacing="2">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding OrganizationName}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <Border Grid.Column="1" CornerRadius="6" Padding="8,3" Background="{DynamicResource Surface2Brush}">
+                                                    <TextBlock Text="{Binding StatusDisplay}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock Text="{Binding Reason}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
+                                                <Run Text="Started "/>
+                                                <Run Text="{Binding StartedAtDisplay}"/>
+                                                <Run Text=" · ended "/>
+                                                <Run Text="{Binding EndedAtDisplay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+    </ScrollViewer>
+</UserControl>

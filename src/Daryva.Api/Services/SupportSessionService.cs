@@ -73,7 +73,7 @@ public class SupportSessionService : ISupportSessionService
 
         await NotifyLandlordsAsync(session, organizationName, cancellationToken);
 
-        return ToResponse(session);
+        return ToResponse(session, organizationName);
     }
 
     /// <summary>
@@ -130,16 +130,19 @@ public class SupportSessionService : ISupportSessionService
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        return ToResponse(session);
+        var organizationName = await _supportSessionRepository.GetOrganizationNameAsync(session.OrganizationId, cancellationToken);
+        return ToResponse(session, organizationName ?? string.Empty);
     }
 
     public async Task<IEnumerable<SupportSessionResponse>> ListAsync(Guid? organizationId, bool includeEnded, CancellationToken cancellationToken = default)
     {
         var sessions = await _supportSessionRepository.ListAsync(organizationId, includeEnded, cancellationToken);
-        return sessions.Select(ToResponse);
+        var orgNames = await _supportSessionRepository.GetOrganizationNamesAsync(
+            sessions.Select(s => s.OrganizationId), cancellationToken);
+        return sessions.Select(s => ToResponse(s, orgNames.GetValueOrDefault(s.OrganizationId, string.Empty)));
     }
 
-    private static SupportSessionResponse ToResponse(SupportSession session)
+    private static SupportSessionResponse ToResponse(SupportSession session, string organizationName)
     {
         var now = DateTime.UtcNow;
         return new SupportSessionResponse
@@ -147,6 +150,7 @@ public class SupportSessionService : ISupportSessionService
             Id = session.Id,
             AdminUserId = session.AdminUserId,
             OrganizationId = session.OrganizationId,
+            OrganizationName = organizationName,
             Reason = session.Reason,
             StartedAt = session.StartedAt,
             ExpiresAt = session.ExpiresAt,

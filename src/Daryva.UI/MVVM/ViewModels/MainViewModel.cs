@@ -122,6 +122,11 @@ namespace Daryva.MVVM.ViewModels
                 if (!e.IsSignedIn)
                 {
                     _lastDisplayedOrgId = null;
+                    // Remove the admin-only nav item so a different, non-admin user signing in
+                    // afterward doesn't see a stale "Support Mode" entry left over from this session.
+                    var supportItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(SupportModeViewModel));
+                    if (supportItem != null)
+                        NavigationItems.Remove(supportItem);
                     _navigationService.NavigateTo<SignInViewModel>();
                     IsOnboardingMode = true;
                     CurrentOrganizationName = "(Sign in)";
@@ -129,6 +134,28 @@ namespace Daryva.MVVM.ViewModels
                 }
                 _ = ApplyPostSignInAsync();
             });
+        }
+
+        /// <summary>
+        /// Idempotently adds the "Support Mode" nav item for platform admins (checked after
+        /// IOrgContext.RefreshAsync resolves IsPlatformAdmin), and removes it if the signed-in
+        /// account is not an admin (e.g. a non-admin signed in without an intervening sign-out
+        /// re-using the same MainViewModel instance, since it's a singleton).
+        /// </summary>
+        private void EnsureAdminNavItems()
+        {
+            var supportItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(SupportModeViewModel));
+            if (_orgContext.IsPlatformAdmin)
+            {
+                if (supportItem == null)
+                {
+                    NavigationItems.Add(new NavigationItem { Title = "Support Mode", Icon = "🛠️", ViewModelType = typeof(SupportModeViewModel) });
+                }
+            }
+            else if (supportItem != null)
+            {
+                NavigationItems.Remove(supportItem);
+            }
         }
 
         private void OnCurrentOrgDetailsChanged(object? sender, EventArgs e)
@@ -143,7 +170,10 @@ namespace Daryva.MVVM.ViewModels
                 // Use the new account's token for all subsequent API calls (fixes "another account still shows old dashboard").
                 _apiClient.ApplyAuthState();
                 await _orgContext.RefreshAsync().ConfigureAwait(false);
-                if (_orgContext.Orgs.Count == 0 || !_orgContext.CurrentOrgId.HasValue)
+                await Dispatcher.UIThread.InvokeAsync(EnsureAdminNavItems);
+                // A platform admin needs no org memberships of their own -- Support Mode is the whole
+                // point of that account. Only force SetupRequired on a non-admin with no orgs.
+                if ((_orgContext.Orgs.Count == 0 && !_orgContext.IsPlatformAdmin) || (!_orgContext.CurrentOrgId.HasValue && _orgContext.Orgs.Count > 0))
                 {
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
@@ -189,16 +219,19 @@ namespace Daryva.MVVM.ViewModels
                 _apiClient.ApplyAuthState();
 
                 await _orgContext.RefreshAsync().ConfigureAwait(true);
+                EnsureAdminNavItems();
 
                 // Decision based on org count and current selection only. Do NOT treat CurrentOrgId == null as "no orgs exist".
-                if (_orgContext.Orgs.Count == 0)
+                // A platform admin needs no org memberships of their own -- Support Mode is the whole
+                // point of that account -- so zero orgs alone must not force SetupRequired for them.
+                if (_orgContext.Orgs.Count == 0 && !_orgContext.IsPlatformAdmin)
                 {
                     _navigationService.NavigateTo<SetupRequiredViewModel>();
                     IsOnboardingMode = true;
                     CurrentOrganizationName = "(Select organization)";
                     return;
                 }
-                if (!_orgContext.CurrentOrgId.HasValue)
+                if (!_orgContext.CurrentOrgId.HasValue && _orgContext.Orgs.Count > 0)
                 {
                     // Orgs exist but none selected (e.g. multiple orgs, user must choose). Show Choose Org.
                     _navigationService.NavigateTo<SetupRequiredViewModel>();
@@ -400,6 +433,8 @@ namespace Daryva.MVVM.ViewModels
                 NavigateToOrganisation();
             else if (item.ViewModelType == typeof(AuditLogViewModel))
                 NavigateToAuditLog();
+            else if (item.ViewModelType == typeof(SupportModeViewModel))
+                NavigateToSupportMode();
             else if (item.ViewModelType == typeof(AccountViewModel))
                 NavigateToAccount();
             else if (item.ViewModelType == typeof(SettingsViewModel))
@@ -458,6 +493,12 @@ namespace Daryva.MVVM.ViewModels
         {
             _navigationService.NavigateTo<AuditLogViewModel>();
             SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(AuditLogViewModel));
+        }
+
+        private void NavigateToSupportMode()
+        {
+            _navigationService.NavigateTo<SupportModeViewModel>();
+            SelectedNavigationItem = NavigationItems.FirstOrDefault(m => m.ViewModelType == typeof(SupportModeViewModel));
         }
 
         private void NavigateToAccount()

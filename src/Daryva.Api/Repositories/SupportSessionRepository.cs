@@ -52,6 +52,14 @@ public class SupportSessionRepository : ISupportSessionRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<Dictionary<Guid, string>> GetOrganizationNamesAsync(IEnumerable<Guid> organizationIds, CancellationToken cancellationToken = default)
+    {
+        var ids = organizationIds.Distinct().ToList();
+        return await _dbContext.Organizations
+            .Where(o => ids.Contains(o.Id))
+            .ToDictionaryAsync(o => o.Id, o => o.Name, cancellationToken);
+    }
+
     public void Add(SupportSession session)
     {
         _dbContext.SupportSessions.Add(session);

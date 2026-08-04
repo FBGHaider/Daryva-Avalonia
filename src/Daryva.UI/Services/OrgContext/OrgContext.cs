@@ -34,6 +34,7 @@ public sealed class OrgContext : IOrgContext
     public OrgSummary? CurrentOrg => _currentOrgId.HasValue ? _orgs.FirstOrDefault(o => o.Id == _currentOrgId.Value) : null;
     public bool RequiresOnboarding { get; private set; }
     public bool RequiresProfile { get; private set; }
+    public bool IsPlatformAdmin { get; private set; }
 
     public event EventHandler<CurrentOrgChangedEventArgs>? CurrentOrgChanged;
     public event EventHandler? CurrentOrgDetailsChanged;
@@ -61,6 +62,7 @@ public sealed class OrgContext : IOrgContext
             _orgs.Clear();
             _currentOrgId = null;
             _currentUserId = null;
+            IsPlatformAdmin = false;
             return;
         }
 
@@ -76,6 +78,7 @@ public sealed class OrgContext : IOrgContext
             _currentUserId = _authSession.UserId;
             RequiresProfile = false;
             RequiresOnboarding = true;
+            IsPlatformAdmin = false;
             return;
         }
 
@@ -84,6 +87,9 @@ public sealed class OrgContext : IOrgContext
         _sessionContext.UpdateFromMe(me.User?.Id, me.User?.Email);
         RequiresOnboarding = me.RequiresOrgSetup;
         RequiresProfile = me.RequiresProfileSetup;
+        // Set before the org-count early return below: an admin needs no org memberships of their
+        // own at all -- that's the whole point of Support Mode -- so this must not depend on _orgs.
+        IsPlatformAdmin = me.User?.IsPlatformAdmin ?? false;
 
         _orgs = (me.Organisations ?? new List<MeOrganisationDto>())
             .Select(o => new OrgSummary { Id = o.Id, Name = o.Name, Role = o.CurrentUserRole ?? "Member" })
@@ -117,6 +123,7 @@ public sealed class OrgContext : IOrgContext
         _orgs.Clear();
         _currentOrgId = null;
         _currentUserId = null;
+        IsPlatformAdmin = false;
         ClearPersistedCurrentOrg();
     }
 
@@ -221,6 +228,18 @@ public sealed class OrgContext : IOrgContext
             _orgs.Add(new OrgSummary { Id = orgId, Name = name ?? "Organisation", Role = "Member" });
         _currentOrgId = orgId;
         SavePersistedCurrentOrg(orgId);
+        CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
+        return Task.CompletedTask;
+    }
+
+    public Task EnterSupportOrgAsync(Guid orgId, string orgName, CancellationToken cancellationToken = default)
+    {
+        if (!IsPlatformAdmin)
+            return Task.CompletedTask;
+        _orgs.RemoveAll(o => o.Id == orgId);
+        _orgs.Add(new OrgSummary { Id = orgId, Name = orgName, Role = OrgSummary.SupportSessionRole });
+        _currentOrgId = orgId;
+        // Deliberately NOT persisted via SavePersistedCurrentOrg -- see interface doc comment.
         CurrentOrgChanged?.Invoke(this, new CurrentOrgChangedEventArgs { NewOrgId = orgId });
         return Task.CompletedTask;
     }

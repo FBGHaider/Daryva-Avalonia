@@ -42,6 +42,9 @@ public class MeUserDto
 
     [JsonPropertyName("lastLoginAt")]
     public DateTime? LastLoginAt { get; set; }
+
+    [JsonPropertyName("isPlatformAdmin")]
+    public bool IsPlatformAdmin { get; set; }
 }
 
 public class MeOrganisationDto

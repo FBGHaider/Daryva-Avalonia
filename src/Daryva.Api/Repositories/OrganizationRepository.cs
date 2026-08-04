@@ -39,4 +39,24 @@ public class OrganizationRepository : IOrganizationRepository
             .FirstOrDefaultAsync(c => c.CodeHash == codeHash, cancellationToken);
 
     public void AddJoinCode(OrganizationJoinCode joinCode) => _dbContext.OrganizationJoinCodes.Add(joinCode);
+
+    public async Task<(List<Organization> Items, int TotalCount)> SearchAllAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Organizations.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(o => o.Name.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }

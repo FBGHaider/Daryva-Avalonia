@@ -108,4 +108,14 @@ public interface IOrganizationService
         string userId,
         JoinOrgByCodeRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Platform-admin org browse (Support Mode): every organization, not scoped to the caller's
+    /// own memberships. Caller must already be authorized (controller enforces Platform.ManageOrganizations).
+    /// </summary>
+    Task<AdminOrganizationListResponse> GetAllOrganizationsAsync(
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

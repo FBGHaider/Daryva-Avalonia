@@ -105,6 +105,27 @@ public class OrgsController : ControllerBase
     }
 
     /// <summary>
+    /// List ALL organizations, not scoped to the caller's own memberships -- platform admin only.
+    /// Used by Support Mode to find the org to start a session on.
+    ///
+    /// GET /api/orgs/all?search=&amp;page=&amp;pageSize=
+    /// </summary>
+    [HttpGet("all")]
+    [ProducesResponseType(typeof(AdminOrganizationListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Platform.ManageOrganizations)]
+    public async Task<ActionResult<AdminOrganizationListResponse>> GetAllOrganizations(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _orgService.GetAllOrganizationsAsync(search, page, pageSize, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Get a specific organization by ID (if user is member).
     ///
     /// GET /api/orgs/{orgId}

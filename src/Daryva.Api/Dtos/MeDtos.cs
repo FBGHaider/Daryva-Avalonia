@@ -12,6 +12,9 @@ public class MeUserDto
     public string? TimeZoneId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>AppUser.IsPlatformAdmin -- false for AppUserProfile-only (OIDC/Dev) identities, which have no AppUser row.</summary>
+    public bool IsPlatformAdmin { get; set; }
 }
 
 /// <summary>

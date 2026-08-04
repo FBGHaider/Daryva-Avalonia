@@ -61,3 +61,24 @@ public class OrganizationMemberResponse
     /// </summary>
     public DateTime JoinedAt { get; set; }
 }
+
+/// <summary>
+/// Organization row for a platform admin's Support Mode org browse -- not membership-scoped,
+/// unlike OrganizationResponse.
+/// </summary>
+public class AdminOrganizationSummaryResponse
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public string? OwnerEmail { get; set; }
+    public int MemberCount { get; set; }
+}
+
+public class AdminOrganizationListResponse
+{
+    public List<AdminOrganizationSummaryResponse> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}

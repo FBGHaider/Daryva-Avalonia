@@ -91,6 +91,9 @@
         <DataTemplate DataType="viewModels:AuditLogViewModel">
             <views:AuditLogView />
         </DataTemplate>
+        <DataTemplate DataType="viewModels:SupportModeViewModel">
+            <views:SupportModeView />
+        </DataTemplate>
         <DataTemplate DataType="viewModels:AccountProfileSectionViewModel">
             <views:AccountProfileSectionView />
         </DataTemplate>

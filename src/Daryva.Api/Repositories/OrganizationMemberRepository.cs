@@ -20,6 +20,12 @@ public class OrganizationMemberRepository : IOrganizationMemberRepository
     public Task<List<OrganizationMember>> GetByOrganizationIdAsync(Guid organizationId, CancellationToken cancellationToken = default)
         => _dbContext.OrganizationMembers.Where(m => m.OrganizationId == organizationId).ToListAsync(cancellationToken);
 
+    public Task<List<OrganizationMember>> GetByOrganizationIdsAsync(IEnumerable<Guid> organizationIds, CancellationToken cancellationToken = default)
+    {
+        var ids = organizationIds.Distinct().ToList();
+        return _dbContext.OrganizationMembers.Where(m => ids.Contains(m.OrganizationId)).ToListAsync(cancellationToken);
+    }
+
     public Task<List<OrganizationMember>> GetByUserIdWithOrganizationAsync(string userId, CancellationToken cancellationToken = default)
         => _dbContext.OrganizationMembers
             .Where(m => m.UserId == userId)
