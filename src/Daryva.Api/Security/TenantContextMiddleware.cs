@@ -60,42 +60,25 @@ public class TenantContextMiddleware
             .Select(m => m.OrganizationId)
             .ToListAsync();
 
-        if (userOrgs.Count == 0)
+        if (requestedOrgId.HasValue && !userOrgs.Contains(requestedOrgId.Value))
         {
-            if (requestedOrgId.HasValue)
-            {
-                // No real org memberships, but an org was explicitly requested -- e.g. a platform
-                // admin acting via an active Support Session on that org. Set it tentatively;
-                // ResolveCurrentRoleAsync (below) determines whether this caller actually gets any
-                // access. If not, CurrentRole stays null and downstream permission/resource checks
-                // deny, same as any other unauthorized request -- no privilege escalation risk.
-                _logger.LogInformation(
-                    "User {UserId} has no organization memberships; tentatively resolving requested org {OrgId}.",
-                    userId, requestedOrgId);
-                tenantContext.SetCurrentOrgId(requestedOrgId.Value);
-            }
-            else
-            {
-                // User has no orgs yet; they'll need to create one first
-                _logger.LogInformation("User {UserId} has no organization memberships. CurrentOrgId = null.", userId);
-                tenantContext.SetCurrentOrgId(null);
-            }
-
-            // Resolve even with no/unvalidated org: IsPlatformAdmin must be available for
-            // purely platform-level endpoints (org list, user management) that need no org context.
+            // Requested org isn't a real membership -- could still be a platform admin acting via
+            // an active Support Session on that org (this applies whether or not the caller has
+            // *other* real memberships elsewhere, so it must run regardless of userOrgs.Count).
+            // Set it tentatively; ResolveCurrentRoleAsync (below) is what actually decides: it
+            // checks IsPlatformAdmin + an active SupportSession row for this exact (user, org) pair.
+            // If that comes back empty, CurrentRole stays null and we 403 below -- no privilege
+            // escalation risk, this is not itself a grant of access.
+            _logger.LogInformation(
+                "User {UserId} requested org {OrgId} which is not a real membership; tentatively resolving (Support Session?).",
+                userId, requestedOrgId);
+            tenantContext.SetCurrentOrgId(requestedOrgId.Value);
             await tenantContext.ResolveCurrentRoleAsync();
-            await _next(httpContext);
-            return;
-        }
 
-        if (requestedOrgId.HasValue)
-        {
-            // User explicitly requested an org via header
-            if (!userOrgs.Contains(requestedOrgId.Value))
+            if (tenantContext.CurrentRole == null)
             {
-                // Unauthorized: user not a member of requested org
                 _logger.LogWarning(
-                    "User {UserId} attempted to access org {OrgId} but is not a member.",
+                    "User {UserId} attempted to access org {OrgId} but is not a member and has no active Support Session on it.",
                     userId, requestedOrgId);
                 httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await httpContext.Response.WriteAsJsonAsync(new
@@ -106,6 +89,28 @@ public class TenantContextMiddleware
                 return;
             }
 
+            await _next(httpContext);
+            return;
+        }
+
+        if (userOrgs.Count == 0)
+        {
+            // User has no orgs yet and didn't request one (the requestedOrgId.HasValue case above
+            // already handled a Support-Session org request); they'll need to create one first.
+            _logger.LogInformation("User {UserId} has no organization memberships. CurrentOrgId = null.", userId);
+            tenantContext.SetCurrentOrgId(null);
+
+            // Resolve even with no org: IsPlatformAdmin must be available for purely platform-level
+            // endpoints (org list, user management) that need no org context.
+            await tenantContext.ResolveCurrentRoleAsync();
+            await _next(httpContext);
+            return;
+        }
+
+        if (requestedOrgId.HasValue)
+        {
+            // User explicitly requested an org via header, and it's a real membership (the
+            // not-a-member branch above already returned for the opposite case).
             tenantContext.SetCurrentOrgId(requestedOrgId.Value);
             _logger.LogInformation("User {UserId} selected org {OrgId}.", userId, requestedOrgId);
         }
