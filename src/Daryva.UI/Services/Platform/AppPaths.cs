@@ -14,9 +14,13 @@ namespace Daryva.Services.Platform
 
         public AppPaths()
         {
-            // Application data directory
+            // Application data directory. DARYVA_PROFILE lets multiple instances run side by side
+            // with isolated auth session / local db / settings -- e.g. testing an admin account and
+            // a landlord account at the same time (set DARYVA_PROFILE=admin before launching one of them).
             var appDataBase = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            _appData = Path.Combine(appDataBase, "Daryva");
+            var profile = Environment.GetEnvironmentVariable("DARYVA_PROFILE");
+            var folderName = string.IsNullOrWhiteSpace(profile) ? "Daryva" : $"Daryva-{profile}";
+            _appData = Path.Combine(appDataBase, folderName);
             
             // Ensure directories exist
             if (!Directory.Exists(_appData))
