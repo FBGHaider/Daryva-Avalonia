@@ -76,9 +76,6 @@
         <DataTemplate DataType="viewModels:NotificationSettingsViewModel">
             <views:NotificationSettingsView />
         </DataTemplate>
-        <DataTemplate DataType="viewModels:EmailSettingsViewModel">
-            <views:EmailSettingsView />
-        </DataTemplate>
         <DataTemplate DataType="viewModels:BackupSettingsViewModel">
             <views:BackupSettingsView />
         </DataTemplate>

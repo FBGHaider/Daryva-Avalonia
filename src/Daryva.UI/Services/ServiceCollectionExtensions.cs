@@ -190,7 +190,6 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.RentSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.DocumentSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.NotificationSettingsViewModel>();
-            services.AddTransient<Daryva.MVVM.ViewModels.EmailSettingsViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.BackupSettingsViewModel>();
             
             // Dialog ViewModels

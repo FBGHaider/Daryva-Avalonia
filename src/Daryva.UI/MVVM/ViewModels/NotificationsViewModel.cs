@@ -18,7 +18,6 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseService _houseService;
         private readonly ITenantService _tenantService;
         private readonly IDialogService _dialogService;
-        private readonly IEmailSender _emailSender;
         private readonly IQueueProcessedNotifier _queueProcessedNotifier;
         private readonly ISettingsService _settingsService;
         private readonly IOrgContext _orgContext = null!;
@@ -48,7 +47,6 @@ namespace Daryva.MVVM.ViewModels
             IHouseService houseService,
             ITenantService tenantService,
             IDialogService dialogService,
-            IEmailSender emailSender,
             IQueueProcessedNotifier queueProcessedNotifier,
             ISettingsService settingsService)
         {
@@ -56,7 +54,6 @@ namespace Daryva.MVVM.ViewModels
             _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
             _tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
-            _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
             _queueProcessedNotifier = queueProcessedNotifier ?? throw new ArgumentNullException(nameof(queueProcessedNotifier));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
@@ -83,7 +80,6 @@ namespace Daryva.MVVM.ViewModels
             PreviewMessageCommand = new RelayCommand(async _ => await PreviewMessageAsync());
             SendNowCommand = new RelayCommand(async _ => await SendNowAsync(), _ => CanSend());
             QueueCommand = new RelayCommand(async _ => await QueueAsync(), _ => CanSend());
-            SendTestCommand = new RelayCommand(async _ => await SendTestAsync());
             SendQueueItemCommand = new RelayCommand(async p => await SendQueueItemAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
             CancelQueueItemCommand = new RelayCommand(async p => await CancelQueueItemAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
             ViewDetailsCommand = new RelayCommand(async p => await ViewDetailsAsync(p), p => (p as NotificationRowViewModel) != null || SelectedNotification != null);
@@ -150,7 +146,6 @@ namespace Daryva.MVVM.ViewModels
         public ICommand PreviewMessageCommand { get; }
         public ICommand SendNowCommand { get; }
         public ICommand QueueCommand { get; }
-        public ICommand SendTestCommand { get; }
         public ICommand SendQueueItemCommand { get; }
         public ICommand CancelQueueItemCommand { get; }
         public ICommand ViewDetailsCommand { get; }
@@ -791,72 +786,6 @@ namespace Daryva.MVVM.ViewModels
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error queueing notifications: {ex.Message}", "Error");
-            }
-        }
-
-        private async Task SendTestAsync()
-        {
-            if (string.IsNullOrWhiteSpace(Body))
-            {
-                _dialogService.ShowMessage("Please enter a message body first.", "Validation Error");
-                return;
-            }
-
-            // Prompt for email address
-            var emailAddress = await _dialogService.ShowInputDialogAsync(
-                "Enter your email address to receive the test message:",
-                "Send Test Email",
-                "");
-
-            if (string.IsNullOrWhiteSpace(emailAddress))
-            {
-                return; // User cancelled
-            }
-
-            // Validate email format
-            if (!emailAddress.Contains("@") || !emailAddress.Contains("."))
-            {
-                _dialogService.ShowMessage("Please enter a valid email address.", "Invalid Email");
-                return;
-            }
-
-            try
-            {
-                var payInstructions = await _settingsService.GetSettingAsync("PaymentInstructions", "Please contact your landlord for payment instructions.") ?? "Please contact your landlord for payment instructions.";
-                var context = new NotificationContext
-                {
-                    TenantName = "Test Tenant",
-                    HouseAddress = "123 Test Street, Test City",
-                    AmountDue = 500.00m,
-                    DueDate = DateTime.Now.AddDays(7),
-                    Month = new DateTime(SelectedYear, SelectedMonth, 1).ToString("MMMM yyyy"),
-                    PayInstructions = payInstructions,
-                    Message = CustomMessage ?? ""
-                };
-
-                var renderedSubject = await _notificationService.RenderTemplateAsync(Subject, null, context);
-                var renderedBody = await _notificationService.RenderTemplateAsync(Body, null, context);
-
-                // Send the test email
-                var success = await _emailSender.SendEmailAsync(emailAddress, renderedSubject, renderedBody);
-
-                if (success)
-                {
-                    _dialogService.ShowMessage($"Test email sent successfully to:\n{emailAddress}\n\nPlease check your inbox (and spam folder).", "Test Email Sent");
-                }
-                else
-                {
-                    _dialogService.ShowMessage("Failed to send test email. Please check your email configuration.", "Error");
-                }
-            }
-            catch (Exception ex)
-            {
-                var errorMessage = ex.Message;
-                if (ex.InnerException != null)
-                {
-                    errorMessage += $"\n\nDetails: {ex.InnerException.Message}";
-                }
-                _dialogService.ShowMessage($"Error sending test email:\n\n{errorMessage}", "Email Error");
             }
         }
 

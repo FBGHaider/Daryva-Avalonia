@@ -51,7 +51,6 @@ namespace Daryva.MVVM.ViewModels
             "Rent & Finance",
             "Documents",
             "Notifications",
-            "Email / Integrations",
             "Data & Backup"
         };
 
@@ -69,7 +68,6 @@ namespace Daryva.MVVM.ViewModels
                     "Rent & Finance" => _serviceProvider.GetRequiredService<RentSettingsViewModel>(),
                     "Documents" => _serviceProvider.GetRequiredService<DocumentSettingsViewModel>(),
                     "Notifications" => _serviceProvider.GetRequiredService<NotificationSettingsViewModel>(),
-                    "Email / Integrations" => _serviceProvider.GetRequiredService<EmailSettingsViewModel>(),
                     "Data & Backup" => _serviceProvider.GetRequiredService<BackupSettingsViewModel>(),
                     _ => _serviceProvider.GetRequiredService<GeneralSettingsViewModel>()
                 };

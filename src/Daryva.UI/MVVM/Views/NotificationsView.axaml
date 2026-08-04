@@ -193,8 +193,6 @@
                                     <Button Content="Preview" Command="{Binding PreviewMessageCommand}" Padding="10,6"
                                             Background="Transparent" Foreground="{DynamicResource TextMutedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
                                     <StackPanel Spacing="8" Margin="0,8,0,0">
-                                        <Button Content="Send Test" Command="{Binding SendTestCommand}" Padding="12,8"
-                                                Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8"/>
                                         <Button Content="Queue" Command="{Binding QueueCommand}" Padding="12,8"
                                                 Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8"/>
                                         <Button Content="Send Now" Command="{Binding SendNowCommand}" Padding="12,8"
