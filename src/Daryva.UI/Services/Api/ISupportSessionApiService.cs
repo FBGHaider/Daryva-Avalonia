@@ -21,19 +21,39 @@ public class AdminOrganizationSummaryDto
     public int MemberCount { get; set; }
 }
 
-public class AdminOrganizationListResultDto
+/// <summary>One matched member (by email) and the org(s) they belong to -- find the landlord
+/// first, then pick which of their orgs to act on.</summary>
+public class AdminMemberSearchResultDto
 {
-    [JsonPropertyName("items")]
-    public List<AdminOrganizationSummaryDto> Items { get; set; } = new();
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
 
-    [JsonPropertyName("totalCount")]
-    public int TotalCount { get; set; }
+    [JsonPropertyName("organizations")]
+    public List<AdminOrganizationSummaryDto> Organizations { get; set; } = new();
+}
 
-    [JsonPropertyName("page")]
-    public int Page { get; set; }
+public class AdminOrgEmailSearchResultDto
+{
+    [JsonPropertyName("matches")]
+    public List<AdminMemberSearchResultDto> Matches { get; set; } = new();
+}
 
-    [JsonPropertyName("pageSize")]
-    public int PageSize { get; set; }
+public class SupportAccessCodeDto
+{
+    [JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+
+    [JsonPropertyName("expiresAt")]
+    public DateTime ExpiresAt { get; set; }
+}
+
+public class ResolvedSupportAccessCodeDto
+{
+    [JsonPropertyName("organizationId")]
+    public Guid OrganizationId { get; set; }
+
+    [JsonPropertyName("organizationName")]
+    public string OrganizationName { get; set; } = string.Empty;
 }
 
 public class SupportSessionDto
@@ -76,8 +96,14 @@ public class SupportSessionDto
 /// </summary>
 public interface ISupportSessionApiService
 {
-    Task<AdminOrganizationListResultDto> GetAllOrganizationsAsync(string? search = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);
+    Task<AdminOrgEmailSearchResultDto> SearchOrganizationsByEmailAsync(string search, CancellationToken cancellationToken = default);
     Task<SupportSessionDto> StartSessionAsync(Guid organizationId, string reason, int? durationMinutes = null, CancellationToken cancellationToken = default);
     Task<SupportSessionDto?> EndSessionAsync(Guid sessionId, CancellationToken cancellationToken = default);
     Task<List<SupportSessionDto>> ListSessionsAsync(Guid? organizationId = null, bool includeEnded = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Landlord side: generate a short-lived code for the caller's current org.</summary>
+    Task<SupportAccessCodeDto> GenerateAccessCodeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Admin side: resolve a code to the org it identifies. Null if invalid/expired/already used.</summary>
+    Task<ResolvedSupportAccessCodeDto?> ResolveAccessCodeAsync(string code, CancellationToken cancellationToken = default);
 }

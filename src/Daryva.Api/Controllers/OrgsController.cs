@@ -105,24 +105,22 @@ public class OrgsController : ControllerBase
     }
 
     /// <summary>
-    /// List ALL organizations, not scoped to the caller's own memberships -- platform admin only.
-    /// Used by Support Mode to find the org to start a session on. Search matches org member
-    /// emails (not org name) -- a blank search returns no results, not every organization.
+    /// Find the org member (landlord) whose email matches search, grouped with the org(s) they
+    /// belong to -- platform admin only, used by Support Mode. Matches org member emails, not org
+    /// name. A blank search returns no matches, not every organization on the platform.
     ///
-    /// GET /api/orgs/all?search=&amp;page=&amp;pageSize=
+    /// GET /api/orgs/all?search=
     /// </summary>
     [HttpGet("all")]
-    [ProducesResponseType(typeof(AdminOrganizationListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AdminOrgEmailSearchResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [Authorize(Policy = Permissions.Platform.ManageOrganizations)]
-    public async Task<ActionResult<AdminOrganizationListResponse>> GetAllOrganizations(
+    public async Task<ActionResult<AdminOrgEmailSearchResponse>> GetAllOrganizations(
         [FromQuery] string? search,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var result = await _orgService.GetAllOrganizationsAsync(search, page, pageSize, cancellationToken);
+        var result = await _orgService.SearchOrganizationsByEmailAsync(search, cancellationToken);
         return Ok(result);
     }
 

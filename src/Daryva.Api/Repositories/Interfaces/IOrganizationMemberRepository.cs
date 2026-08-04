@@ -18,5 +18,9 @@ public interface IOrganizationMemberRepository
 
     Task<OrganizationMember?> GetByEmailAsync(Guid organizationId, string email, CancellationToken cancellationToken = default);
 
+    /// <summary>Platform-admin Support Mode: case-insensitive partial match on email, across every
+    /// organization -- not scoped to any one org. Capped at maxResults.</summary>
+    Task<List<OrganizationMember>> SearchByEmailAsync(string emailTerm, int maxResults, CancellationToken cancellationToken = default);
+
     void Add(OrganizationMember member);
 }

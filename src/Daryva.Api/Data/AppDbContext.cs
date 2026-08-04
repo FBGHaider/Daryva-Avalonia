@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public required DbSet<NotificationAttempt> NotificationAttempts { get; set; }
     public required DbSet<AuditLog> AuditLogs { get; set; }
     public required DbSet<SupportSession> SupportSessions { get; set; }
+    public required DbSet<SupportAccessCode> SupportAccessCodes { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext)
         : base(options)
@@ -390,6 +391,18 @@ public class AppDbContext : DbContext
             entity.Property(e => e.StartedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity.HasIndex(e => new { e.AdminUserId, e.OrganizationId });
+            entity.HasIndex(e => e.OrganizationId);
+        });
+
+        // ========== SUPPORT ACCESS CODE (Global Entity, not org-filtered -- see class doc) ==========
+        modelBuilder.Entity<SupportAccessCode>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Code).IsRequired().HasMaxLength(12);
+            entity.Property(e => e.CreatedByUserId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => e.Code).IsUnique();
             entity.HasIndex(e => e.OrganizationId);
         });
 

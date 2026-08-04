@@ -40,27 +40,9 @@ public class OrganizationRepository : IOrganizationRepository
 
     public void AddJoinCode(OrganizationJoinCode joinCode) => _dbContext.OrganizationJoinCodes.Add(joinCode);
 
-    public async Task<(List<Organization> Items, int TotalCount)> SearchAllAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default)
+    public Task<List<Organization>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
     {
-        // Support Mode's org browse is a targeted lookup ("find the org whose owner emailed us a
-        // support request"), not a directory -- an admin should never see every organization on the
-        // platform just by opening the page. No search term means no results, not "everything".
-        if (string.IsNullOrWhiteSpace(search))
-            return (new List<Organization>(), 0);
-
-        var term = search.Trim().ToLower();
-        var query = _dbContext.Organizations
-            .AsNoTracking()
-            .Where(o => _dbContext.OrganizationMembers
-                .Any(m => m.OrganizationId == o.Id && m.Email != null && m.Email.ToLower().Contains(term)));
-
-        var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query
-            .OrderByDescending(o => o.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return (items, totalCount);
+        var idList = ids.Distinct().ToList();
+        return _dbContext.Organizations.AsNoTracking().Where(o => idList.Contains(o.Id)).ToListAsync(cancellationToken);
     }
 }

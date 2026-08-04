@@ -26,8 +26,10 @@ namespace Daryva.MVVM.ViewModels
         private string _errorMessage = string.Empty;
         private string _orgSearchText = string.Empty;
         private bool _hasSearched;
+        private AdminMemberSearchResultDto? _selectedMember;
         private AdminOrganizationSummaryDto? _selectedOrg;
         private string _reason = string.Empty;
+        private string _accessCode = string.Empty;
 
         public SupportModeViewModel(
             ISupportSessionApiService supportSessionApiService,
@@ -40,13 +42,16 @@ namespace Daryva.MVVM.ViewModels
             _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-            OrgSearchResults = new ObservableCollection<AdminOrganizationSummaryDto>();
+            OrgSearchResults = new ObservableCollection<AdminMemberSearchResultDto>();
             ActiveSessions = new ObservableCollection<SupportSessionVm>();
             PastSessions = new ObservableCollection<SupportSessionVm>();
 
             SearchOrgsCommand = new RelayCommand(async _ => await SearchOrgsAsync());
+            SelectMemberCommand = new RelayCommand<AdminMemberSearchResultDto>(m => SelectMember(m));
+            ClearSelectedMemberCommand = new RelayCommand(_ => SelectedMember = null);
             SelectOrgCommand = new RelayCommand<AdminOrganizationSummaryDto>(org => SelectOrg(org));
             ClearSelectedOrgCommand = new RelayCommand(_ => SelectedOrg = null);
+            ResolveCodeCommand = new RelayCommand(async _ => await ResolveCodeAsync(), _ => !IsBusy && AccessCode.Trim().Length >= 4);
             StartSessionCommand = new RelayCommand(async _ => await StartSessionAsync(), _ => CanStartSession());
             EndSessionCommand = new RelayCommand<SupportSessionVm>(async s => await EndSessionAsync(s));
             RefreshSessionsCommand = new RelayCommand(async _ => await LoadSessionsAsync());
@@ -56,15 +61,18 @@ namespace Daryva.MVVM.ViewModels
         }
 
         public string PageTitle => "Support Mode";
-        public string Subtitle => "Search for an organization to start a time-boxed, audited support session.";
+        public string Subtitle => "Find the landlord by email, or enter their support code, to start a time-boxed, audited support session.";
 
-        public ObservableCollection<AdminOrganizationSummaryDto> OrgSearchResults { get; }
+        public ObservableCollection<AdminMemberSearchResultDto> OrgSearchResults { get; }
         public ObservableCollection<SupportSessionVm> ActiveSessions { get; }
         public ObservableCollection<SupportSessionVm> PastSessions { get; }
 
         public ICommand SearchOrgsCommand { get; }
+        public ICommand SelectMemberCommand { get; }
+        public ICommand ClearSelectedMemberCommand { get; }
         public ICommand SelectOrgCommand { get; }
         public ICommand ClearSelectedOrgCommand { get; }
+        public RelayCommand ResolveCodeCommand { get; }
         public RelayCommand StartSessionCommand { get; }
         public ICommand EndSessionCommand { get; }
         public ICommand RefreshSessionsCommand { get; }
@@ -76,7 +84,10 @@ namespace Daryva.MVVM.ViewModels
             set
             {
                 if (SetProperty(ref _isBusy, value))
+                {
                     StartSessionCommand.RaiseCanExecuteChanged();
+                    ResolveCodeCommand.RaiseCanExecuteChanged();
+                }
             }
         }
 
@@ -106,6 +117,20 @@ namespace Daryva.MVVM.ViewModels
 
         public bool HasNoSearchResults => HasSearched && OrgSearchResults.Count == 0;
 
+        /// <summary>Step 1 result: the landlord picked by email. Null while still browsing search
+        /// results. Its Organizations list drives step 2 (pick which org to act on).</summary>
+        public AdminMemberSearchResultDto? SelectedMember
+        {
+            get => _selectedMember;
+            private set
+            {
+                if (SetProperty(ref _selectedMember, value))
+                    OnPropertyChanged(nameof(HasSelectedMember));
+            }
+        }
+
+        public bool HasSelectedMember => SelectedMember != null;
+
         public AdminOrganizationSummaryDto? SelectedOrg
         {
             get => _selectedOrg;
@@ -131,8 +156,31 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
+        public string AccessCode
+        {
+            get => _accessCode;
+            set
+            {
+                if (SetProperty(ref _accessCode, value ?? string.Empty))
+                    ResolveCodeCommand.RaiseCanExecuteChanged();
+            }
+        }
+
         public bool HasActiveSessions => ActiveSessions.Count > 0;
         public bool HasPastSessions => PastSessions.Count > 0;
+
+        private void SelectMember(AdminMemberSearchResultDto? member)
+        {
+            if (member == null)
+                return;
+            SelectedMember = member;
+            ErrorMessage = string.Empty;
+
+            // Skip the org-picker step entirely when the landlord has exactly one org -- the common
+            // case -- so the admin doesn't have to click through a list of one.
+            if (member.Organizations.Count == 1)
+                SelectOrg(member.Organizations[0]);
+        }
 
         private void SelectOrg(AdminOrganizationSummaryDto? org)
         {
@@ -151,8 +199,8 @@ namespace Daryva.MVVM.ViewModels
                 return;
 
             // An empty search must not fall back to browsing every organization on the platform --
-            // the backend already refuses to (SearchAllAsync), but bail out here too so a blank
-            // Search click doesn't even round-trip, and clears any stale results from a prior search.
+            // the backend already refuses to (SearchOrganizationsByEmailAsync), but bail out here
+            // too so a blank Search click doesn't even round-trip, and clears any stale results.
             if (string.IsNullOrWhiteSpace(OrgSearchText))
             {
                 OrgSearchResults.Clear();
@@ -164,14 +212,56 @@ namespace Daryva.MVVM.ViewModels
 
             IsBusy = true;
             ErrorMessage = string.Empty;
+            SelectedMember = null;
+            SelectedOrg = null;
             try
             {
-                var result = await _supportSessionApiService.GetAllOrganizationsAsync(OrgSearchText.Trim()).ConfigureAwait(true);
+                var result = await _supportSessionApiService.SearchOrganizationsByEmailAsync(OrgSearchText.Trim()).ConfigureAwait(true);
                 OrgSearchResults.Clear();
-                foreach (var org in result.Items)
-                    OrgSearchResults.Add(org);
+                foreach (var match in result.Matches)
+                    OrgSearchResults.Add(match);
                 HasSearched = true;
                 OnPropertyChanged(nameof(HasNoSearchResults));
+
+                // Exactly one landlord matched -- skip straight to their org picker (or further, to
+                // the single-org skip in SelectMember) instead of making the admin click "Select"
+                // on a list that only has one row.
+                if (OrgSearchResults.Count == 1)
+                    SelectMember(OrgSearchResults[0]);
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async Task ResolveCodeAsync()
+        {
+            if (IsBusy || AccessCode.Trim().Length < 4)
+                return;
+
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            try
+            {
+                var resolved = await _supportSessionApiService.ResolveAccessCodeAsync(AccessCode.Trim()).ConfigureAwait(true);
+                if (resolved == null)
+                {
+                    ErrorMessage = "That code is invalid, expired, or has already been used.";
+                    return;
+                }
+
+                AccessCode = string.Empty;
+                SelectedMember = null;
+                OrgSearchResults.Clear();
+                OrgSearchText = string.Empty;
+                HasSearched = false;
+                OnPropertyChanged(nameof(HasNoSearchResults));
+                SelectOrg(new AdminOrganizationSummaryDto { Id = resolved.OrganizationId, Name = resolved.OrganizationName });
             }
             catch (Exception ex)
             {
@@ -205,6 +295,7 @@ namespace Daryva.MVVM.ViewModels
                 await _supportSessionApiService.StartSessionAsync(SelectedOrg.Id, Reason.Trim()).ConfigureAwait(true);
                 Reason = string.Empty;
                 SelectedOrg = null;
+                SelectedMember = null;
                 OrgSearchResults.Clear();
                 OrgSearchText = string.Empty;
                 HasSearched = false;

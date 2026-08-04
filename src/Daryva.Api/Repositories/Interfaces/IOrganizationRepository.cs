@@ -12,8 +12,8 @@ public interface IOrganizationRepository
     void Add(Organization organization);
     void Remove(Organization organization);
 
-    /// <summary>Platform-admin org browse (Support Mode): every organization, not membership-scoped. Optional case-insensitive name search.</summary>
-    Task<(List<Organization> Items, int TotalCount)> SearchAllAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default);
+    /// <summary>Batch lookup, e.g. resolving orgs for a set of matched OrganizationMember rows.</summary>
+    Task<List<Organization>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
 
     Task<OrganizationInvite?> GetInviteByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
     void AddInvite(OrganizationInvite invite);

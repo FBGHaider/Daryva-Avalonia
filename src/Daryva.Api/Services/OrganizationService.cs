@@ -434,43 +434,55 @@ public class OrganizationService : IOrganizationService
         };
     }
 
-    public async Task<AdminOrganizationListResponse> GetAllOrganizationsAsync(
+    public async Task<AdminOrgEmailSearchResponse> SearchOrganizationsByEmailAsync(
         string? search,
-        int page,
-        int pageSize,
         CancellationToken cancellationToken = default)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize <= 0 ? 50 : pageSize, 1, 200);
+        // A blank search must never fall back to listing every organization on the platform --
+        // Support Mode is a targeted "find the landlord who contacted us" lookup, not a directory.
+        if (string.IsNullOrWhiteSpace(search))
+            return new AdminOrgEmailSearchResponse();
 
-        var (orgs, totalCount) = await _organizationRepository.SearchAllAsync(search, page, pageSize, cancellationToken);
+        const int maxMatches = 50;
+        var matchedMembers = await _memberRepository.SearchByEmailAsync(search.Trim(), maxMatches, cancellationToken);
+        if (matchedMembers.Count == 0)
+            return new AdminOrgEmailSearchResponse();
 
-        var orgIds = orgs.Select(o => o.Id).ToList();
-        var members = await _memberRepository.GetByOrganizationIdsAsync(orgIds, cancellationToken);
-        var membersByOrg = members.GroupBy(m => m.OrganizationId).ToDictionary(g => g.Key, g => g.ToList());
+        var orgIds = matchedMembers.Select(m => m.OrganizationId).Distinct().ToList();
+        var orgs = await _organizationRepository.GetByIdsAsync(orgIds, cancellationToken);
+        var orgsById = orgs.ToDictionary(o => o.Id);
 
-        var items = orgs.Select(o =>
-        {
-            membersByOrg.TryGetValue(o.Id, out var orgMembers);
-            orgMembers ??= new List<OrganizationMember>();
-            var owner = orgMembers.FirstOrDefault(m => m.IsPrimaryOwner) ?? orgMembers.FirstOrDefault();
-            return new AdminOrganizationSummaryResponse
+        var allMembersForOrgs = await _memberRepository.GetByOrganizationIdsAsync(orgIds, cancellationToken);
+        var membersByOrg = allMembersForOrgs.GroupBy(m => m.OrganizationId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var matches = matchedMembers
+            .GroupBy(m => m.Email!, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new AdminMemberSearchResultResponse
             {
-                Id = o.Id,
-                Name = o.Name,
-                CreatedAt = o.CreatedAt,
-                OwnerEmail = owner?.Email,
-                MemberCount = orgMembers.Count
-            };
-        }).ToList();
+                Email = g.Key,
+                Organizations = g
+                    .Where(m => orgsById.ContainsKey(m.OrganizationId))
+                    .Select(m =>
+                    {
+                        var org = orgsById[m.OrganizationId];
+                        membersByOrg.TryGetValue(org.Id, out var orgMembers);
+                        orgMembers ??= new List<OrganizationMember>();
+                        var owner = orgMembers.FirstOrDefault(om => om.IsPrimaryOwner) ?? orgMembers.FirstOrDefault();
+                        return new AdminOrganizationSummaryResponse
+                        {
+                            Id = org.Id,
+                            Name = org.Name,
+                            CreatedAt = org.CreatedAt,
+                            OwnerEmail = owner?.Email,
+                            MemberCount = orgMembers.Count
+                        };
+                    })
+                    .ToList()
+            })
+            .Where(r => r.Organizations.Count > 0)
+            .ToList();
 
-        return new AdminOrganizationListResponse
-        {
-            Items = items,
-            TotalCount = totalCount,
-            Page = page,
-            PageSize = pageSize
-        };
+        return new AdminOrgEmailSearchResponse { Matches = matches };
     }
 
     /// <summary>

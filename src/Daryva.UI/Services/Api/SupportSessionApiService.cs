@@ -12,20 +12,45 @@ public class SupportSessionApiService : ISupportSessionApiService
         _apiClient = apiClient;
     }
 
-    public async Task<AdminOrganizationListResultDto> GetAllOrganizationsAsync(string? search = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
+    public async Task<AdminOrgEmailSearchResultDto> SearchOrganizationsByEmailAsync(string search, CancellationToken cancellationToken = default)
     {
-        var parts = new List<string> { $"page={page}", $"pageSize={pageSize}" };
-        if (!string.IsNullOrWhiteSpace(search))
-            parts.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        if (string.IsNullOrWhiteSpace(search))
+            return new AdminOrgEmailSearchResultDto();
 
-        var response = await _apiClient.HttpClient.GetAsync($"api/orgs/all?{string.Join("&", parts)}", cancellationToken);
+        var response = await _apiClient.HttpClient.GetAsync($"api/orgs/all?search={Uri.EscapeDataString(search.Trim())}", cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Failed to load organizations.");
+            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Failed to search organizations.");
 
-        return JsonSerializer.Deserialize<AdminOrganizationListResultDto>(body)
-            ?? new AdminOrganizationListResultDto();
+        return JsonSerializer.Deserialize<AdminOrgEmailSearchResultDto>(body)
+            ?? new AdminOrgEmailSearchResultDto();
+    }
+
+    public async Task<SupportAccessCodeDto> GenerateAccessCodeAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsync("api/support-access-codes", null, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Failed to generate a support code.");
+
+        return JsonSerializer.Deserialize<SupportAccessCodeDto>(body)
+            ?? throw new InvalidOperationException("Invalid generate-code response.");
+    }
+
+    public async Task<ResolvedSupportAccessCodeDto?> ResolveAccessCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.HttpClient.PostAsJsonAsync("api/support-access-codes/resolve", new { code }, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(TryGetErrorMessage(body) ?? "Failed to resolve support code.");
+
+        return JsonSerializer.Deserialize<ResolvedSupportAccessCodeDto>(body);
     }
 
     public async Task<SupportSessionDto> StartSessionAsync(Guid organizationId, string reason, int? durationMinutes = null, CancellationToken cancellationToken = default)

@@ -24,6 +24,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
         private readonly IAuthSessionService _authSession;
         private readonly IBackupService _backupService;
+        private readonly ISupportSessionApiService _supportSessionApiService;
 
         private Organisation? _currentOrganisation;
         private Organisation? _selectedOrganisation;
@@ -36,6 +37,9 @@ namespace Daryva.MVVM.ViewModels
         private bool _isBusy;
         private DispatcherTimer? _searchDebounceTimer;
         private List<MemberVm> _allMembers = new();
+        private string _supportAccessCode = string.Empty;
+        private DateTime? _supportAccessCodeExpiresAt;
+        private bool _isGeneratingSupportCode;
 
         public OrganisationViewModel(
             IOrganisationService orgService,
@@ -45,7 +49,8 @@ namespace Daryva.MVVM.ViewModels
             IHouseService houseService,
             IDialogService dialogService,
             IAuthSessionService authSession,
-            IBackupService backupService)
+            IBackupService backupService,
+            ISupportSessionApiService supportSessionApiService)
         {
             _orgService = orgService ?? throw new ArgumentNullException(nameof(orgService));
             _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
@@ -55,6 +60,7 @@ namespace Daryva.MVVM.ViewModels
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _authSession = authSession ?? throw new ArgumentNullException(nameof(authSession));
             _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
+            _supportSessionApiService = supportSessionApiService ?? throw new ArgumentNullException(nameof(supportSessionApiService));
 
             Organisations = new ObservableCollection<Organisation>();
             Members = new ObservableCollection<MemberVm>();
@@ -71,6 +77,8 @@ namespace Daryva.MVVM.ViewModels
             InviteMemberCommand = new RelayCommand(async _ => await InviteMemberAsync(), _ => CanInvite && !string.IsNullOrWhiteSpace(InviteEmail));
             RemoveMemberCommand = new RelayCommand<MemberVm>(async m => await RemoveMemberAsync(m), m => CanRemoveMember(m));
             CopyRecoveryCodeCommand = new RelayCommand(async _ => await CopyRecoveryCodeAsync(), _ => (SelectedOrganisation ?? CurrentOrganisation) != null);
+            GenerateSupportCodeCommand = new RelayCommand(async _ => await GenerateSupportCodeAsync(), _ => !IsInSupportSession && !_isGeneratingSupportCode && CurrentOrganisation != null);
+            CopySupportCodeCommand = new RelayCommand(async _ => await CopySupportCodeAsync(), _ => HasSupportAccessCode);
             RestoreOrgCommand = new RelayCommand(async _ => await RestoreOrgByIdAsync(), _ => !IsInSupportSession);
             RestoreFromBackupCommand = new RelayCommand(async _ => await RestoreFromBackupAsync(), _ => !IsInSupportSession && CurrentOrganisation != null);
             BackupNowCommand = new RelayCommand(async _ => await BackupNowAsync(), _ => CurrentOrganisation != null);
@@ -114,6 +122,12 @@ namespace Daryva.MVVM.ViewModels
                     ((RelayCommand)BackupNowCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)CreateOrgCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RestoreOrgCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)GenerateSupportCodeCommand).RaiseCanExecuteChanged();
+                    // A support code is org-specific -- clear it on org switch so a stale code
+                    // for the previous org can't be mistaken for one on the newly selected org.
+                    SupportAccessCode = string.Empty;
+                    _supportAccessCodeExpiresAt = null;
+                    OnPropertyChanged(nameof(SupportAccessCodeExpiresDisplay));
                 }
             }
         }
@@ -139,6 +153,27 @@ namespace Daryva.MVVM.ViewModels
         public string RecoveryCode => (SelectedOrganisation ?? CurrentOrganisation)?.Id.ToString() ?? string.Empty;
         /// <summary>Name of the org this recovery code belongs to (for display).</summary>
         public string RecoveryCodeOrgName => (SelectedOrganisation ?? CurrentOrganisation)?.Name ?? string.Empty;
+
+        /// <summary>Short-lived code so a platform admin can look up this org directly from Support
+        /// Mode without an email search. Empty until GenerateSupportCodeCommand runs.</summary>
+        public string SupportAccessCode
+        {
+            get => _supportAccessCode;
+            private set
+            {
+                if (SetProperty(ref _supportAccessCode, value))
+                {
+                    OnPropertyChanged(nameof(HasSupportAccessCode));
+                    ((RelayCommand)CopySupportCodeCommand).RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        public bool HasSupportAccessCode => !string.IsNullOrEmpty(SupportAccessCode);
+
+        public string SupportAccessCodeExpiresDisplay => _supportAccessCodeExpiresAt.HasValue
+            ? $"Expires {_supportAccessCodeExpiresAt.Value.ToLocalTime():dd MMM yyyy, HH:mm}"
+            : string.Empty;
 
         public string MemberSearchText
         {
@@ -222,6 +257,8 @@ namespace Daryva.MVVM.ViewModels
         public ICommand InviteMemberCommand { get; }
         public RelayCommand<MemberVm> RemoveMemberCommand { get; }
         public ICommand CopyRecoveryCodeCommand { get; }
+        public ICommand GenerateSupportCodeCommand { get; }
+        public ICommand CopySupportCodeCommand { get; }
         public ICommand RestoreOrgCommand { get; }
         public ICommand RestoreFromBackupCommand { get; }
         public ICommand BackupNowCommand { get; }
@@ -566,6 +603,41 @@ namespace Daryva.MVVM.ViewModels
             if (copied)
                 _dialogService.ShowMessage($"Recovery code for \"{orgName}\" copied to clipboard. Store it somewhere safe (e.g. a password manager or notes) so you can restore this organisation later.", "Recovery code copied");
             else
+                _dialogService.ShowMessage("Could not copy to clipboard. You can select and copy the code above manually.", "Copy failed");
+        }
+
+        private async Task GenerateSupportCodeAsync()
+        {
+            if (CurrentOrganisation == null || IsInSupportSession)
+                return;
+
+            _isGeneratingSupportCode = true;
+            ((RelayCommand)GenerateSupportCodeCommand).RaiseCanExecuteChanged();
+            try
+            {
+                var result = await _supportSessionApiService.GenerateAccessCodeAsync();
+                SupportAccessCode = result.Code;
+                _supportAccessCodeExpiresAt = result.ExpiresAt;
+                OnPropertyChanged(nameof(SupportAccessCodeExpiresDisplay));
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    _dialogService.ShowMessage($"Could not generate a support code: {ex.Message}", "Error"));
+            }
+            finally
+            {
+                _isGeneratingSupportCode = false;
+                ((RelayCommand)GenerateSupportCodeCommand).RaiseCanExecuteChanged();
+            }
+        }
+
+        private async Task CopySupportCodeAsync()
+        {
+            var code = SupportAccessCode;
+            if (string.IsNullOrEmpty(code)) return;
+            var copied = await _dialogService.CopyToClipboardAsync(code);
+            if (!copied)
                 _dialogService.ShowMessage("Could not copy to clipboard. You can select and copy the code above manually.", "Copy failed");
         }
 

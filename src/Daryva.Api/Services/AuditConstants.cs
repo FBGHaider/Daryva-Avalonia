@@ -22,6 +22,8 @@ public static class AuditEventTypes
     public const string TwoFactorRecoveryCodesRegenerated = "TwoFactorRecoveryCodesRegenerated";
     public const string SupportSessionStarted = "SupportSessionStarted";
     public const string SupportSessionEnded = "SupportSessionEnded";
+    public const string SupportAccessCodeGenerated = "SupportAccessCodeGenerated";
+    public const string SupportAccessCodeResolved = "SupportAccessCodeResolved";
     public const string HouseArchived = "HouseArchived";
     public const string HouseDeleted = "HouseDeleted";
     public const string TenantArchived = "TenantArchived";

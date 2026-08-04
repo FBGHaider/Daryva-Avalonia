@@ -38,5 +38,15 @@ public class OrganizationMemberRepository : IOrganizationMemberRepository
     public Task<OrganizationMember?> GetByEmailAsync(Guid organizationId, string email, CancellationToken cancellationToken = default)
         => _dbContext.OrganizationMembers.FirstOrDefaultAsync(m => m.OrganizationId == organizationId && m.Email == email, cancellationToken);
 
+    public Task<List<OrganizationMember>> SearchByEmailAsync(string emailTerm, int maxResults, CancellationToken cancellationToken = default)
+    {
+        var term = emailTerm.Trim().ToLower();
+        return _dbContext.OrganizationMembers
+            .Where(m => m.Email != null && m.Email.ToLower().Contains(term))
+            .OrderBy(m => m.Email)
+            .Take(maxResults)
+            .ToListAsync(cancellationToken);
+    }
+
     public void Add(OrganizationMember member) => _dbContext.OrganizationMembers.Add(member);
 }

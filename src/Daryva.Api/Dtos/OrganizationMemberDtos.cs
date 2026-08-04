@@ -75,10 +75,15 @@ public class AdminOrganizationSummaryResponse
     public int MemberCount { get; set; }
 }
 
-public class AdminOrganizationListResponse
+/// <summary>One matched member (by email) and the org(s) they belong to -- Support Mode finds the
+/// landlord first, then the admin picks which of their orgs to act on.</summary>
+public class AdminMemberSearchResultResponse
 {
-    public List<AdminOrganizationSummaryResponse> Items { get; set; } = new();
-    public int TotalCount { get; set; }
-    public int Page { get; set; }
-    public int PageSize { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public List<AdminOrganizationSummaryResponse> Organizations { get; set; } = new();
+}
+
+public class AdminOrgEmailSearchResponse
+{
+    public List<AdminMemberSearchResultResponse> Matches { get; set; } = new();
 }

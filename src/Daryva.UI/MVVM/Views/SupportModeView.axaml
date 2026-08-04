@@ -47,16 +47,28 @@
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="White" TextWrapping="Wrap"/>
                 </Border>
 
-                <!-- Org search -->
-                <Border Classes="settings-card">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Find an organization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <!-- Enter a support code -->
+                <Border Classes="settings-card" IsVisible="{Binding !HasSelectedOrg}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Have a support code?" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="A landlord can generate a short code from their Organisation page (Team &amp; access) and read it out or send it to you -- enter it here to jump straight to their org." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBox Grid.Column="0" Watermark="Search by owner's email" Text="{Binding OrgSearchText}" Margin="0,0,12,0"/>
+                            <TextBox Grid.Column="0" Watermark="e.g. K7P2QX" Text="{Binding AccessCode}" Margin="0,0,12,0"/>
+                            <Button Grid.Column="1" Content="Use code" Classes="primary" Command="{Binding ResolveCodeCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 1: find the landlord by email -->
+                <Border Classes="settings-card" IsVisible="{Binding !HasSelectedMember}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Find a landlord" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Watermark="Search by their email" Text="{Binding OrgSearchText}" Margin="0,0,12,0"/>
                             <Button Grid.Column="1" Content="Search" Classes="primary" Command="{Binding SearchOrgsCommand}" IsEnabled="{Binding !IsBusy}"/>
                         </Grid>
 
-                        <TextBlock Text="No organizations found." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding HasNoSearchResults}"/>
+                        <TextBlock Text="No one found with that email." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding HasNoSearchResults}"/>
 
                         <ItemsControl ItemsSource="{Binding OrgSearchResults}">
                             <ItemsControl.ItemTemplate>
@@ -64,8 +76,43 @@
                                     <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,10">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding Email}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
+                                                    <Run Text="{Binding Organizations.Count}"/>
+                                                    <Run Text=" organization(s)"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="Select" Classes="secondary"
+                                                    Command="{Binding DataContext.SelectMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 2: pick which of the landlord's orgs to act on -->
+                <Border Classes="settings-card" IsVisible="{Binding HasSelectedMember}">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}">
+                                <Run Text="Organizations for "/>
+                                <Run Text="{Binding SelectedMember.Email}" FontWeight="Bold"/>
+                            </TextBlock>
+                            <Button Grid.Column="1" Content="&#8592; Back to search" Classes="secondary" Command="{Binding ClearSelectedMemberCommand}"/>
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding SelectedMember.Organizations}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0" Spacing="2">
                                                 <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
+                                                    <Run Text="Owner: "/>
                                                     <Run Text="{Binding OwnerEmail}"/>
                                                     <Run Text=" · "/>
                                                     <Run Text="{Binding MemberCount}"/>

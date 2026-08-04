@@ -202,6 +202,26 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Support access code: generate a short-lived code for Daryva support to look up this org directly -->
+                <Border Classes="command-bar" Margin="0,0,0,16">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="Support access" Classes="section-title" FontSize="16"/>
+                        <TextBlock Text="If you need help from Daryva support, generate a code and share it with them (phone, email, chat) -- it's quicker than them searching by your email, and expires automatically after 15 minutes."
+                                   Classes="text-muted" FontSize="12" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Button Content="Generate code" Classes="secondary" Command="{Binding GenerateSupportCodeCommand}"/>
+                            <StackPanel Spacing="2" IsVisible="{Binding HasSupportAccessCode}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBox Text="{Binding SupportAccessCode}" IsReadOnly="True" FontFamily="Consolas" FontSize="16" FontWeight="Bold"
+                                             Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" Width="140"/>
+                                    <Button Content="Copy" Classes="secondary" Command="{Binding CopySupportCodeCommand}"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding SupportAccessCodeExpiresDisplay}" Classes="text-muted" FontSize="11"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- Plan & billing (Coming soon) -->
                 <Border Classes="command-bar" Margin="0,0,0,16">
                     <Grid ColumnDefinitions="*,Auto">

@@ -110,12 +110,12 @@ public interface IOrganizationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Platform-admin org browse (Support Mode): every organization, not scoped to the caller's
-    /// own memberships. Caller must already be authorized (controller enforces Platform.ManageOrganizations).
+    /// Platform-admin org lookup (Support Mode): finds the member (landlord) whose email matches
+    /// search, grouped with the org(s) they belong to -- not scoped to the caller's own
+    /// memberships. Caller must already be authorized (controller enforces Platform.ManageOrganizations).
+    /// A blank search returns no matches, not every organization on the platform.
     /// </summary>
-    Task<AdminOrganizationListResponse> GetAllOrganizationsAsync(
+    Task<AdminOrgEmailSearchResponse> SearchOrganizationsByEmailAsync(
         string? search,
-        int page,
-        int pageSize,
         CancellationToken cancellationToken = default);
 }
