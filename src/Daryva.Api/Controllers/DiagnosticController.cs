@@ -1,4 +1,6 @@
 using Daryva.Api.Data;
+using Daryva.Api.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,9 +10,16 @@ namespace Daryva.Api.Controllers;
 /// Diagnostic endpoints for debugging data issues.
 /// DEVELOPMENT ONLY - should be removed in production.
 /// Bypasses organization filtering to show raw data counts.
+///
+/// Gated on BOTH a real platform-admin JWT (Authorize below) AND DevAuth:Enabled (checked in each
+/// action) -- previously only the DevAuth:Enabled check existed, with no [Authorize] at all, so
+/// these actions were reachable by a fully anonymous, unauthenticated caller. Currently safe only
+/// because DevAuth:Enabled is false in production; this is defense in depth against that single
+/// flag ever being misconfigured.
 /// </summary>
 [ApiController]
 [Route("api/diagnostic")]
+[Authorize(Policy = Permissions.Platform.Admin)]
 public class DiagnosticController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
