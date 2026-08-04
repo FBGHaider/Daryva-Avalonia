@@ -13,11 +13,8 @@ namespace Daryva.MVVM.ViewModels
 
         private int _maxFileSizeMB = 10;
         private string _allowedFormats = "PDF,JPG,JPEG,PNG,DOCX";
-        private bool _autoVersionDocuments = true;
-        private int _studentLetterValidityMonths = 12;
         private int _notifyBeforeExpiryDays = 30;
         private string _documentStoragePath = string.Empty;
-        private bool _openDocumentsInApp = false;
 
         public DocumentSettingsViewModel(ISettingsService settingsService, IDialogService dialogService)
         {
@@ -47,18 +44,6 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _allowedFormats, value);
         }
 
-        public bool AutoVersionDocuments
-        {
-            get => _autoVersionDocuments;
-            set => SetProperty(ref _autoVersionDocuments, value);
-        }
-
-        public int StudentLetterValidityMonths
-        {
-            get => _studentLetterValidityMonths;
-            set => SetProperty(ref _studentLetterValidityMonths, value);
-        }
-
         public int NotifyBeforeExpiryDays
         {
             get => _notifyBeforeExpiryDays;
@@ -69,12 +54,6 @@ namespace Daryva.MVVM.ViewModels
         {
             get => _documentStoragePath;
             set => SetProperty(ref _documentStoragePath, value);
-        }
-
-        public bool OpenDocumentsInApp
-        {
-            get => _openDocumentsInApp;
-            set => SetProperty(ref _openDocumentsInApp, value);
         }
 
         private async Task BrowseStoragePathAsync()
@@ -92,11 +71,8 @@ namespace Daryva.MVVM.ViewModels
             {
                 MaxFileSizeMB = await _settingsService.GetSettingAsync<int>("MaxFileSizeMB", 10) ?? 10;
                 AllowedFormats = await _settingsService.GetSettingAsync("AllowedFormats", "PDF,JPG,JPEG,PNG,DOCX") ?? "PDF,JPG,JPEG,PNG,DOCX";
-                AutoVersionDocuments = await _settingsService.GetSettingAsync<bool>("AutoVersionDocuments", true) ?? true;
-                StudentLetterValidityMonths = await _settingsService.GetSettingAsync<int>("StudentLetterValidityMonths", 12) ?? 12;
                 NotifyBeforeExpiryDays = await _settingsService.GetSettingAsync<int>("NotifyBeforeExpiryDays", 30) ?? 30;
                 DocumentStoragePath = await _settingsService.GetSettingAsync("DocumentStoragePath", string.Empty) ?? string.Empty;
-                OpenDocumentsInApp = await _settingsService.GetSettingAsync<bool>("OpenDocumentsInApp", false) ?? false;
             }
             catch (Exception ex)
             {
@@ -122,13 +98,10 @@ namespace Daryva.MVVM.ViewModels
 
                 await _settingsService.SetSettingAsync("MaxFileSizeMB", MaxFileSizeMB);
                 await _settingsService.SetSettingAsync("AllowedFormats", AllowedFormats);
-                await _settingsService.SetSettingAsync("AutoVersionDocuments", AutoVersionDocuments);
-                await _settingsService.SetSettingAsync("StudentLetterValidityMonths", StudentLetterValidityMonths);
                 await _settingsService.SetSettingAsync("NotifyBeforeExpiryDays", NotifyBeforeExpiryDays);
                 await _settingsService.SetSettingAsync("DocumentStoragePath", DocumentStoragePath);
-                await _settingsService.SetSettingAsync("OpenDocumentsInApp", OpenDocumentsInApp);
 
-                _dialogService.ShowMessage("Settings saved successfully. Changes will apply to future actions only.", "Settings Saved");
+                _dialogService.ShowMessage("Settings saved successfully.", "Settings Saved");
             }
             catch (Exception ex)
             {

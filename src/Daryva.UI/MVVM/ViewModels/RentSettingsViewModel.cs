@@ -11,9 +11,6 @@ namespace Daryva.MVVM.ViewModels
         private readonly IDialogService _dialogService;
 
         private int _defaultRentDueDay = 1;
-        private int _rentGracePeriodDays = 3;
-        private bool _allowPartialPayments = true;
-        private bool _allowOverpayment = true;
 
         public RentSettingsViewModel(ISettingsService settingsService, IDialogService dialogService)
         {
@@ -35,32 +32,11 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _defaultRentDueDay, value);
         }
 
-        public int RentGracePeriodDays
-        {
-            get => _rentGracePeriodDays;
-            set => SetProperty(ref _rentGracePeriodDays, value);
-        }
-
-        public bool AllowPartialPayments
-        {
-            get => _allowPartialPayments;
-            set => SetProperty(ref _allowPartialPayments, value);
-        }
-
-        public bool AllowOverpayment
-        {
-            get => _allowOverpayment;
-            set => SetProperty(ref _allowOverpayment, value);
-        }
-
         private async Task LoadAsync()
         {
             try
             {
                 DefaultRentDueDay = await _settingsService.GetSettingAsync<int>("DefaultRentDueDay", 1) ?? 1;
-                RentGracePeriodDays = await _settingsService.GetSettingAsync<int>("RentGracePeriodDays", 3) ?? 3;
-                AllowPartialPayments = await _settingsService.GetSettingAsync<bool>("AllowPartialPayments", true) ?? true;
-                AllowOverpayment = await _settingsService.GetSettingAsync<bool>("AllowOverpayment", true) ?? true;
             }
             catch (Exception ex)
             {
@@ -78,18 +54,9 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
 
-                if (RentGracePeriodDays < 0)
-                {
-                    _dialogService.ShowMessage("Grace period cannot be negative.", "Validation Error");
-                    return;
-                }
-
                 await _settingsService.SetSettingAsync("DefaultRentDueDay", DefaultRentDueDay);
-                await _settingsService.SetSettingAsync("RentGracePeriodDays", RentGracePeriodDays);
-                await _settingsService.SetSettingAsync("AllowPartialPayments", AllowPartialPayments);
-                await _settingsService.SetSettingAsync("AllowOverpayment", AllowOverpayment);
 
-                _dialogService.ShowMessage("Settings saved successfully. Changes will apply to future actions only.", "Settings Saved");
+                _dialogService.ShowMessage("Settings saved successfully.", "Settings Saved");
             }
             catch (Exception ex)
             {
