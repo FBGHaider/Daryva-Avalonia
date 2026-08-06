@@ -1,8 +1,7 @@
-using Daryva.Api.Data;
 using Daryva.Api.Dtos;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services;
 
@@ -11,12 +10,20 @@ namespace Daryva.Api.Services;
 /// </summary>
 public class RentLedgerService : IRentLedgerService
 {
-    private readonly AppDbContext _dbContext;
+    private readonly ITenancyRepository _tenancyRepository;
+    private readonly IRentPaymentRepository _rentPaymentRepository;
+    private readonly IDepositPaymentRepository _depositPaymentRepository;
     private readonly ITenantContext _tenantContext;
 
-    public RentLedgerService(AppDbContext dbContext, ITenantContext tenantContext)
+    public RentLedgerService(
+        ITenancyRepository tenancyRepository,
+        IRentPaymentRepository rentPaymentRepository,
+        IDepositPaymentRepository depositPaymentRepository,
+        ITenantContext tenantContext)
     {
-        _dbContext = dbContext;
+        _tenancyRepository = tenancyRepository;
+        _rentPaymentRepository = rentPaymentRepository;
+        _depositPaymentRepository = depositPaymentRepository;
         _tenantContext = tenantContext;
     }
 
@@ -31,49 +38,19 @@ public class RentLedgerService : IRentLedgerService
         if (!_tenantContext.CurrentOrgId.HasValue)
             return Array.Empty<RentLedgerItemResponse>();
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-
         var periodStart = DateTime.SpecifyKind(new DateTime(year, month, 1), DateTimeKind.Utc);
         var periodEnd = DateTime.SpecifyKind(new DateTime(year, month, DateTime.DaysInMonth(year, month)), DateTimeKind.Utc);
-        var periodEndExclusive = periodStart.AddMonths(1);
 
         // Include payments whose date (year/month) falls in the selected month so ledger stays in sync with transactions.
         // Using calendar month avoids timezone/end-of-day excluding payments that transactions show for "this month".
-        var tenanciesQuery = _dbContext.Tenancies
-            .AsNoTracking()
-            .Include(t => t.Tenant)
-            .Include(t => t.House)
-            .Where(t => t.OrganizationId == orgId)
-            .Where(t => !t.Tenant.IsArchived)
-            .Where(t => t.MoveInDate <= periodEnd && (!t.MoveOutDate.HasValue || t.MoveOutDate.Value >= periodStart));
-
-        if (houseId.HasValue)
-            tenanciesQuery = tenanciesQuery.Where(t => t.HouseId == houseId.Value);
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-        {
-            var search = searchTerm.Trim().ToLower();
-            tenanciesQuery = tenanciesQuery.Where(t =>
-                t.Tenant.FullName.ToLower().Contains(search) ||
-                t.House.AddressLine1.ToLower().Contains(search));
-        }
-
-        var tenancies = await tenanciesQuery.ToListAsync(cancellationToken);
+        var tenancies = await _tenancyRepository.GetForRentLedgerAsync(periodStart, periodEnd, houseId, searchTerm, cancellationToken);
         var tenancyIds = tenancies.Select(t => t.Id).Distinct().ToList();
 
         // Payments in this calendar month: use UTC range so any payment recorded in the month is included
         // (avoids timezone shifts where DatePaid.Year/Month could be the previous month).
         var periodStartUtc = DateTime.SpecifyKind(new DateTime(year, month, 1, 0, 0, 0), DateTimeKind.Utc);
         var periodEndExclusiveUtc = periodStartUtc.AddMonths(1);
-        var periodRentPayments = await _dbContext.RentPayments
-            .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId &&
-                        tenancyIds.Contains(p.TenancyId) &&
-                        p.DatePaid >= periodStartUtc &&
-                        p.DatePaid < periodEndExclusiveUtc &&
-                        !p.IsVoided)
-            .OrderByDescending(p => p.DatePaid)
-            .ToListAsync(cancellationToken);
+        var periodRentPayments = await _rentPaymentRepository.GetForPeriodAsync(tenancyIds, periodStartUtc, periodEndExclusiveUtc, cancellationToken);
 
         var paidByTenancy = periodRentPayments
             .GroupBy(p => p.TenancyId)
@@ -103,12 +80,7 @@ public class RentLedgerService : IRentLedgerService
             .SelectMany(g => g.Select(t => (t.Id, GroupIds: g.Select(x => x.Id).ToHashSet())))
             .ToDictionary(x => x.Id, x => x.GroupIds);
 
-        var totalDepositByTenancy = await _dbContext.DepositPayments
-            .AsNoTracking()
-            .Where(p => p.OrganizationId == orgId && tenancyIds.Contains(p.TenancyId) && !p.IsVoided)
-            .GroupBy(p => p.TenancyId)
-            .Select(g => new { g.Key, Amount = g.Sum(x => x.AmountPaid) })
-            .ToDictionaryAsync(x => x.Key, x => x.Amount, cancellationToken);
+        var totalDepositByTenancy = await _depositPaymentRepository.GetTotalsByTenancyIdAsync(tenancyIds, cancellationToken);
 
         var result = new List<RentLedgerItemResponse>();
         foreach (var tenancy in dedupedTenancies)
@@ -181,19 +153,11 @@ public class RentLedgerService : IRentLedgerService
         if (!_tenantContext.CurrentOrgId.HasValue)
             return null;
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancy = await _dbContext.Tenancies
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == tenancyId && t.OrganizationId == orgId, cancellationToken);
+        var tenancy = await _tenancyRepository.GetByIdAsync(tenancyId, cancellationToken);
         if (tenancy == null)
             return null;
 
-        var ids = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Where(t => t.OrganizationId == orgId && t.TenantId == tenancy.TenantId && t.HouseId == tenancy.HouseId)
-            .Select(t => t.Id)
-            .ToListAsync(cancellationToken);
-        return ids;
+        return await _tenancyRepository.GetIdsInSameGroupAsync(tenancy.TenantId, tenancy.HouseId, cancellationToken);
     }
 
     private static bool MatchesStatusFilter(string? statusFilter, string status)

@@ -84,6 +84,8 @@ builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<IHouseRepository, HouseRepository>();
 builder.Services.AddScoped<ITenancyRepository, TenancyRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IRentPaymentRepository, RentPaymentRepository>();
+builder.Services.AddScoped<IDepositPaymentRepository, DepositPaymentRepository>();
 
 // Business logic services
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
