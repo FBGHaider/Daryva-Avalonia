@@ -1,27 +1,36 @@
-using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
 using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Daryva.Api.Services;
 
 public class MeService : IMeService
 {
-    private readonly AppDbContext _db;
+    private readonly IAppUserProfileRepository _profileRepository;
+    private readonly IOrganizationMemberRepository _memberRepository;
     private readonly IOrganizationService _orgService;
     private readonly IAppUserRepository _appUserRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<MeService> _logger;
     private readonly string _devUserId;
     private readonly bool _devAuthEnabled;
 
-    public MeService(AppDbContext db, IOrganizationService orgService, IAppUserRepository appUserRepository, ILogger<MeService> logger, IConfiguration configuration)
+    public MeService(
+        IAppUserProfileRepository profileRepository,
+        IOrganizationMemberRepository memberRepository,
+        IOrganizationService orgService,
+        IAppUserRepository appUserRepository,
+        IUnitOfWork unitOfWork,
+        ILogger<MeService> logger,
+        IConfiguration configuration)
     {
-        _db = db;
+        _profileRepository = profileRepository;
+        _memberRepository = memberRepository;
         _orgService = orgService;
         _appUserRepository = appUserRepository;
+        _unitOfWork = unitOfWork;
         _logger = logger;
         _devUserId = configuration.GetValue<string>("DevAuth:UserId") ?? "dev-user-1";
         _devAuthEnabled = configuration.GetValue<bool>("DevAuth:Enabled");
@@ -33,7 +42,7 @@ public class MeService : IMeService
             return;
 
         var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant();
-        var profile = await _db.AppUserProfiles.FindAsync(new object[] { sub }, cancellationToken);
+        var profile = await _profileRepository.GetByIdAsync(sub, cancellationToken);
 
         if (profile == null)
         {
@@ -47,7 +56,7 @@ public class MeService : IMeService
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow
             };
-            _db.AppUserProfiles.Add(profile);
+            _profileRepository.Add(profile);
             _logger.LogInformation("Created AppUserProfile for sub {Sub}, email {Email}", sub, profile.Email);
         }
         else
@@ -57,14 +66,12 @@ public class MeService : IMeService
                 profile.Email = normalizedEmail;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Backfill OrganisationMember.Email for this user so they show in the members list
         if (!string.IsNullOrEmpty(normalizedEmail))
         {
-            var membersWithNullEmail = await _db.OrganizationMembers
-                .Where(m => m.UserId == sub && (m.Email == null || m.Email == ""))
-                .ToListAsync(cancellationToken);
+            var membersWithNullEmail = await _memberRepository.GetWithMissingEmailByUserIdAsync(sub, cancellationToken);
             foreach (var m in membersWithNullEmail)
             {
                 m.Email = normalizedEmail;
@@ -81,12 +88,7 @@ public class MeService : IMeService
             var devPlaceholderMembers = new List<OrganizationMember>();
             if (_devAuthEnabled && !string.Equals(sub, _devUserId, StringComparison.OrdinalIgnoreCase))
             {
-                // EndsWith(string, StringComparison) can't be translated to SQL by Npgsql -- emails are
-                // already normalized lowercase everywhere they're written (see AuthService.NormalizeEmail),
-                // so a plain lowercase comparison is equivalent and translates to a normal SQL LIKE.
-                devPlaceholderMembers = await _db.OrganizationMembers
-                    .Where(m => m.UserId == _devUserId && m.Email != null && m.Email.ToLower().EndsWith("@local"))
-                    .ToListAsync(cancellationToken);
+                devPlaceholderMembers = await _memberRepository.GetDevPlaceholderMembersAsync(_devUserId, cancellationToken);
                 foreach (var m in devPlaceholderMembers)
                 {
                     m.UserId = sub;
@@ -96,13 +98,13 @@ public class MeService : IMeService
             }
 
             if (membersWithNullEmail.Count > 0 || devPlaceholderMembers.Count > 0)
-                await _db.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }
 
     public async Task<MeResponseDto?> GetMeAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var profile = await _db.AppUserProfiles.FindAsync(new object[] { userId }, cancellationToken);
+        var profile = await _profileRepository.GetByIdAsync(userId, cancellationToken);
         if (profile == null)
             return null;
 
@@ -153,7 +155,7 @@ public class MeService : IMeService
 
     public async Task<MeUserDto?> UpdateProfileAsync(string userId, UpdateMeRequest request, CancellationToken cancellationToken = default)
     {
-        var profile = await _db.AppUserProfiles.FindAsync(new object[] { userId }, cancellationToken);
+        var profile = await _profileRepository.GetByIdAsync(userId, cancellationToken);
         if (profile == null)
             return null;
 
@@ -183,7 +185,7 @@ public class MeService : IMeService
             profile.TimeZoneId = string.IsNullOrWhiteSpace(tz) ? null : tz;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Updated profile for user {UserId}", userId);
 
         return new MeUserDto

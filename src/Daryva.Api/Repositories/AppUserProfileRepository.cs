@@ -24,4 +24,6 @@ public class AppUserProfileRepository : IAppUserProfileRepository
             .Where(p => ids.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, cancellationToken);
     }
+
+    public void Add(AppUserProfile profile) => _dbContext.AppUserProfiles.Add(profile);
 }

@@ -48,5 +48,17 @@ public class OrganizationMemberRepository : IOrganizationMemberRepository
             .ToListAsync(cancellationToken);
     }
 
+    public Task<List<OrganizationMember>> GetWithMissingEmailByUserIdAsync(string userId, CancellationToken cancellationToken = default)
+        => _dbContext.OrganizationMembers
+            .Where(m => m.UserId == userId && (m.Email == null || m.Email == ""))
+            .ToListAsync(cancellationToken);
+
+    public Task<List<OrganizationMember>> GetDevPlaceholderMembersAsync(string devUserId, CancellationToken cancellationToken = default)
+        // EndsWith(string, StringComparison) can't be translated to SQL by Npgsql -- emails are already
+        // normalized lowercase everywhere they're written, so a plain lowercase comparison is equivalent.
+        => _dbContext.OrganizationMembers
+            .Where(m => m.UserId == devUserId && m.Email != null && m.Email.ToLower().EndsWith("@local"))
+            .ToListAsync(cancellationToken);
+
     public void Add(OrganizationMember member) => _dbContext.OrganizationMembers.Add(member);
 }

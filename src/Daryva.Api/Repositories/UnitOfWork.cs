@@ -1,5 +1,6 @@
 using Daryva.Api.Data;
 using Daryva.Api.Repositories.Interfaces;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Daryva.Api.Repositories;
 
@@ -14,4 +15,7 @@ public class UnitOfWork : IUnitOfWork
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => _dbContext.SaveChangesAsync(cancellationToken);
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+        => _dbContext.Database.BeginTransactionAsync(cancellationToken);
 }

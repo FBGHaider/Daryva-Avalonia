@@ -22,5 +22,12 @@ public interface IOrganizationMemberRepository
     /// organization -- not scoped to any one org. Capped at maxResults.</summary>
     Task<List<OrganizationMember>> SearchByEmailAsync(string emailTerm, int maxResults, CancellationToken cancellationToken = default);
 
+    /// <summary>Memberships for this user with a null/empty Email -- used to backfill Email after login.</summary>
+    Task<List<OrganizationMember>> GetWithMissingEmailByUserIdAsync(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Dev-only: memberships still owned by the dev placeholder identity with an @local email,
+    /// used to migrate them onto a real signed-in account. Caller must gate this on DevAuth:Enabled.</summary>
+    Task<List<OrganizationMember>> GetDevPlaceholderMembersAsync(string devUserId, CancellationToken cancellationToken = default);
+
     void Add(OrganizationMember member);
 }
