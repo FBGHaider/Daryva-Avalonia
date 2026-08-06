@@ -10,11 +10,4 @@ namespace Daryva.Services.Business
         event EventHandler<int>? QueueProcessed;
         void NotifyProcessed(int count);
     }
-
-    public sealed class QueueProcessedNotifier : IQueueProcessedNotifier
-    {
-        public event EventHandler<int>? QueueProcessed;
-
-        public void NotifyProcessed(int count) => QueueProcessed?.Invoke(this, count);
-    }
 }

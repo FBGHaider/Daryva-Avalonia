@@ -1,368 +1,195 @@
-using Dapper;
 using Daryva.MVVM.Models;
-using Daryva.Services.Database;
+using Daryva.Services.Api;
+using Daryva.Services.Business;
 
-namespace Daryva.Services.Data
+namespace Daryva.Services.Data;
+
+/// <summary>
+/// API-only implementation of ITenancyRepository. Uses tenancy API and IApiEntityIdMapper for int/Guid mapping.
+/// </summary>
+public class TenancyRepository : ITenancyRepository
 {
-    public class TenancyRepository : ITenancyRepository
+    private readonly ITenancyApiService _api;
+    private readonly IApiEntityIdMapper _mapper;
+
+    public TenancyRepository(ITenancyApiService api, IApiEntityIdMapper mapper)
     {
-        private readonly IDbContext _dbContext;
+        _api = api ?? throw new ArgumentNullException(nameof(api));
+        _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+    }
 
-        public TenancyRepository(IDbContext dbContext)
+    public async Task<IEnumerable<Tenancy>> GetTenanciesByHouseIdAsync(int houseId)
+    {
+        var apiHouseId = _mapper.TryGetHouseApiId(houseId);
+        if (!apiHouseId.HasValue) return Array.Empty<Tenancy>();
+        var list = await _api.GetTenanciesAsync(houseId: apiHouseId.Value, cancellationToken: default);
+        return list.Select(MapToTenancy);
+    }
+
+    public async Task<IEnumerable<Tenancy>> GetTenanciesByTenantIdAsync(int tenantId)
+    {
+        var apiTenantId = _mapper.TryGetTenantApiId(tenantId);
+        if (!apiTenantId.HasValue) return Array.Empty<Tenancy>();
+        var list = await _api.GetTenanciesAsync(tenantId: apiTenantId.Value, cancellationToken: default);
+        return list.Select(MapToTenancy);
+    }
+
+    public async Task<Tenancy?> GetTenancyByIdAsync(int tenancyId)
+    {
+        var apiId = _mapper.TryGetTenancyApiId(tenancyId);
+        if (!apiId.HasValue) return null;
+        var dto = await _api.GetTenancyAsync(apiId.Value, default);
+        return dto == null ? null : MapToTenancy(dto);
+    }
+
+    public async Task<IEnumerable<Tenancy>> GetActiveTenanciesAsync()
+    {
+        var list = await _api.GetTenanciesAsync(activeOnly: true, cancellationToken: default);
+        return list.Select(MapToTenancy);
+    }
+
+    public async Task<IEnumerable<Tenancy>> GetTenanciesActiveInPeriodAsync(int year, int month)
+    {
+        var list = await _api.GetTenanciesActiveInPeriodAsync(year, month, default);
+        return list.Select(MapToTenancy);
+    }
+
+    public async Task<Dictionary<int, (int Month, int Year)>> GetRentStartByTenancyIdsAsync(IEnumerable<int> tenancyIds)
+    {
+        var dict = new Dictionary<int, (int, int)>();
+        foreach (var id in tenancyIds.Distinct())
         {
-            _dbContext = dbContext;
+            var apiId = _mapper.TryGetTenancyApiId(id);
+            if (!apiId.HasValue) continue;
+            var t = await _api.GetTenancyAsync(apiId.Value, default);
+            if (t?.RentStartMonth is >= 1 and <= 12 && t.RentStartYear is >= 2000 and <= 2100)
+                dict[id] = (t.RentStartMonth.Value, t.RentStartYear!.Value);
         }
+        return dict;
+    }
 
-        public async Task<IEnumerable<Tenancy>> GetTenanciesByHouseIdAsync(int houseId)
+    public async Task<int> CreateTenancyAsync(Tenancy tenancy)
+    {
+        var houseApiId = _mapper.TryGetHouseApiId(tenancy.HouseId);
+        var tenantApiId = _mapper.TryGetTenantApiId(tenancy.TenantId);
+        if (!houseApiId.HasValue || !tenantApiId.HasValue)
+            throw new InvalidOperationException("House and Tenant must have API IDs to create tenancy via API.");
+        var dto = new CreateTenancyDto
         {
-            var sql = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentStartMonth, t.RentStartYear,
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.HouseId = @HouseId
-                ORDER BY t.MoveInDate DESC";
+            HouseId = houseApiId.Value,
+            TenantId = tenantApiId.Value,
+            MoveInDate = tenancy.MoveInDate,
+            MoveOutDate = tenancy.MoveOutDate,
+            RentStartMonth = tenancy.RentStartMonth,
+            RentStartYear = tenancy.RentStartYear,
+            RentAmountMonthly = tenancy.RentAmountMonthly,
+            DepositAmount = tenancy.DepositAmount,
+            PaymentDueDay = tenancy.PaymentDueDay,
+            Status = tenancy.Status ?? "Active",
+            Notes = tenancy.Notes
+        };
+        var guid = await _api.CreateTenancyAsync(dto, default);
+        return _mapper.MapTenancyId(guid);
+    }
 
-            _dbContext.OpenConnection();
-            var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sql,
-                (tenancy, house, tenant) =>
-                {
-                    tenancy.House = house;
-                    tenancy.Tenant = tenant;
-                    return tenancy;
-                },
-                new { HouseId = houseId },
-                splitOn: "House_HouseId,Tenant_TenantId").ToList();
-            return await Task.FromResult(results);
-        }
-
-        public async Task<IEnumerable<Tenancy>> GetTenanciesByTenantIdAsync(int tenantId)
+    public async Task UpdateTenancyAsync(Tenancy tenancy)
+    {
+        var apiId = _mapper.TryGetTenancyApiId(tenancy.TenancyId);
+        if (!apiId.HasValue)
+            throw new InvalidOperationException("Tenancy must have API ID to update via API.");
+        var dto = new UpdateTenancyDto
         {
-            return await GetTenanciesByTenantIdWithOptionalRentStartAsync(tenantId);
-        }
+            MoveInDate = tenancy.MoveInDate,
+            MoveOutDate = tenancy.MoveOutDate,
+            RentStartMonth = tenancy.RentStartMonth,
+            RentStartYear = tenancy.RentStartYear,
+            RentAmountMonthly = tenancy.RentAmountMonthly,
+            DepositAmount = tenancy.DepositAmount,
+            PaymentDueDay = tenancy.PaymentDueDay,
+            Status = tenancy.Status,
+            Notes = tenancy.Notes
+        };
+        await _api.UpdateTenancyAsync(apiId.Value, dto, default);
+    }
 
-        private async Task<IEnumerable<Tenancy>> GetTenanciesByTenantIdWithOptionalRentStartAsync(int tenantId)
+    public async Task EndTenancyAsync(int tenancyId, DateTime moveOutDate)
+    {
+        var apiId = _mapper.TryGetTenancyApiId(tenancyId);
+        if (!apiId.HasValue)
+            throw new InvalidOperationException("Tenancy not found or not from API.");
+        await _api.EndTenancyAsync(apiId.Value, moveOutDate, default);
+    }
+
+    public async Task ReactivateTenancyAsync(int tenancyId)
+    {
+        var apiId = _mapper.TryGetTenancyApiId(tenancyId);
+        if (!apiId.HasValue)
+            throw new InvalidOperationException("Tenancy not found or not from API.");
+        await _api.ReactivateTenancyAsync(apiId.Value, default);
+    }
+
+    public async Task<IEnumerable<Tenancy>> GetEndedTenanciesWithDepositAsync()
+    {
+        var list = await _api.GetEndedTenanciesWithDepositAsync(default);
+        return list.Select(MapToTenancy);
+    }
+
+    public async Task DeleteTenancyAsync(int tenancyId)
+    {
+        var apiId = _mapper.TryGetTenancyApiId(tenancyId);
+        if (!apiId.HasValue)
+            throw new InvalidOperationException("Tenancy not found or not from API.");
+        await _api.DeleteTenancyAsync(apiId.Value, default);
+    }
+
+    public async Task DeleteEndedTenanciesByHouseIdAsync(int houseId)
+    {
+        var apiHouseId = _mapper.TryGetHouseApiId(houseId);
+        if (!apiHouseId.HasValue) return;
+        await _api.DeleteEndedTenanciesByHouseIdAsync(apiHouseId.Value, default);
+    }
+
+    private Tenancy MapToTenancy(TenancyDetailDto dto)
+    {
+        var tenancy = new Tenancy
         {
-            var sqlWithRentStart = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentStartMonth, t.RentStartYear,
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.TenantId = @TenantId
-                ORDER BY t.MoveInDate DESC";
-
-            var sqlWithoutRentStart = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.TenantId = @TenantId
-                ORDER BY t.MoveInDate DESC";
-
-            try
+            TenancyId = _mapper.MapTenancyId(dto.Id),
+            HouseId = _mapper.MapHouseId(dto.HouseId),
+            TenantId = _mapper.MapTenantId(dto.TenantId),
+            MoveInDate = dto.MoveInDate,
+            MoveOutDate = dto.MoveOutDate,
+            RentStartMonth = dto.RentStartMonth,
+            RentStartYear = dto.RentStartYear,
+            RentAmountMonthly = dto.RentAmountMonthly,
+            DepositAmount = dto.DepositAmount,
+            PaymentDueDay = dto.PaymentDueDay,
+            Status = dto.Status ?? "Active",
+            Notes = dto.Notes
+        };
+        if (dto.House != null)
+            tenancy.House = new House
             {
-                _dbContext.OpenConnection();
-                var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithRentStart,
-                    (tenancy, house, tenant) =>
-                    {
-                        tenancy.House = house;
-                        tenancy.Tenant = tenant;
-                        return tenancy;
-                    },
-                    new { TenantId = tenantId },
-                    splitOn: "House_HouseId,Tenant_TenantId").ToList();
-                return await Task.FromResult(results);
-            }
-            catch (Microsoft.Data.Sqlite.SqliteException)
+                HouseId = _mapper.MapHouseId(dto.House.Id),
+                ApiId = dto.House.Id,
+                AddressLine1 = dto.House.AddressLine1,
+                AddressLine2 = dto.House.AddressLine2,
+                City = dto.House.City,
+                Postcode = dto.House.Postcode,
+                TotalRooms = dto.House.TotalRooms,
+                CreatedAt = dto.House.CreatedAt
+            };
+        if (dto.Tenant != null)
+            tenancy.Tenant = new Tenant
             {
-            }
-            catch (NullReferenceException)
-            {
-            }
-
-            _dbContext.OpenConnection();
-            var fallbackResults = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithoutRentStart,
-                (tenancy, house, tenant) =>
-                {
-                    tenancy.House = house;
-                    tenancy.Tenant = tenant;
-                    return tenancy;
-                },
-                new { TenantId = tenantId },
-                splitOn: "House_HouseId,Tenant_TenantId").ToList();
-            return await Task.FromResult(fallbackResults);
-        }
-
-        public async Task<Tenancy?> GetTenancyByIdAsync(int tenancyId)
-        {
-            // Use query without RentStartMonth/RentStartYear first so archived/ended tenancies always load (keeps rent ledger history correct)
-            var sql = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.TenancyId = @TenancyId";
-
-            _dbContext.OpenConnection();
-            var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sql,
-                (tenancy, house, tenant) =>
-                {
-                    tenancy.House = house;
-                    tenancy.Tenant = tenant;
-                    return tenancy;
-                },
-                new { TenancyId = tenancyId },
-                splitOn: "House_HouseId,Tenant_TenantId").ToList();
-            return await Task.FromResult(results.FirstOrDefault());
-        }
-
-        public async Task<IEnumerable<Tenancy>> GetActiveTenanciesAsync()
-        {
-            return await GetActiveTenanciesWithOptionalRentStartAsync();
-        }
-
-        public async Task<IEnumerable<Tenancy>> GetTenanciesActiveInPeriodAsync(int year, int month)
-        {
-            var periodStart = new DateTime(year, month, 1);
-            var periodEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
-            var periodStartStr = periodStart.ToString("yyyy-MM-dd");
-            var periodEndStr = periodEnd.ToString("yyyy-MM-dd");
-            var sqlWithoutRentStart = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE date(t.MoveInDate) <= @PeriodEnd
-                  AND (t.MoveOutDate IS NULL OR date(t.MoveOutDate) >= @PeriodStart)
-                ORDER BY t.MoveInDate DESC";
-            // Use the query WITHOUT RentStartMonth/RentStartYear first so archived/ended tenancies always load
-            // (avoids mapping issues when those columns are null and preserves paid history in rent ledger)
-            _dbContext.OpenConnection();
-            var fallback = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithoutRentStart,
-                (tenancy, house, tenant) =>
-                {
-                    tenancy.House = house;
-                    tenancy.Tenant = tenant;
-                    return tenancy;
-                },
-                new { PeriodStart = periodStartStr, PeriodEnd = periodEndStr },
-                splitOn: "House_HouseId,Tenant_TenantId").ToList();
-            return await Task.FromResult(fallback);
-        }
-
-        public Task<Dictionary<int, (int Month, int Year)>> GetRentStartByTenancyIdsAsync(IEnumerable<int> tenancyIds)
-        {
-            var ids = tenancyIds.Distinct().ToList();
-            if (ids.Count == 0) return Task.FromResult(new Dictionary<int, (int, int)>());
-
-            var dict = new Dictionary<int, (int, int)>();
-            try
-            {
-                // Query one by one to avoid IN-clause issues across SQLite/Dapper; still single round-trip per ID
-                foreach (var id in ids)
-                {
-                    var sql = "SELECT TenancyId, RentStartMonth, RentStartYear FROM Tenancy WHERE TenancyId = @TenancyId";
-                    var row = _dbContext.Query<RentStartRow>(sql, new { TenancyId = id }).FirstOrDefault();
-                    if (row != null && row.RentStartMonth.HasValue && row.RentStartMonth.Value >= 1 && row.RentStartMonth.Value <= 12 &&
-                        row.RentStartYear.HasValue && row.RentStartYear.Value >= 2000 && row.RentStartYear.Value <= 2100)
-                        dict[id] = (row.RentStartMonth.Value, row.RentStartYear.Value);
-                }
-            }
-            catch
-            {
-                // ignore
-            }
-            return Task.FromResult(dict);
-        }
-
-        private class RentStartRow
-        {
-            public int TenancyId { get; set; }
-            public int? RentStartMonth { get; set; }
-            public int? RentStartYear { get; set; }
-            public DateTime MoveInDate { get; set; }
-        }
-
-        private async Task<IEnumerable<Tenancy>> GetActiveTenanciesWithOptionalRentStartAsync()
-        {
-            // Use aliases for split columns so Dapper splits at House/Tenant tables, not Tenancy columns
-            var sqlWithRentStart = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentStartMonth, t.RentStartYear,
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.Status = 'Active' AND tn.IsArchived = 0
-                ORDER BY t.MoveInDate DESC";
-
-            var sqlWithoutRentStart = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.Status = 'Active' AND tn.IsArchived = 0
-                ORDER BY t.MoveInDate DESC";
-
-            try
-            {
-                _dbContext.OpenConnection();
-                var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithRentStart,
-                    (tenancy, house, tenant) =>
-                    {
-                        tenancy.House = house;
-                        tenancy.Tenant = tenant;
-                        return tenancy;
-                    },
-                    splitOn: "House_HouseId,Tenant_TenantId").ToList();
-                return await Task.FromResult(results);
-            }
-            catch (Microsoft.Data.Sqlite.SqliteException)
-            {
-                // Columns may not exist if migration hasn't run - fall back to query without RentStartMonth/Year
-            }
-            catch (NullReferenceException)
-            {
-                // Defensive: handle potential null ref from Dapper mapping when columns missing
-            }
-
-            _dbContext.OpenConnection();
-            var fallbackResults = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sqlWithoutRentStart,
-                (tenancy, house, tenant) =>
-                {
-                    tenancy.House = house;
-                    tenancy.Tenant = tenant;
-                    return tenancy;
-                },
-                splitOn: "House_HouseId,Tenant_TenantId").ToList();
-            return await Task.FromResult(fallbackResults);
-        }
-
-        public async Task<int> CreateTenancyAsync(Tenancy tenancy)
-        {
-            var sql = @"
-                INSERT INTO Tenancy (HouseId, TenantId, MoveInDate, MoveOutDate, RentStartMonth, RentStartYear, RentAmountMonthly, DepositAmount, PaymentDueDay, Status, Notes)
-                VALUES (@HouseId, @TenantId, @MoveInDate, @MoveOutDate, @RentStartMonth, @RentStartYear, @RentAmountMonthly, @DepositAmount, @PaymentDueDay, @Status, @Notes);
-                SELECT last_insert_rowid();";
-
-            var tenancyId = await Task.FromResult(_dbContext.ExecuteScalar<int>(sql, tenancy));
-            return tenancyId;
-        }
-
-        public async Task UpdateTenancyAsync(Tenancy tenancy)
-        {
-            var sql = @"
-                UPDATE Tenancy 
-                SET HouseId = @HouseId,
-                    TenantId = @TenantId,
-                    MoveInDate = @MoveInDate,
-                    MoveOutDate = @MoveOutDate,
-                    RentStartMonth = @RentStartMonth,
-                    RentStartYear = @RentStartYear,
-                    RentAmountMonthly = @RentAmountMonthly,
-                    DepositAmount = @DepositAmount,
-                    PaymentDueDay = @PaymentDueDay,
-                    Status = @Status,
-                    Notes = @Notes
-                WHERE TenancyId = @TenancyId";
-
-            await Task.FromResult(_dbContext.ExecuteNonQuery(sql, tenancy));
-        }
-
-        public async Task EndTenancyAsync(int tenancyId, DateTime moveOutDate)
-        {
-            var sql = @"
-                UPDATE Tenancy 
-                SET MoveOutDate = @MoveOutDate,
-                    Status = 'Ended'
-                WHERE TenancyId = @TenancyId";
-
-            await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { TenancyId = tenancyId, MoveOutDate = moveOutDate }));
-        }
-
-        public async Task ReactivateTenancyAsync(int tenancyId)
-        {
-            var sql = @"
-                UPDATE Tenancy 
-                SET MoveOutDate = NULL,
-                    Status = 'Active'
-                WHERE TenancyId = @TenancyId";
-            await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { TenancyId = tenancyId }));
-        }
-
-        /// <summary>Ended tenancies with deposit (including left/archived tenants) so dashboard can show deposit to return.</summary>
-        public async Task<IEnumerable<Tenancy>> GetEndedTenanciesWithDepositAsync()
-        {
-            var sql = @"
-                SELECT 
-                    t.TenancyId, t.HouseId, t.TenantId, t.MoveInDate, t.MoveOutDate, 
-                    t.RentStartMonth, t.RentStartYear,
-                    t.RentAmountMonthly, t.DepositAmount, t.PaymentDueDay, t.Status, t.Notes,
-                    h.HouseId AS House_HouseId, h.HouseId AS HouseId, h.AddressLine1, h.AddressLine2, h.City, h.Postcode, h.TotalRooms, h.CreatedAt,
-                    tn.TenantId AS Tenant_TenantId, tn.TenantId AS TenantId, tn.FullName, tn.PhoneNumber, tn.Email, tn.UniversityName, tn.CreatedAt, tn.IsArchived
-                FROM Tenancy t
-                INNER JOIN House h ON t.HouseId = h.HouseId
-                INNER JOIN Tenant tn ON t.TenantId = tn.TenantId
-                WHERE t.Status = 'Ended' AND t.DepositAmount > 0 AND t.MoveOutDate IS NOT NULL
-                ORDER BY t.MoveOutDate DESC";
-            try
-            {
-                _dbContext.OpenConnection();
-                var results = _dbContext.Connection.Query<Tenancy, House, Tenant, Tenancy>(sql,
-                    (tenancy, house, tenant) =>
-                    {
-                        tenancy.House = house;
-                        tenancy.Tenant = tenant;
-                        return tenancy;
-                    },
-                    splitOn: "House_HouseId,Tenant_TenantId").ToList();
-                return await Task.FromResult(results);
-            }
-            catch
-            {
-                return Array.Empty<Tenancy>();
-            }
-        }
-
-        public async Task DeleteTenancyAsync(int tenancyId)
-        {
-            var sql = "DELETE FROM Tenancy WHERE TenancyId = @TenancyId";
-            await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { TenancyId = tenancyId }));
-        }
-
-        public async Task DeleteEndedTenanciesByHouseIdAsync(int houseId)
-        {
-            var sql = "DELETE FROM Tenancy WHERE HouseId = @HouseId AND Status = 'Ended'";
-            await Task.FromResult(_dbContext.ExecuteNonQuery(sql, new { HouseId = houseId }));
-        }
+                TenantId = _mapper.MapTenantId(dto.Tenant.Id),
+                ApiId = dto.Tenant.Id,
+                FullName = dto.Tenant.FullName,
+                PhoneNumber = dto.Tenant.PhoneNumber ?? string.Empty,
+                Email = dto.Tenant.Email ?? string.Empty,
+                UniversityName = dto.Tenant.UniversityName,
+                CreatedAt = dto.Tenant.CreatedAt,
+                IsArchived = dto.Tenant.IsArchived
+            };
+        return tenancy;
     }
 }

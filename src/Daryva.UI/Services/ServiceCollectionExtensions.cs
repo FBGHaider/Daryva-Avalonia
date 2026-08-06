@@ -8,7 +8,6 @@ using Daryva.Services.Platform;
 using Daryva.Services.Update;
 using Daryva.Services.Api;
 using Daryva.Services.Auth;
-using Daryva.Services.Migration;
 using Daryva.Services.OrgContext;
 using Daryva.Services.Session;
 using Daryva.Services.AppReset;
@@ -68,44 +67,29 @@ namespace Daryva.Services
             });
 
             // Repositories
-            services.AddScoped<IHouseRepository, HouseRepository>();
-            services.AddScoped<ITenantRepository, TenantRepository>();
-            services.AddScoped<ITenancyRepository, TenancyApiRepositoryAdapter>();
+            services.AddScoped<ITenancyRepository, TenancyRepository>();
             services.AddScoped<IDepositPaymentRepository, DepositPaymentRepository>();
             services.AddScoped<IRentChargeRepository, RentChargeRepository>();
             services.AddScoped<IRentPaymentRepository, RentPaymentRepository>();
             services.AddScoped<IDepositReturnRepository, DepositReturnRepository>();
             services.AddScoped<IDocumentRepository, DocumentRepository>();
-            services.AddScoped<IExpenseRepository, ExpenseRepository>();
-            services.AddScoped<INotificationRepository, NotificationRepository>();
-            services.AddScoped<ISettingsRepository, SettingsRepository>();
 
             // Business Services — API-only: tenants, houses, expenses, documents, notifications use API adapters.
             // Tenancy create (add tenant) uses ITenancyApiService only; no SQLite.
             services.AddSingleton<IApiEntityIdMapper, ApiEntityIdMapper>();
-            services.AddScoped<HouseService>();
-            services.AddScoped<HouseApiServiceAdapter>();
-            services.AddScoped<IHouseService, HouseApiServiceAdapter>();
+            services.AddScoped<IHouseService, HouseService>();
+            services.AddScoped<ITenantService, TenantService>();
+            services.AddScoped<IExpenseService, ExpenseService>();
+            services.AddScoped<IDocumentService, DocumentService>();
 
-            services.AddScoped<TenantService>();
-            services.AddScoped<TenantApiServiceAdapter>();
-            services.AddScoped<ITenantService, TenantApiServiceAdapter>();
-
-            services.AddScoped<ExpenseService>();
-            services.AddScoped<ExpenseApiServiceAdapter>();
-            services.AddScoped<IExpenseService, ExpenseApiServiceAdapter>();
-
-            services.AddScoped<DocumentService>();
-            services.AddScoped<DocumentApiServiceAdapter>();
-            services.AddScoped<IDocumentService, DocumentApiServiceAdapter>();
-
+            // Payment domain is a deliberate hybrid, not dead code: PaymentApiMigrationService is the
+            // API-backed IPaymentService, but it falls back to the local SQLite-backed PaymentService
+            // whenever a tenancy can't be resolved to an API ID -- both must stay registered.
             services.AddScoped<PaymentService>();
             services.AddScoped<PaymentApiMigrationService>();
             services.AddScoped<IPaymentService, PaymentApiMigrationService>();
 
-            services.AddScoped<NotificationService>();
-            services.AddScoped<NotificationApiServiceAdapter>();
-            services.AddScoped<INotificationService, NotificationApiServiceAdapter>();
+            services.AddScoped<INotificationService, NotificationService>();
 
             services.AddSingleton<NotificationFeedService>();
             services.AddSingleton<INotificationFeedService>(sp => sp.GetRequiredService<NotificationFeedService>());
@@ -116,6 +100,9 @@ namespace Daryva.Services
             services.AddScoped<UserPreferencesService>();
             services.AddScoped<IUserPreferencesService>(sp => sp.GetRequiredService<UserPreferencesService>());
 
+            // OrganisationMemberService is JSON-file-backed (org_members.json), not SQLite -- also a
+            // deliberate hybrid: the decorator only tries the API for GetMembersAsync (with fallback),
+            // invite/add/remove go through OrganisationMemberService unconditionally. Both stay registered.
             services.AddScoped<OrganisationMemberService>();
             services.AddScoped<IOrganisationMemberService>(sp => new OrganisationMemberApiDecorator(
                 sp.GetRequiredService<IOrganizationApiService>(),
@@ -131,11 +118,8 @@ namespace Daryva.Services
             });
             services.AddScoped<IExportService, ExportService>();
             services.AddScoped<IHouseReportExportService, HouseReportExportService>();
-            services.AddScoped<ISettingsService, ApiSettingsService>();
+            services.AddScoped<ISettingsService, SettingsService>();
             services.AddScoped<IBackupService, BackupService>();
-            
-            // Migration Service (SQLite to API)
-            services.AddScoped<IMigrationService, SqliteToApiMigrationService>();
 
             // Update Service (UI layer - Velopack)
             services.AddSingleton<IUpdateService, VelopackUpdateService>();

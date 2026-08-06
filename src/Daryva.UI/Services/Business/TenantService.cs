@@ -1,128 +1,153 @@
 using Daryva.MVVM.Models;
-using Daryva.Services.Data;
+using Daryva.Services.Api;
 
-namespace Daryva.Services.Business
+namespace Daryva.Services.Business;
+
+/// <summary>
+/// Implements ITenantService against the backend API.
+/// Maps between UI Tenant model and API TenantDto.
+/// </summary>
+public class TenantService : ITenantService
 {
-    public class TenantService : ITenantService
+    private readonly ITenantApiService _tenantApiService;
+    private readonly IApiEntityIdMapper _idMapper;
+
+    public TenantService(ITenantApiService tenantApiService, IApiEntityIdMapper idMapper)
     {
-        private readonly ITenantRepository _tenantRepository;
-        private readonly ITenancyRepository _tenancyRepository;
-        private readonly INotificationRepository _notificationRepository;
-        private readonly IRentPaymentRepository _rentPaymentRepository;
-        private readonly IDepositPaymentRepository _depositPaymentRepository;
-        private readonly IRentChargeRepository _rentChargeRepository;
-        private readonly IDocumentRepository _documentRepository;
+        _tenantApiService = tenantApiService ?? throw new ArgumentNullException(nameof(tenantApiService));
+        _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
+    }
 
-        public TenantService(
-            ITenantRepository tenantRepository, 
-            ITenancyRepository tenancyRepository,
-            INotificationRepository notificationRepository,
-            IRentPaymentRepository rentPaymentRepository,
-            IDepositPaymentRepository depositPaymentRepository,
-            IRentChargeRepository rentChargeRepository,
-            IDocumentRepository documentRepository)
+    public async Task<IEnumerable<Tenant>> GetAllTenantsAsync(bool includeArchived = false)
+    {
+        var tenantDtos = await _tenantApiService.GetTenantsAsync(includeArchived);
+        return tenantDtos.Select(MapToTenant);
+    }
+
+    public async Task<IEnumerable<Tenant>> GetTenantsByHouseIdAsync(int? houseId, bool includeArchived = false)
+    {
+        var allTenants = await GetAllTenantsAsync(includeArchived);
+
+        if (!houseId.HasValue)
+            return allTenants;
+
+        return allTenants.Where(t => t.CurrentHouseId == houseId.Value);
+    }
+
+    public async Task<Tenant?> GetTenantByIdAsync(int tenantId)
+    {
+        // In API mode, we need to fetch all tenants and find by local ID
+        var tenants = await GetAllTenantsAsync(includeArchived: true);
+        return tenants.FirstOrDefault(t => t.TenantId == tenantId);
+    }
+
+    public async Task<Tenant> CreateTenantAsync(Tenant tenant)
+    {
+        var createDto = new CreateTenantDto
         {
-            _tenantRepository = tenantRepository;
-            _tenancyRepository = tenancyRepository ?? throw new ArgumentNullException(nameof(tenancyRepository));
-            _notificationRepository = notificationRepository ?? throw new ArgumentNullException(nameof(notificationRepository));
-            _rentPaymentRepository = rentPaymentRepository ?? throw new ArgumentNullException(nameof(rentPaymentRepository));
-            _depositPaymentRepository = depositPaymentRepository ?? throw new ArgumentNullException(nameof(depositPaymentRepository));
-            _rentChargeRepository = rentChargeRepository ?? throw new ArgumentNullException(nameof(rentChargeRepository));
-            _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
-        }
+            FullName = tenant.FullName,
+            Email = tenant.Email,
+            PhoneNumber = tenant.PhoneNumber,
+            UniversityName = tenant.UniversityName
+        };
 
-        public async Task<IEnumerable<Tenant>> GetAllTenantsAsync(bool includeArchived = false)
+        var createdDto = await _tenantApiService.CreateTenantAsync(createDto);
+        return MapToTenant(createdDto);
+    }
+
+    public async Task UpdateTenantAsync(Tenant tenant)
+    {
+        if (!tenant.ApiId.HasValue)
+            throw new InvalidOperationException("Cannot update tenant without API ID.");
+
+        var updateDto = new UpdateTenantDto
         {
-            return await _tenantRepository.GetAllTenantsAsync(includeArchived);
-        }
+            FullName = tenant.FullName,
+            Email = tenant.Email,
+            PhoneNumber = tenant.PhoneNumber,
+            UniversityName = tenant.UniversityName
+        };
 
-        public async Task<IEnumerable<Tenant>> GetTenantsByHouseIdAsync(int? houseId, bool includeArchived = false)
+        var updatedDto = await _tenantApiService.UpdateTenantAsync(tenant.ApiId.Value, updateDto);
+        
+        // Update the tenant object with response data
+        tenant.FullName = updatedDto.FullName;
+        tenant.Email = updatedDto.Email ?? string.Empty;
+        tenant.PhoneNumber = updatedDto.PhoneNumber ?? string.Empty;
+        tenant.UniversityName = updatedDto.UniversityName;
+        tenant.CreatedAt = updatedDto.CreatedAt;
+        tenant.IsArchived = updatedDto.IsArchived;
+    }
+
+    public async Task ArchiveTenantAsync(int tenantId)
+    {
+        var tenant = await GetTenantByIdAsync(tenantId);
+        if (tenant == null || !tenant.ApiId.HasValue)
+            throw new InvalidOperationException($"Tenant with ID {tenantId} not found or has no API ID.");
+
+        var archived = await _tenantApiService.ArchiveTenantAsync(tenant.ApiId.Value);
+        if (!archived)
+            throw new InvalidOperationException($"Failed to archive tenant with ID {tenantId}.");
+    }
+
+    public async Task UnarchiveTenantAsync(int tenantId)
+    {
+        var tenant = await GetTenantByIdAsync(tenantId);
+        if (tenant == null || !tenant.ApiId.HasValue)
+            throw new InvalidOperationException($"Tenant with ID {tenantId} not found or has no API ID.");
+
+        var unarchived = await _tenantApiService.UnarchiveTenantAsync(tenant.ApiId.Value);
+        if (!unarchived)
+            throw new InvalidOperationException($"Failed to unarchive tenant with ID {tenantId}.");
+    }
+
+    public async Task<IEnumerable<Tenant>> SearchTenantsAsync(string searchTerm)
+    {
+        // Get all tenants and filter client-side
+        var allTenants = await GetAllTenantsAsync();
+        
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return allTenants;
+
+        var lowerSearchTerm = searchTerm.ToLowerInvariant();
+        return allTenants.Where(t =>
+            (t.FullName?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false) ||
+            (t.Email?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false) ||
+            (t.PhoneNumber?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false) ||
+            (t.UniversityName?.ToLowerInvariant().Contains(lowerSearchTerm) ?? false));
+    }
+
+    public async Task DeleteTenantAsync(int tenantId)
+    {
+        var tenant = await GetTenantByIdAsync(tenantId);
+        if (tenant == null || !tenant.ApiId.HasValue)
+            throw new InvalidOperationException($"Tenant with ID {tenantId} not found or has no API ID.");
+
+        var deleted = await _tenantApiService.DeleteTenantAsync(tenant.ApiId.Value);
+        if (!deleted)
+            throw new InvalidOperationException($"Failed to delete tenant with ID {tenantId}.");
+    }
+
+    /// <summary>
+    /// Map TenantDto from API to UI Tenant model.
+    /// Assigns a local int ID based on the hash of the Guid.
+    /// </summary>
+    private Tenant MapToTenant(TenantDto dto)
+    {
+        return new Tenant
         {
-            return await _tenantRepository.GetTenantsByHouseIdAsync(houseId, includeArchived);
-        }
-
-        public async Task<Tenant?> GetTenantByIdAsync(int tenantId)
-        {
-            return await _tenantRepository.GetTenantByIdAsync(tenantId);
-        }
-
-        public async Task<Tenant> CreateTenantAsync(Tenant tenant)
-        {
-            var tenantId = await _tenantRepository.CreateTenantAsync(tenant);
-            tenant.TenantId = tenantId;
-            return tenant;
-        }
-
-        public async Task UpdateTenantAsync(Tenant tenant)
-        {
-            await _tenantRepository.UpdateTenantAsync(tenant);
-        }
-
-        /// <summary>Marks tenant as archived (e.g. when "removing" them). Does NOT delete any payment history, tenancies, or charges — those are preserved for past months in Rent/Transactions.</summary>
-        public async Task ArchiveTenantAsync(int tenantId)
-        {
-            await _tenantRepository.ArchiveTenantAsync(tenantId);
-        }
-
-        public async Task UnarchiveTenantAsync(int tenantId)
-        {
-            await _tenantRepository.UnarchiveTenantAsync(tenantId);
-        }
-
-        public async Task<IEnumerable<Tenant>> SearchTenantsAsync(string searchTerm)
-        {
-            return await _tenantRepository.SearchTenantsAsync(searchTerm);
-        }
-
-        /// <summary>Permanent delete only (e.g. "Delete tenant permanently" from archived view). This is the ONLY method that deletes payment history. "Remove tenant" must NOT call this — it uses ArchiveTenantAsync + EndTenancyAsync only.</summary>
-        public async Task DeleteTenantAsync(int tenantId)
-        {
-            // Get all tenancies for this tenant
-            var tenancies = await _tenancyRepository.GetTenanciesByTenantIdAsync(tenantId);
-            var tenancyIds = tenancies.Select(t => t.TenancyId).ToList();
-
-            // Delete in correct order to avoid foreign key constraint violations.
-            // NOTE: Only called for explicit "permanent delete". Remove tenant must never call this.
-            // 1. Notifications (by tenant ID and by tenancy ID)
-            await _notificationRepository.DeleteNotificationsByTenantIdAsync(tenantId);
-            foreach (var tenancyId in tenancyIds)
-            {
-                await _notificationRepository.DeleteNotificationsByTenancyIdAsync(tenancyId);
-            }
-
-            // 2. Rent Payments (by tenancy ID - they reference RentCharge)
-            foreach (var tenancyId in tenancyIds)
-            {
-                await _rentPaymentRepository.DeleteRentPaymentsByTenancyIdAsync(tenancyId);
-            }
-
-            // 3. Rent Charges (by tenancy ID)
-            foreach (var tenancyId in tenancyIds)
-            {
-                await _rentChargeRepository.DeleteRentChargesByTenancyIdAsync(tenancyId);
-            }
-
-            // 4. Deposit Payments (by tenancy ID)
-            foreach (var tenancyId in tenancyIds)
-            {
-                await _depositPaymentRepository.DeleteDepositPaymentsByTenancyIdAsync(tenancyId);
-            }
-
-            // 5. Documents (by tenant ID and tenancy ID)
-            await _documentRepository.DeleteDocumentsByTenantIdAsync(tenantId);
-            foreach (var tenancyId in tenancyIds)
-            {
-                await _documentRepository.DeleteDocumentsByTenancyIdAsync(tenancyId);
-            }
-
-            // 6. Tenancies
-            foreach (var tenancy in tenancies)
-            {
-                await _tenancyRepository.DeleteTenancyAsync(tenancy.TenancyId);
-            }
-
-            // 7. Finally, delete the tenant
-            await _tenantRepository.DeleteTenantAsync(tenantId);
-        }
+            TenantId = _idMapper.MapTenantId(dto.Id),
+            ApiId = dto.Id,
+            FullName = dto.FullName,
+            Email = dto.Email ?? string.Empty,
+            PhoneNumber = dto.PhoneNumber ?? string.Empty,
+            UniversityName = dto.UniversityName,
+            CreatedAt = dto.CreatedAt,
+            IsArchived = dto.IsArchived,
+            CurrentHouseAddress = dto.CurrentHouseAddress,
+            CurrentHouseId = dto.CurrentHouseId.HasValue ? (int?)_idMapper.MapHouseId(dto.CurrentHouseId.Value) : null,
+            CurrentTenancyId = dto.CurrentTenancyId.HasValue ? (int?)_idMapper.MapTenancyId(dto.CurrentTenancyId.Value) : null,
+            LeaveDate = dto.LeaveDate
+        };
     }
 }

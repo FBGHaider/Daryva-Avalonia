@@ -1,460 +1,344 @@
 using System.Globalization;
 using Daryva.MVVM.Models;
-using Daryva.Services.Data;
+using Daryva.Services.Api;
 
-namespace Daryva.Services.Business
+namespace Daryva.Services.Business;
+
+/// <summary>
+/// Adapter that implements INotificationService using the backend API.
+/// </summary>
+public class NotificationService : INotificationService
 {
-    public class NotificationService : INotificationService
+    private readonly INotificationApiService _notificationApiService;
+    private readonly ISettingsService _settingsService;
+    private readonly ITenantService _tenantService;
+    private readonly IHouseService _houseService;
+
+    private readonly Dictionary<int, Guid> _notificationIdMap = new();
+    private readonly Dictionary<int, Guid> _templateIdMap = new();
+    private readonly Dictionary<int, Guid> _tenantIdMap = new();
+    private readonly Dictionary<int, Guid> _houseIdMap = new();
+
+    public NotificationService(
+        INotificationApiService notificationApiService,
+        ISettingsService settingsService,
+        ITenantService tenantService,
+        IHouseService houseService)
     {
-        private readonly INotificationRepository _notificationRepository;
-        private readonly ITenantRepository _tenantRepository;
-        private readonly ITenancyRepository _tenancyRepository;
-        private readonly IHouseRepository _houseRepository;
-        private readonly IPaymentService _paymentService;
-        private readonly IDocumentService _documentService;
-        private readonly IEmailSender _emailSender;
+        _notificationApiService = notificationApiService ?? throw new ArgumentNullException(nameof(notificationApiService));
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        _tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
+        _houseService = houseService ?? throw new ArgumentNullException(nameof(houseService));
+    }
 
-        private readonly ISettingsService _settingsService;
-
-        public NotificationService(
-            INotificationRepository notificationRepository,
-            ITenantRepository tenantRepository,
-            ITenancyRepository tenancyRepository,
-            IHouseRepository houseRepository,
-            IPaymentService paymentService,
-            IDocumentService documentService,
-            IEmailSender emailSender,
-            ISettingsService settingsService)
+    public async Task<IEnumerable<NotificationRecipient>> BuildRecipientsAsync(RecipientFilter filter)
+    {
+        var apiFilter = new RecipientFilterDto
         {
-            _notificationRepository = notificationRepository ?? throw new ArgumentNullException(nameof(notificationRepository));
-            _tenantRepository = tenantRepository ?? throw new ArgumentNullException(nameof(tenantRepository));
-            _tenancyRepository = tenancyRepository ?? throw new ArgumentNullException(nameof(tenancyRepository));
-            _houseRepository = houseRepository ?? throw new ArgumentNullException(nameof(houseRepository));
-            _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
-            _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
-            _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
-            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            TargetType = filter.TargetType,
+            TenantId = filter.TenantId.HasValue ? await ResolveTenantGuidAsync(filter.TenantId.Value) : null,
+            HouseId = filter.HouseId.HasValue ? await ResolveHouseGuidAsync(filter.HouseId.Value) : null,
+            StatusFilter = filter.StatusFilter,
+            Month = filter.Month,
+            Year = filter.Year
+        };
+
+        var recipients = await _notificationApiService.GetRecipientsAsync(apiFilter);
+        return recipients.Select(r => new NotificationRecipient
+        {
+            TenantId = r.TenantId.GetHashCode(),
+            ApiTenantId = r.TenantId,
+            TenantName = r.TenantName,
+            Email = r.Email,
+            PhoneNumber = r.PhoneNumber,
+            TenancyId = r.TenancyId?.GetHashCode(),
+            ApiTenancyId = r.TenancyId,
+            HouseAddress = string.IsNullOrWhiteSpace(r.HouseAddressLine1) ? "Unknown" : $"{r.HouseAddressLine1}, {r.HouseCity}".TrimEnd(' ', ','),
+            HasEmail = r.HasEmail,
+            HasWhatsApp = r.HasWhatsApp,
+            AmountDue = r.AmountDue,
+            DueDate = r.DueDate
+        }).ToList();
+    }
+
+    public async Task<string> RenderTemplateAsync(string templateBody, string? subjectTemplate, NotificationContext context)
+    {
+        var gbp = CultureInfo.GetCultureInfo("en-GB");
+        var currency = await _settingsService.GetSettingAsync("Currency", "GBP") ?? "GBP";
+        var symbol = ResolveCurrencySymbol(currency);
+
+        var amountDueStr = context.AmountDue.HasValue ? context.AmountDue.Value.ToString("N2", gbp) : "0.00";
+        var depositStr = context.DepositRemaining.HasValue ? context.DepositRemaining.Value.ToString("N2", gbp) : "0.00";
+
+        var rendered = templateBody
+            .Replace("{TenantName}", context.TenantName)
+            .Replace("{HouseAddress}", context.HouseAddress)
+            .Replace("{Currency}", symbol)
+            .Replace("{AmountDue}", amountDueStr)
+            .Replace("{DueDate}", context.DueDate?.ToString("dd MMMM yyyy", gbp) ?? "")
+            .Replace("{Month}", context.Month)
+            .Replace("{DepositRemaining}", depositStr)
+            .Replace("{PayInstructions}", context.PayInstructions)
+            .Replace("{Message}", context.Message ?? "");
+
+        return rendered;
+    }
+
+    public async Task<Notification> QueueNotificationAsync(NotificationDto dto)
+    {
+        if (!dto.TenantApiId.HasValue)
+            throw new InvalidOperationException("Tenant API ID is required for notifications.");
+
+        var request = new CreateNotificationRequestDto
+        {
+            TenantId = dto.TenantApiId.Value,
+            TenancyId = dto.TenancyApiId,
+            Channel = dto.Channel,
+            Type = dto.Type,
+            Subject = dto.Subject,
+            Body = dto.Body,
+            ScheduledFor = dto.ScheduledFor,
+            TemplateId = await ResolveTemplateGuidAsync(dto.TemplateId, dto.TemplateApiId)
+        };
+
+        var created = await _notificationApiService.CreateNotificationAsync(request);
+        var notification = MapToNotification(created);
+        _notificationIdMap[notification.NotificationId] = created.Id;
+        return notification;
+    }
+
+    public async Task<bool> SendNotificationAsync(int notificationId)
+    {
+        var apiId = await ResolveNotificationGuidAsync(notificationId);
+        return await _notificationApiService.SendNotificationAsync(apiId);
+    }
+
+    public async Task<bool> SendNotificationWithContentAsync(int notificationId, string toAddress, string subject, string body)
+    {
+        var apiId = await ResolveNotificationGuidAsync(notificationId);
+        return await _notificationApiService.SendNotificationWithContentAsync(apiId, new SendNotificationWithContentRequestDto
+        {
+            ToAddress = toAddress,
+            Subject = subject,
+            Body = body
+        });
+    }
+
+    public async Task<bool> SendBatchAsync(IEnumerable<int> notificationIds)
+    {
+        var apiIds = new List<Guid>();
+        foreach (var id in notificationIds)
+        {
+            apiIds.Add(await ResolveNotificationGuidAsync(id));
         }
+        return await _notificationApiService.SendBatchAsync(apiIds);
+    }
 
-        public async Task<IEnumerable<NotificationRecipient>> BuildRecipientsAsync(RecipientFilter filter)
+    public async Task<int> ProcessDueQueueAsync()
+    {
+        return await _notificationApiService.ProcessDueQueueAsync();
+    }
+
+    public async Task<IEnumerable<Notification>> GetNotificationsAsync(NotificationFilter filter)
+    {
+        var apiFilter = new NotificationFilterDto
         {
-            var recipients = new List<NotificationRecipient>();
-            var year = filter.Year ?? DateTime.Now.Year;
-            var month = filter.Month ?? DateTime.Now.Month;
-            var houseIdForLedger = filter.TargetType == "House" && filter.HouseId.HasValue && filter.HouseId.Value > 0 ? filter.HouseId : null;
-            var ledgerForPeriod = (await _paymentService.GetRentLedgerForMonthAsync(year, month, houseIdForLedger)).ToList();
-            var ledgerByTenancy = ledgerForPeriod.ToDictionary(r => r.TenancyId, r => (Balance: r.Balance, DueDate: r.DueDate));
+            Status = filter.Status,
+            StartDate = filter.StartDate,
+            EndDate = filter.EndDate,
+            Channel = filter.Channel,
+            Type = filter.Type,
+            TenantId = filter.TenantId.HasValue ? await ResolveTenantGuidAsync(filter.TenantId.Value) : null,
+            HouseId = filter.HouseId.HasValue ? await ResolveHouseGuidAsync(filter.HouseId.Value) : null
+        };
 
-            if (filter.TargetType == "All")
+        var notifications = await _notificationApiService.GetNotificationsAsync(apiFilter);
+        var mapped = notifications.Select(MapToNotification).ToList();
+        foreach (var n in mapped)
+        {
+            if (n.ApiId.HasValue)
+                _notificationIdMap[n.NotificationId] = n.ApiId.Value;
+        }
+        return mapped;
+    }
+
+    public async Task<Notification?> GetNotificationByIdAsync(int notificationId)
+    {
+        var apiId = await ResolveNotificationGuidAsync(notificationId);
+        var notification = await _notificationApiService.GetNotificationByIdAsync(apiId);
+        return notification == null ? null : MapToNotification(notification);
+    }
+
+    public async Task CancelNotificationAsync(int notificationId)
+    {
+        var apiId = await ResolveNotificationGuidAsync(notificationId);
+        await _notificationApiService.CancelNotificationAsync(apiId);
+    }
+
+    public async Task<IEnumerable<NotificationTemplate>> GetTemplatesAsync(string? channel = null, string? type = null)
+    {
+        var templates = await _notificationApiService.GetTemplatesAsync(channel, type);
+        var mapped = templates.Select(MapToTemplate).ToList();
+        foreach (var t in mapped)
+        {
+            if (t.ApiId.HasValue)
+                _templateIdMap[t.TemplateId] = t.ApiId.Value;
+        }
+        return mapped;
+    }
+
+    public async Task<NotificationTemplate?> GetTemplateByIdAsync(int templateId)
+    {
+        var apiId = await ResolveTemplateGuidAsync(templateId, null);
+        if (!apiId.HasValue)
+            return null;
+
+        var template = await _notificationApiService.GetTemplateByIdAsync(apiId.Value);
+        return template == null ? null : MapToTemplate(template);
+    }
+
+    private Notification MapToNotification(NotificationResponseDto dto)
+    {
+        var notification = new Notification
+        {
+            NotificationId = dto.Id.GetHashCode(),
+            ApiId = dto.Id,
+            TenantId = dto.TenantId.GetHashCode(),
+            TenancyId = dto.TenancyId?.GetHashCode(),
+            Channel = dto.Channel,
+            Type = dto.Type,
+            ToAddress = dto.ToAddress,
+            Subject = dto.Subject,
+            Body = dto.Body,
+            ScheduledFor = dto.ScheduledFor,
+            SentAt = dto.SentAt,
+            Status = dto.Status,
+            ProviderMessageId = dto.ProviderMessageId,
+            Error = dto.Error,
+            TemplateId = dto.TemplateId?.GetHashCode()
+        };
+
+        notification.Tenant = new Tenant { FullName = dto.TenantName };
+        notification.Tenancy = new Tenancy
+        {
+            House = new House
             {
-                var tenants = await _tenantRepository.GetAllTenantsAsync();
-                foreach (var tenant in tenants.Where(t => !t.IsArchived))
-                {
-                    var tenancies = await _tenancyRepository.GetTenanciesByTenantIdAsync(tenant.TenantId);
-                    var tenancy = tenancies.FirstOrDefault(t => t.Status == "Active");
-                    var house = tenancy?.House;
-                    decimal? amountDue = null;
-                    DateTime? dueDate = null;
-                    if (tenancy != null && ledgerByTenancy.TryGetValue(tenancy.TenancyId, out var ld))
-                    {
-                        amountDue = ld.Balance;
-                        dueDate = ld.DueDate;
-                    }
-                    recipients.Add(new NotificationRecipient
-                    {
-                        TenantId = tenant.TenantId,
-                        TenantName = tenant.FullName,
-                        Email = tenant.Email ?? "",
-                        PhoneNumber = tenant.PhoneNumber,
-                        TenancyId = tenancy?.TenancyId,
-                        HouseAddress = house != null ? $"{house.AddressLine1}, {house.City}" : "Unknown",
-                        HasEmail = !string.IsNullOrWhiteSpace(tenant.Email),
-                        HasWhatsApp = !string.IsNullOrWhiteSpace(tenant.PhoneNumber),
-                        AmountDue = amountDue,
-                        DueDate = dueDate
-                    });
-                }
+                AddressLine1 = dto.HouseAddressLine1,
+                City = dto.HouseCity
             }
-            else if (filter.TargetType == "Single" && filter.TenantId.HasValue)
-            {
-                var tenant = await _tenantRepository.GetTenantByIdAsync(filter.TenantId.Value);
-                if (tenant != null)
-                {
-                    var tenancies = await _tenancyRepository.GetTenanciesByTenantIdAsync(filter.TenantId.Value);
-                    var tenancy = tenancies.FirstOrDefault(t => t.Status == "Active");
-                    var house = tenancy?.House;
-                    decimal? amountDue = null;
-                    DateTime? dueDate = null;
-                    if (tenancy != null && ledgerByTenancy.TryGetValue(tenancy.TenancyId, out var ld))
-                    {
-                        amountDue = ld.Balance;
-                        dueDate = ld.DueDate;
-                    }
-                    recipients.Add(new NotificationRecipient
-                    {
-                        TenantId = tenant.TenantId,
-                        TenantName = tenant.FullName,
-                        Email = tenant.Email,
-                        PhoneNumber = tenant.PhoneNumber,
-                        TenancyId = tenancy?.TenancyId,
-                        HouseAddress = house != null ? $"{house.AddressLine1}, {house.City}" : "Unknown",
-                        HasEmail = !string.IsNullOrWhiteSpace(tenant.Email),
-                        HasWhatsApp = !string.IsNullOrWhiteSpace(tenant.PhoneNumber),
-                        AmountDue = amountDue,
-                        DueDate = dueDate
-                    });
-                }
-            }
-            else if (filter.TargetType == "House" && filter.HouseId.HasValue)
-            {
-                var tenancies = await _tenancyRepository.GetTenanciesByHouseIdAsync(filter.HouseId.Value);
-                var activeTenancies = tenancies.Where(t => t.Status == "Active");
-                foreach (var tenancy in activeTenancies)
-                {
-                    if (tenancy.Tenant != null && !tenancy.Tenant.IsArchived)
-                    {
-                        decimal? amountDue = null;
-                        DateTime? dueDate = null;
-                        if (ledgerByTenancy.TryGetValue(tenancy.TenancyId, out var ld))
-                        {
-                            amountDue = ld.Balance;
-                            dueDate = ld.DueDate;
-                        }
-                        recipients.Add(new NotificationRecipient
-                        {
-                            TenantId = tenancy.Tenant.TenantId,
-                            TenantName = tenancy.Tenant.FullName,
-                            Email = tenancy.Tenant.Email,
-                            PhoneNumber = tenancy.Tenant.PhoneNumber,
-                            TenancyId = tenancy.TenancyId,
-                            HouseAddress = tenancy.House != null ? $"{tenancy.House.AddressLine1}, {tenancy.House.City}" : "Unknown",
-                            HasEmail = !string.IsNullOrWhiteSpace(tenancy.Tenant.Email),
-                            HasWhatsApp = !string.IsNullOrWhiteSpace(tenancy.Tenant.PhoneNumber),
-                            AmountDue = amountDue,
-                            DueDate = dueDate
-                        });
-                    }
-                }
-            }
-            else if (filter.TargetType == "AllWithStatus")
-            {
-                if (filter.StatusFilter == "Due" || filter.StatusFilter == "Overdue")
-                {
-                    // Get rent due/overdue tenants
-                    if (filter.Month.HasValue && filter.Year.HasValue)
-                    {
-                        var ledgerRows = await _paymentService.GetRentLedgerForMonthAsync(filter.Year.Value, filter.Month.Value);
-                        var relevantRows = filter.StatusFilter == "Due" 
-                            ? ledgerRows.Where(r => r.Status == "Unpaid" || r.Status == "PartPaid")
-                            : ledgerRows.Where(r => r.Status == "Overdue");
+        };
 
-                        foreach (var row in relevantRows)
-                        {
-                            // Get tenant from tenancy
-                            var tenancy = await _tenancyRepository.GetTenancyByIdAsync(row.TenancyId);
-                            if (tenancy?.Tenant != null && !tenancy.Tenant.IsArchived)
-                            {
-                                recipients.Add(new NotificationRecipient
-                                {
-                                    TenantId = tenancy.Tenant.TenantId,
-                                    TenantName = tenancy.Tenant.FullName,
-                                    Email = tenancy.Tenant.Email,
-                                    PhoneNumber = tenancy.Tenant.PhoneNumber,
-                                    TenancyId = row.TenancyId,
-                                    HouseAddress = row.HouseAddress,
-                                    HasEmail = !string.IsNullOrWhiteSpace(tenancy.Tenant.Email),
-                                    HasWhatsApp = !string.IsNullOrWhiteSpace(tenancy.Tenant.PhoneNumber),
-                                    AmountDue = row.Balance,
-                                    DueDate = new DateTime(filter.Year.Value, filter.Month.Value, tenancy.PaymentDueDay)
-                                });
-                            }
-                        }
-                    }
-                }
-                else if (filter.StatusFilter == "MissingDocs")
-                {
-                    // Get tenants with missing documents
-                    var tenants = await _tenantRepository.GetAllTenantsAsync();
-                    foreach (var tenant in tenants.Where(t => !t.IsArchived))
-                    {
-                        var checklist = await _documentService.GetDocumentStatusChecklistAsync(tenantId: tenant.TenantId);
-                        var missingDocs = checklist.Where(d => d.Status == "Missing");
-                        if (missingDocs.Any())
-                        {
-                        var tenancies = await _tenancyRepository.GetTenanciesByTenantIdAsync(tenant.TenantId);
-                        var tenancy = tenancies.FirstOrDefault(t => t.Status == "Active");
-                        var house = tenancy?.House;
-                            
-                            recipients.Add(new NotificationRecipient
-                            {
-                                TenantId = tenant.TenantId,
-                                TenantName = tenant.FullName,
-                                Email = tenant.Email,
-                                PhoneNumber = tenant.PhoneNumber,
-                                TenancyId = tenancy?.TenancyId,
-                                HouseAddress = house != null ? $"{house.AddressLine1}, {house.City}" : "Unknown",
-                                HasEmail = !string.IsNullOrWhiteSpace(tenant.Email),
-                                HasWhatsApp = !string.IsNullOrWhiteSpace(tenant.PhoneNumber)
-                            });
-                        }
-                    }
-                }
-            }
+        return notification;
+    }
 
-            return recipients;
-        }
-
-        public async Task<string> RenderTemplateAsync(string templateBody, string? subjectTemplate, NotificationContext context)
+    private NotificationTemplate MapToTemplate(NotificationTemplateDto dto)
+    {
+        return new NotificationTemplate
         {
-            var gbp = CultureInfo.GetCultureInfo("en-GB");
-            var currency = await _settingsService.GetSettingAsync("Currency", "GBP") ?? "GBP";
-            var symbol = ResolveCurrencySymbol(currency);
+            TemplateId = dto.Id.GetHashCode(),
+            ApiId = dto.Id,
+            Name = dto.Name,
+            Channel = dto.Channel,
+            Type = dto.Type,
+            SubjectTemplate = dto.SubjectTemplate,
+            BodyTemplate = dto.BodyTemplate,
+            IsDefault = dto.IsDefault,
+            CreatedAt = dto.CreatedAt
+        };
+    }
 
-            var amountDueStr = context.AmountDue.HasValue ? context.AmountDue.Value.ToString("N2", gbp) : "0.00";
-            var depositStr = context.DepositRemaining.HasValue ? context.DepositRemaining.Value.ToString("N2", gbp) : "0.00";
+    private async Task<Guid> ResolveNotificationGuidAsync(int notificationId)
+    {
+        if (_notificationIdMap.TryGetValue(notificationId, out var apiId))
+            return apiId;
 
-            var rendered = templateBody
-                .Replace("{TenantName}", context.TenantName)
-                .Replace("{HouseAddress}", context.HouseAddress)
-                .Replace("{Currency}", symbol)
-                .Replace("{AmountDue}", amountDueStr)
-                .Replace("{DueDate}", context.DueDate?.ToString("dd MMMM yyyy", gbp) ?? "")
-                .Replace("{Month}", context.Month)
-                .Replace("{DepositRemaining}", depositStr)
-                .Replace("{PayInstructions}", context.PayInstructions)
-                .Replace("{Message}", context.Message ?? "");
-
-            return rendered;
-        }
-
-        private static string ResolveCurrencySymbol(string value)
+        var notifications = await _notificationApiService.GetNotificationsAsync(new NotificationFilterDto());
+        foreach (var n in notifications)
         {
-            if (string.IsNullOrWhiteSpace(value)) return "£";
-            var v = value.Trim();
-            return v.ToUpperInvariant() switch
-            {
-                "GBP" => "£",
-                "USD" => "$",
-                "EUR" => "€",
-                "INR" => "₹",
-                "PKR" => "Rs",
-                _ => v.Length <= 4 ? v : "£"
-            };
+            _notificationIdMap[n.Id.GetHashCode()] = n.Id;
         }
 
-        public async Task<Notification> QueueNotificationAsync(NotificationDto dto)
+        if (_notificationIdMap.TryGetValue(notificationId, out apiId))
+            return apiId;
+
+        throw new InvalidOperationException("Notification not found in API.");
+    }
+
+    private async Task<Guid?> ResolveTemplateGuidAsync(int? templateId, Guid? templateApiId)
+    {
+        if (templateApiId.HasValue)
+            return templateApiId.Value;
+
+        if (!templateId.HasValue)
+            return null;
+
+        if (_templateIdMap.TryGetValue(templateId.Value, out var apiId))
+            return apiId;
+
+        var templates = await _notificationApiService.GetTemplatesAsync();
+        foreach (var t in templates)
         {
-            var notification = new Notification
-            {
-                TenantId = dto.TenantId,
-                TenancyId = dto.TenancyId,
-                Channel = dto.Channel,
-                Type = dto.Type,
-                ToAddress = "", // Will be set from tenant
-                Subject = dto.Subject,
-                Body = dto.Body,
-                ScheduledFor = dto.ScheduledFor,
-                Status = "Pending",
-                TemplateId = dto.TemplateId
-            };
-
-            // Get tenant email/phone
-            var tenant = await _tenantRepository.GetTenantByIdAsync(dto.TenantId);
-            if (tenant != null)
-            {
-                notification.ToAddress = dto.Channel == "Email" ? tenant.Email : tenant.PhoneNumber ?? "";
-            }
-
-            var notificationId = await _notificationRepository.CreateNotificationAsync(notification);
-            notification.NotificationId = notificationId;
-            return notification;
+            _templateIdMap[t.Id.GetHashCode()] = t.Id;
         }
 
-        public async Task<bool> SendNotificationAsync(int notificationId)
+        if (_templateIdMap.TryGetValue(templateId.Value, out apiId))
+            return apiId;
+
+        return null;
+    }
+
+    private Task<Guid?> ResolveTenantGuidAsync(int tenantId)
+    {
+        if (_tenantIdMap.TryGetValue(tenantId, out var apiId))
+            return Task.FromResult<Guid?>(apiId);
+
+        return ResolveTenantGuidFromServiceAsync(tenantId);
+    }
+
+    private Task<Guid?> ResolveHouseGuidAsync(int houseId)
+    {
+        if (_houseIdMap.TryGetValue(houseId, out var apiId))
+            return Task.FromResult<Guid?>(apiId);
+
+        return ResolveHouseGuidFromServiceAsync(houseId);
+    }
+
+    private async Task<Guid?> ResolveTenantGuidFromServiceAsync(int tenantId)
+    {
+        var tenants = await _tenantService.GetAllTenantsAsync();
+        foreach (var tenant in tenants)
         {
-            var notification = await _notificationRepository.GetNotificationByIdAsync(notificationId);
-            if (notification == null || notification.Status != "Pending")
-                return false;
-
-            try
-            {
-                bool success = false;
-                string? error = null;
-                string? providerMessageId = null;
-
-                if (notification.Channel == "Email")
-                {
-                    success = await _emailSender.SendEmailAsync(
-                        notification.ToAddress,
-                        notification.Subject ?? "",
-                        notification.Body);
-                }
-                else if (notification.Channel == "WhatsApp")
-                {
-                    error = "WhatsApp integration not yet implemented";
-                }
-
-                // Record attempt
-                var attempt = new NotificationAttempt
-                {
-                    NotificationId = notificationId,
-                    AttemptedAt = DateTime.UtcNow,
-                    Status = success ? "Success" : "Failed",
-                    Error = error,
-                    ProviderMessageId = providerMessageId
-                };
-                await _notificationRepository.CreateAttemptAsync(attempt);
-
-                // Update notification
-                notification.Status = success ? "Sent" : "Failed";
-                notification.SentAt = DateTime.UtcNow;
-                notification.Error = error;
-                notification.ProviderMessageId = providerMessageId;
-                await _notificationRepository.UpdateNotificationAsync(notification);
-
-                return success;
-            }
-            catch (Exception ex)
-            {
-                var attempt = new NotificationAttempt
-                {
-                    NotificationId = notificationId,
-                    AttemptedAt = DateTime.UtcNow,
-                    Status = "Failed",
-                    Error = ex.Message
-                };
-                await _notificationRepository.CreateAttemptAsync(attempt);
-
-                notification.Status = "Failed";
-                notification.Error = ex.Message;
-                await _notificationRepository.UpdateNotificationAsync(notification);
-
-                return false;
-            }
+            if (tenant.ApiId.HasValue)
+                _tenantIdMap[tenant.TenantId] = tenant.ApiId.Value;
         }
 
-        public async Task<bool> SendNotificationWithContentAsync(int notificationId, string toAddress, string subject, string body)
+        return _tenantIdMap.TryGetValue(tenantId, out var apiId) ? apiId : null;
+    }
+
+    private async Task<Guid?> ResolveHouseGuidFromServiceAsync(int houseId)
+    {
+        var houses = await _houseService.GetAllHousesAsync();
+        foreach (var house in houses)
         {
-            var notification = await _notificationRepository.GetNotificationByIdAsync(notificationId);
-            if (notification == null || notification.Status != "Pending")
-                return false;
-
-            if (string.IsNullOrWhiteSpace(toAddress))
-            {
-                await RecordNotificationAttemptAsync(notificationId, false, "No email address for recipient.");
-                return false;
-            }
-
-            try
-            {
-                var success = await _emailSender.SendEmailAsync(toAddress, subject, body);
-                await RecordNotificationAttemptAsync(notificationId, success, success ? null : "Send returned false.");
-                return success;
-            }
-            catch (Exception ex)
-            {
-                await RecordNotificationAttemptAsync(notificationId, false, ex.Message);
-                return false;
-            }
+            if (house.ApiId.HasValue)
+                _houseIdMap[house.HouseId] = house.ApiId.Value;
         }
 
-        private async Task RecordNotificationAttemptAsync(int notificationId, bool success, string? error)
+        return _houseIdMap.TryGetValue(houseId, out var apiId) ? apiId : null;
+    }
+
+    private static string ResolveCurrencySymbol(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "£";
+        var v = value.Trim();
+        return v.ToUpperInvariant() switch
         {
-            var notification = await _notificationRepository.GetNotificationByIdAsync(notificationId);
-            if (notification == null) return;
-
-            var attempt = new NotificationAttempt
-            {
-                NotificationId = notificationId,
-                AttemptedAt = DateTime.UtcNow,
-                Status = success ? "Success" : "Failed",
-                Error = error,
-                ProviderMessageId = null
-            };
-            await _notificationRepository.CreateAttemptAsync(attempt);
-
-            notification.Status = success ? "Sent" : "Failed";
-            notification.SentAt = DateTime.UtcNow;
-            notification.Error = error;
-            await _notificationRepository.UpdateNotificationAsync(notification);
-        }
-
-        public async Task<bool> SendBatchAsync(IEnumerable<int> notificationIds)
-        {
-            var results = new List<bool>();
-            foreach (var id in notificationIds)
-            {
-                results.Add(await SendNotificationAsync(id));
-            }
-            return results.All(r => r);
-        }
-
-        public async Task<int> ProcessDueQueueAsync()
-        {
-            var now = DateTime.Now;
-            var sendOnWeekends = await _settingsService.GetSettingAsync<bool>("SendOnWeekends", true) ?? true;
-            if (!sendOnWeekends && (now.DayOfWeek == DayOfWeek.Saturday || now.DayOfWeek == DayOfWeek.Sunday))
-                return 0;
-
-            var quietStart = await _settingsService.GetSettingAsync("QuietHoursStart", "22:00") ?? "22:00";
-            var quietEnd = await _settingsService.GetSettingAsync("QuietHoursEnd", "08:00") ?? "08:00";
-            if (IsWithinQuietHours(now.TimeOfDay, quietStart, quietEnd))
-                return 0;
-
-            var pending = await _notificationRepository.GetPendingNotificationsAsync(now);
-            var sent = 0;
-            foreach (var n in pending)
-            {
-                if (await SendNotificationAsync(n.NotificationId))
-                    sent++;
-            }
-            return sent;
-        }
-
-        private static bool IsWithinQuietHours(TimeSpan now, string startStr, string endStr)
-        {
-            if (!TimeSpan.TryParse(startStr.Trim(), out var start) || !TimeSpan.TryParse(endStr.Trim(), out var end))
-                return false;
-            if (start <= end)
-                return now >= start && now < end;
-            return now >= start || now < end;
-        }
-
-        public async Task<IEnumerable<Notification>> GetNotificationsAsync(NotificationFilter filter)
-        {
-            return await _notificationRepository.GetAllNotificationsAsync(
-                filter.Status,
-                filter.StartDate,
-                filter.EndDate,
-                filter.Channel,
-                filter.Type,
-                filter.TenantId,
-                filter.HouseId);
-        }
-
-        public async Task<Notification?> GetNotificationByIdAsync(int notificationId)
-        {
-            return await _notificationRepository.GetNotificationByIdAsync(notificationId);
-        }
-
-        public async Task CancelNotificationAsync(int notificationId)
-        {
-            var notification = await _notificationRepository.GetNotificationByIdAsync(notificationId);
-            if (notification != null && notification.Status == "Pending")
-            {
-                notification.Status = "Cancelled";
-                await _notificationRepository.UpdateNotificationAsync(notification);
-            }
-        }
-
-        public async Task<IEnumerable<NotificationTemplate>> GetTemplatesAsync(string? channel = null, string? type = null)
-        {
-            return await _notificationRepository.GetAllTemplatesAsync(channel, type);
-        }
-
-        public async Task<NotificationTemplate?> GetTemplateByIdAsync(int templateId)
-        {
-            return await _notificationRepository.GetTemplateByIdAsync(templateId);
-        }
+            "GBP" => "£",
+            "USD" => "$",
+            "EUR" => "€",
+            "INR" => "₹",
+            "PKR" => "Rs",
+            _ => v.Length <= 4 ? v : "£"
+        };
     }
 }
