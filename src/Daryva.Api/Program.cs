@@ -82,6 +82,8 @@ builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<IHouseRepository, HouseRepository>();
+builder.Services.AddScoped<ITenancyRepository, TenancyRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 // Business logic services
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();

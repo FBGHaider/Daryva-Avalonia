@@ -28,4 +28,12 @@ public class TenantRepository : OrgScopedRepository<Tenant>, ITenantRepository
 
     public Task<Tenant?> GetTrackedWithTenanciesByIdAsync(Guid tenantId, CancellationToken cancellationToken = default)
         => Set.Include(t => t.Tenancies).FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+
+    public Task<List<Tenant>> GetActiveAsync(IReadOnlyCollection<Guid>? tenantIds, CancellationToken cancellationToken = default)
+    {
+        var query = Set.AsNoTracking().Where(t => !t.IsArchived);
+        if (tenantIds != null)
+            query = query.Where(t => tenantIds.Contains(t.Id));
+        return query.ToListAsync(cancellationToken);
+    }
 }

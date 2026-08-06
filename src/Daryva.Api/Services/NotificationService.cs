@@ -1,20 +1,31 @@
-using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services;
 
 public class NotificationService : INotificationService
 {
-    private readonly AppDbContext _dbContext;
+    private readonly INotificationRepository _notificationRepository;
+    private readonly ITenantRepository _tenantRepository;
+    private readonly ITenancyRepository _tenancyRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IEmailSender _emailSender;
     private readonly ILogger<NotificationService> _logger;
 
-    public NotificationService(AppDbContext dbContext, IEmailSender emailSender, ILogger<NotificationService> logger)
+    public NotificationService(
+        INotificationRepository notificationRepository,
+        ITenantRepository tenantRepository,
+        ITenancyRepository tenancyRepository,
+        IUnitOfWork unitOfWork,
+        IEmailSender emailSender,
+        ILogger<NotificationService> logger)
     {
-        _dbContext = dbContext;
+        _notificationRepository = notificationRepository;
+        _tenantRepository = tenantRepository;
+        _tenancyRepository = tenancyRepository;
+        _unitOfWork = unitOfWork;
         _emailSender = emailSender;
         _logger = logger;
     }
@@ -23,33 +34,23 @@ public class NotificationService : INotificationService
     {
         var recipients = new List<NotificationRecipientResponse>();
 
-        var tenantQuery = _dbContext.Tenants.AsNoTracking().Where(t => !t.IsArchived);
+        IReadOnlyCollection<Guid>? tenantIdFilter = null;
 
         if (string.Equals(filter.TargetType, "Single", StringComparison.OrdinalIgnoreCase) && filter.TenantId.HasValue)
         {
-            tenantQuery = tenantQuery.Where(t => t.Id == filter.TenantId.Value);
+            tenantIdFilter = new[] { filter.TenantId.Value };
         }
 
         if (string.Equals(filter.TargetType, "House", StringComparison.OrdinalIgnoreCase) && filter.HouseId.HasValue)
         {
-            var houseTenancies = await _dbContext.Tenancies
-                .AsNoTracking()
-                .Where(t => t.HouseId == filter.HouseId.Value && t.Status == "Active")
-                .ToListAsync(cancellationToken);
-
-            var tenantIds = houseTenancies.Select(t => t.TenantId).Distinct().ToList();
-            tenantQuery = tenantQuery.Where(t => tenantIds.Contains(t.Id));
+            var houseTenancies = await _tenancyRepository.GetActiveByHouseIdAsync(filter.HouseId.Value, cancellationToken);
+            tenantIdFilter = houseTenancies.Select(t => t.TenantId).Distinct().ToList();
         }
 
-        var tenants = await tenantQuery.ToListAsync(cancellationToken);
+        var tenants = await _tenantRepository.GetActiveAsync(tenantIdFilter, cancellationToken);
         foreach (var tenant in tenants)
         {
-            var tenancy = await _dbContext.Tenancies
-                .AsNoTracking()
-                .Include(t => t.House)
-                .Where(t => t.TenantId == tenant.Id && t.Status == "Active")
-                .OrderByDescending(t => t.MoveInDate)
-                .FirstOrDefaultAsync(cancellationToken);
+            var tenancy = await _tenancyRepository.GetLatestActiveWithHouseByTenantIdAsync(tenant.Id, cancellationToken);
 
             recipients.Add(new NotificationRecipientResponse
             {
@@ -71,24 +72,11 @@ public class NotificationService : INotificationService
     }
 
     public async Task<List<NotificationTemplate>> GetTemplatesAsync(string? channel, string? type, CancellationToken cancellationToken = default)
-    {
-        var query = _dbContext.NotificationTemplates.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(channel))
-            query = query.Where(t => t.Channel == channel);
-        if (!string.IsNullOrWhiteSpace(type))
-            query = query.Where(t => t.Type == type);
-
-        return await query
-            .OrderByDescending(t => t.IsDefault)
-            .ThenByDescending(t => t.CreatedAt)
-            .ToListAsync(cancellationToken);
-    }
+        => await _notificationRepository.GetTemplatesAsync(channel, type, cancellationToken);
 
     public async Task SeedDefaultTemplatesAsync(Guid organizationId, CancellationToken cancellationToken = default)
     {
-        var anyExists = await _dbContext.NotificationTemplates
-            .IgnoreQueryFilters()
-            .AnyAsync(t => t.OrganizationId == organizationId, cancellationToken);
+        var anyExists = await _notificationRepository.AnyTemplatesForOrganizationAsync(organizationId, cancellationToken);
         if (anyExists)
             return;
 
@@ -145,89 +133,50 @@ public class NotificationService : INotificationService
         };
 
         foreach (var t in defaults)
-            _dbContext.NotificationTemplates.Add(t);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            _notificationRepository.AddTemplate(t);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<NotificationTemplate?> GetTemplateByIdAsync(Guid templateId, CancellationToken cancellationToken = default)
-    {
-        return await _dbContext.NotificationTemplates
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == templateId, cancellationToken);
-    }
+        => await _notificationRepository.GetTemplateByIdAsync(templateId, cancellationToken);
 
     public async Task<NotificationTemplate> CreateTemplateAsync(NotificationTemplate template, CancellationToken cancellationToken = default)
     {
-        _dbContext.NotificationTemplates.Add(template);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _notificationRepository.AddTemplate(template);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return template;
     }
 
     public async Task UpdateTemplateAsync(NotificationTemplate template, CancellationToken cancellationToken = default)
     {
-        _dbContext.NotificationTemplates.Update(template);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _notificationRepository.UpdateTemplate(template);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<List<Notification>> GetNotificationsAsync(NotificationFilterRequest filter, CancellationToken cancellationToken = default)
-    {
-        var query = _dbContext.Notifications
-            .Include(n => n.Tenant)
-            .Include(n => n.Tenancy)
-                .ThenInclude(t => t!.House)
-            .Include(n => n.Attempts)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(filter.Status))
-            query = query.Where(n => n.Status == filter.Status);
-        if (filter.StartDate.HasValue)
-            query = query.Where(n => n.ScheduledFor >= filter.StartDate.Value);
-        if (filter.EndDate.HasValue)
-            query = query.Where(n => n.ScheduledFor <= filter.EndDate.Value);
-        if (!string.IsNullOrWhiteSpace(filter.Channel))
-            query = query.Where(n => n.Channel == filter.Channel);
-        if (!string.IsNullOrWhiteSpace(filter.Type))
-            query = query.Where(n => n.Type == filter.Type);
-        if (filter.TenantId.HasValue)
-            query = query.Where(n => n.TenantId == filter.TenantId.Value);
-        if (filter.HouseId.HasValue)
-            query = query.Where(n => n.Tenancy != null && n.Tenancy.HouseId == filter.HouseId.Value);
-
-        return await query
-            .OrderByDescending(n => n.ScheduledFor)
-            .ToListAsync(cancellationToken);
-    }
+        => await _notificationRepository.QueryNotificationsAsync(filter, cancellationToken);
 
     public async Task<Notification?> GetNotificationByIdAsync(Guid notificationId, CancellationToken cancellationToken = default)
-    {
-        return await _dbContext.Notifications
-            .Include(n => n.Tenant)
-            .Include(n => n.Tenancy)
-                .ThenInclude(t => t!.House)
-            .Include(n => n.Attempts)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(n => n.Id == notificationId, cancellationToken);
-    }
+        => await _notificationRepository.GetNotificationByIdAsync(notificationId, cancellationToken);
 
     public async Task<Notification> CreateNotificationAsync(Notification notification, CancellationToken cancellationToken = default)
     {
-        _dbContext.Notifications.Add(notification);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _notificationRepository.AddNotification(notification);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return notification;
     }
 
     public async Task UpdateNotificationAsync(Notification notification, CancellationToken cancellationToken = default)
     {
-        _dbContext.Notifications.Update(notification);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _notificationRepository.UpdateNotification(notification);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     public async Task CancelNotificationAsync(Notification notification, CancellationToken cancellationToken = default)
     {
         notification.Status = "Cancelled";
-        _dbContext.Notifications.Update(notification);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _notificationRepository.UpdateNotification(notification);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<bool> SendNotificationAsync(Notification notification, CancellationToken cancellationToken = default)
@@ -307,7 +256,7 @@ public class NotificationService : INotificationService
         var results = new List<bool>();
         foreach (var id in notificationIds)
         {
-            var notification = await _dbContext.Notifications.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+            var notification = await _notificationRepository.GetTrackedNotificationByIdAsync(id, cancellationToken);
             if (notification == null)
                 continue;
             results.Add(await SendNotificationAsync(notification, cancellationToken));
@@ -318,9 +267,7 @@ public class NotificationService : INotificationService
     public async Task<int> ProcessDueQueueAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var pending = await _dbContext.Notifications
-            .Where(n => n.Status == "Pending" && n.ScheduledFor <= now)
-            .ToListAsync(cancellationToken);
+        var pending = await _notificationRepository.GetTrackedPendingDueAsync(now, cancellationToken);
 
         var sent = 0;
         foreach (var notification in pending)
@@ -344,14 +291,14 @@ public class NotificationService : INotificationService
             ProviderMessageId = providerMessageId
         };
 
-        _dbContext.NotificationAttempts.Add(attempt);
+        _notificationRepository.AddAttempt(attempt);
 
         notification.Status = success ? "Sent" : "Failed";
         notification.SentAt = DateTime.UtcNow;
         notification.Error = error;
         notification.ProviderMessageId = providerMessageId;
-        _dbContext.Notifications.Update(notification);
+        _notificationRepository.UpdateNotification(notification);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
