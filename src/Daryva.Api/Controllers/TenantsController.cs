@@ -1,4 +1,4 @@
-using Daryva.Api.Domain;
+using Daryva.Api.Dtos;
 using Daryva.Api.Security;
 using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
@@ -48,50 +48,14 @@ public class TenantsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        _logger.LogDebug("GetTenants called for organization {OrgId}, includeArchived={IncludeArchived}", 
+        _logger.LogDebug("GetTenants called for organization {OrgId}, includeArchived={IncludeArchived}",
             _tenantContext.CurrentOrgId, includeArchived);
 
         var tenants = await _tenantService.GetAllTenantsAsync(includeArchived, cancellationToken);
-        _logger.LogInformation("Retrieved {TenantCount} tenants for organization {OrgId}", 
-            tenants.Count(), _tenantContext.CurrentOrgId);
+        _logger.LogInformation("Retrieved {TenantCount} tenants for organization {OrgId}",
+            tenants.Count, _tenantContext.CurrentOrgId);
 
-        var today = DateTime.UtcNow.Date;
-        var response = tenants.Select(t => 
-        {
-            // Get current tenancy (active or most recent)
-            var currentTenancy = t.Tenancies
-                .Where(te => !te.MoveOutDate.HasValue || te.MoveOutDate >= today)
-                .OrderByDescending(te => te.MoveInDate)
-                .FirstOrDefault();
-
-            var leaveDate = t.Tenancies
-                .Where(te => te.MoveOutDate.HasValue)
-                .OrderByDescending(te => te.MoveOutDate)
-                .Select(te => te.MoveOutDate)
-                .FirstOrDefault();
-
-            if (t.IsArchived && !leaveDate.HasValue)
-            {
-                leaveDate = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-            }
-            
-            return new TenantResponse
-            {
-                Id = t.Id,
-                FullName = t.FullName,
-                Email = t.Email,
-                PhoneNumber = t.PhoneNumber,
-                UniversityName = t.UniversityName,
-                CreatedAt = t.CreatedAt,
-                IsArchived = t.IsArchived,
-                CurrentHouseAddress = currentTenancy?.House?.AddressLine1 ?? string.Empty,
-                CurrentHouseId = currentTenancy?.HouseId,
-                CurrentTenancyId = currentTenancy?.Id,
-                LeaveDate = leaveDate
-            };
-        }).ToList();
-
-        return Ok(response);
+        return Ok(tenants);
     }
 
     /// <summary>
@@ -111,44 +75,11 @@ public class TenantsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var tenant = await _tenantService.GetTenantByIdAsync(tenantId);
+        var tenant = await _tenantService.GetTenantByIdAsync(tenantId, cancellationToken);
         if (tenant == null)
             return NotFound();
 
-        // Get current tenancy (active or most recent)
-        var today = DateTime.UtcNow.Date;
-        var currentTenancy = tenant.Tenancies
-            .Where(te => !te.MoveOutDate.HasValue || te.MoveOutDate >= today)
-            .OrderByDescending(te => te.MoveInDate)
-            .FirstOrDefault();
-
-        var leaveDate = tenant.Tenancies
-            .Where(te => te.MoveOutDate.HasValue)
-            .OrderByDescending(te => te.MoveOutDate)
-            .Select(te => te.MoveOutDate)
-            .FirstOrDefault();
-
-        if (tenant.IsArchived && !leaveDate.HasValue)
-        {
-            leaveDate = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        }
-
-        var response = new TenantResponse
-        {
-            Id = tenant.Id,
-            FullName = tenant.FullName,
-            Email = tenant.Email,
-            PhoneNumber = tenant.PhoneNumber,
-            UniversityName = tenant.UniversityName,
-            CreatedAt = tenant.CreatedAt,
-            IsArchived = tenant.IsArchived,
-            CurrentHouseAddress = currentTenancy?.House?.AddressLine1 ?? string.Empty,
-            CurrentHouseId = currentTenancy?.HouseId,
-            CurrentTenancyId = currentTenancy?.Id,
-            LeaveDate = leaveDate
-        };
-
-        return Ok(response);
+        return Ok(tenant);
     }
 
     /// <summary>
@@ -168,35 +99,15 @@ public class TenantsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        if (string.IsNullOrWhiteSpace(request.FullName))
-            return BadRequest(new { error = "Full name is required." });
-
-        var tenant = new Tenant
+        try
         {
-            Id = Guid.NewGuid(),
-            OrganizationId = _tenantContext.CurrentOrgId.Value,
-            FullName = request.FullName,
-            Email = request.Email ?? string.Empty,
-            PhoneNumber = request.PhoneNumber ?? string.Empty,
-            UniversityName = string.IsNullOrWhiteSpace(request.UniversityName) ? null : request.UniversityName.Trim(),
-            CreatedAt = DateTime.UtcNow,
-            IsArchived = false
-        };
-
-        var createdTenant = await _tenantService.CreateTenantAsync(tenant);
-
-        var response = new TenantResponse
+            var response = await _tenantService.CreateTenantAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(GetTenant), new { tenantId = response.Id }, response);
+        }
+        catch (ArgumentException ex)
         {
-            Id = createdTenant.Id,
-            FullName = createdTenant.FullName,
-            Email = createdTenant.Email,
-            PhoneNumber = createdTenant.PhoneNumber,
-            UniversityName = createdTenant.UniversityName,
-            CreatedAt = createdTenant.CreatedAt,
-            IsArchived = createdTenant.IsArchived
-        };
-
-        return CreatedAtAction(nameof(GetTenant), new { tenantId = createdTenant.Id }, response);
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -217,25 +128,9 @@ public class TenantsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var tenant = await _tenantService.GetTenantByIdAsync(tenantId);
-        if (tenant == null)
+        var response = await _tenantService.UpdateTenantAsync(tenantId, request, cancellationToken);
+        if (response == null)
             return NotFound();
-
-        tenant.FullName = request.FullName ?? tenant.FullName;
-        tenant.Email = request.Email ?? tenant.Email;
-        tenant.PhoneNumber = request.PhoneNumber ?? tenant.PhoneNumber;
-
-        await _tenantService.UpdateTenantAsync(tenant);
-
-        var response = new TenantResponse
-        {
-            Id = tenant.Id,
-            FullName = tenant.FullName,
-            Email = tenant.Email,
-            PhoneNumber = tenant.PhoneNumber,
-            CreatedAt = tenant.CreatedAt,
-            IsArchived = tenant.IsArchived
-        };
 
         return Ok(response);
     }
@@ -305,45 +200,12 @@ public class TenantsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var tenant = await _tenantService.GetTenantByIdAsync(tenantId);
+        var tenant = await _tenantService.GetTenantByIdAsync(tenantId, cancellationToken);
         if (tenant == null)
             return NotFound();
 
-        await _tenantService.DeleteTenantAsync(tenantId);
+        await _tenantService.DeleteTenantAsync(tenantId, cancellationToken);
 
         return NoContent();
     }
-}
-
-public class CreateTenantRequest
-{
-    public string FullName { get; set; } = string.Empty;
-    public string? Email { get; set; }
-    public string? PhoneNumber { get; set; }
-    public string? UniversityName { get; set; }
-}
-
-public class UpdateTenantRequest
-{
-    public string? FullName { get; set; }
-    public string? Email { get; set; }
-    public string? PhoneNumber { get; set; }
-    public string? UniversityName { get; set; }
-}
-
-public class TenantResponse
-{
-    public Guid Id { get; set; }
-    public string FullName { get; set; } = string.Empty;
-    public string? Email { get; set; }
-    public string? PhoneNumber { get; set; }
-    public string? UniversityName { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public bool IsArchived { get; set; }
-    
-    // House/Tenancy information
-    public string? CurrentHouseAddress { get; set; }
-    public Guid? CurrentHouseId { get; set; }
-    public Guid? CurrentTenancyId { get; set; }
-    public DateTime? LeaveDate { get; set; }
 }

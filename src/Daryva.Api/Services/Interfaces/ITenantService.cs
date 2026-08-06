@@ -1,4 +1,4 @@
-using Daryva.Api.Domain;
+using Daryva.Api.Dtos;
 
 namespace Daryva.Api.Services.Interfaces;
 
@@ -11,29 +11,30 @@ public interface ITenantService
     /// <summary>
     /// Get all tenants for the current organization.
     /// </summary>
-    Task<IEnumerable<Tenant>> GetAllTenantsAsync(
+    Task<List<TenantResponse>> GetAllTenantsAsync(
         bool includeArchived = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get a specific tenant by ID (must belong to current org).
     /// </summary>
-    Task<Tenant?> GetTenantByIdAsync(
+    Task<TenantResponse?> GetTenantByIdAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Create a new tenant. OrganizationId must be set before calling.
+    /// Create a new tenant. Throws ArgumentException if the request is invalid.
     /// </summary>
-    Task<Tenant> CreateTenantAsync(
-        Tenant tenant,
+    Task<TenantResponse> CreateTenantAsync(
+        CreateTenantRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Update an existing tenant (if it belongs to current org).
+    /// Update an existing tenant (if it belongs to current org). Null return means not found.
     /// </summary>
-    Task UpdateTenantAsync(
-        Tenant tenant,
+    Task<TenantResponse?> UpdateTenantAsync(
+        Guid tenantId,
+        UpdateTenantRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>
