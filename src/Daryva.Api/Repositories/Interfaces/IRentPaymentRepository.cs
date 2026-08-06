@@ -4,6 +4,10 @@ namespace Daryva.Api.Repositories.Interfaces;
 
 public interface IRentPaymentRepository
 {
+    /// <summary>Every rent payment for the org, including voided ones -- backs the backup export
+    /// (which exports IsVoided as data rather than dropping voided rows, unlike every other method here).</summary>
+    Task<List<RentPayment>> GetAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Non-voided rent payments for the given tenancies with DatePaid in [periodStartUtc, periodEndExclusiveUtc).</summary>
     Task<List<RentPayment>> GetForPeriodAsync(
         IReadOnlyCollection<Guid> tenancyIds,

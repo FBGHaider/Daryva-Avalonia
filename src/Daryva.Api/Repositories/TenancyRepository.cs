@@ -26,6 +26,9 @@ public class TenancyRepository : OrgScopedRepository<Tenancy>, ITenancyRepositor
     public Task<Tenancy?> GetByIdAsync(Guid tenancyId, CancellationToken cancellationToken = default)
         => Set.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenancyId, cancellationToken);
 
+    public Task<List<Tenancy>> GetAllAsync(CancellationToken cancellationToken = default)
+        => Set.AsNoTracking().ToListAsync(cancellationToken);
+
     public Task<List<Tenancy>> GetForRentLedgerAsync(
         DateTime periodStart,
         DateTime periodEnd,

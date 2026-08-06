@@ -16,4 +16,7 @@ public class DepositReturnRepository : OrgScopedRepository<DepositReturn>, IDepo
 
     public Task<bool> AnyForTenancyAsync(Guid tenancyId, CancellationToken cancellationToken = default)
         => Set.AnyAsync(r => r.TenancyId == tenancyId, cancellationToken);
+
+    public Task<List<DepositReturn>> GetAllAsync(CancellationToken cancellationToken = default)
+        => Set.AsNoTracking().ToListAsync(cancellationToken);
 }

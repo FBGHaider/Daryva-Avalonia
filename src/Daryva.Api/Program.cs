@@ -87,6 +87,7 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IRentPaymentRepository, RentPaymentRepository>();
 builder.Services.AddScoped<IDepositPaymentRepository, DepositPaymentRepository>();
 builder.Services.AddScoped<IDepositReturnRepository, DepositReturnRepository>();
+builder.Services.AddScoped<IDiagnosticRepository, DiagnosticRepository>();
 
 // Business logic services
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
@@ -103,6 +104,8 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IBackupService, BackupService>();
+builder.Services.AddScoped<IDiagnosticService, DiagnosticService>();
 builder.Services.AddScoped<IEmailSender, EmailSender>();
 builder.Services.AddScoped<IDataSeeder, DataSeeder>();
 builder.Services.AddScoped<IBulkImportService, BulkImportService>();

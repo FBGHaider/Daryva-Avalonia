@@ -11,6 +11,9 @@ public class DepositPaymentRepository : OrgScopedRepository<DepositPayment>, IDe
     {
     }
 
+    public Task<List<DepositPayment>> GetAllAsync(CancellationToken cancellationToken = default)
+        => Set.AsNoTracking().ToListAsync(cancellationToken);
+
     public Task<Dictionary<Guid, decimal>> GetTotalsByTenancyIdAsync(IReadOnlyCollection<Guid> tenancyIds, CancellationToken cancellationToken = default)
         => Set.AsNoTracking()
             .Where(p => tenancyIds.Contains(p.TenancyId) && !p.IsVoided)

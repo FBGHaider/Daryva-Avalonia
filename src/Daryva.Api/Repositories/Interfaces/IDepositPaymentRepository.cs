@@ -4,6 +4,10 @@ namespace Daryva.Api.Repositories.Interfaces;
 
 public interface IDepositPaymentRepository
 {
+    /// <summary>Every deposit payment for the org, including voided ones -- backs the backup export
+    /// (which exports IsVoided as data rather than dropping voided rows, unlike every other method here).</summary>
+    Task<List<DepositPayment>> GetAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Sum of non-voided deposit payments per tenancy, for the given tenancies.</summary>
     Task<Dictionary<Guid, decimal>> GetTotalsByTenancyIdAsync(IReadOnlyCollection<Guid> tenancyIds, CancellationToken cancellationToken = default);
 

@@ -1,8 +1,7 @@
-using Daryva.Api.Data;
 using Daryva.Api.Security;
+using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Controllers;
 
@@ -11,10 +10,10 @@ namespace Daryva.Api.Controllers;
 /// DEVELOPMENT ONLY - should be removed in production.
 /// Bypasses organization filtering to show raw data counts.
 ///
-/// Gated on BOTH a real platform-admin JWT (Authorize below) AND DevAuth:Enabled (checked in each
-/// action) -- previously only the DevAuth:Enabled check existed, with no [Authorize] at all, so
-/// these actions were reachable by a fully anonymous, unauthenticated caller. Currently safe only
-/// because DevAuth:Enabled is false in production; this is defense in depth against that single
+/// Gated on BOTH a real platform-admin JWT (Authorize below) AND DevAuth:Enabled (checked in
+/// IDiagnosticService) -- previously only the DevAuth:Enabled check existed, with no [Authorize] at
+/// all, so these actions were reachable by a fully anonymous, unauthenticated caller. Currently safe
+/// only because DevAuth:Enabled is false in production; this is defense in depth against that single
 /// flag ever being misconfigured.
 /// </summary>
 [ApiController]
@@ -22,14 +21,12 @@ namespace Daryva.Api.Controllers;
 [Authorize(Policy = Permissions.Platform.Admin)]
 public class DiagnosticController : ControllerBase
 {
-    private readonly AppDbContext _dbContext;
-    private readonly IConfiguration _configuration;
+    private readonly IDiagnosticService _diagnosticService;
     private readonly ILogger<DiagnosticController> _logger;
 
-    public DiagnosticController(AppDbContext dbContext, IConfiguration configuration, ILogger<DiagnosticController> logger)
+    public DiagnosticController(IDiagnosticService diagnosticService, ILogger<DiagnosticController> logger)
     {
-        _dbContext = dbContext;
-        _configuration = configuration;
+        _diagnosticService = diagnosticService;
         _logger = logger;
     }
 
@@ -40,81 +37,13 @@ public class DiagnosticController : ControllerBase
     [HttpGet("data-counts")]
     public async Task<ActionResult> GetDataCounts()
     {
-        // Check if development mode
-        var devAuthEnabled = _configuration.GetValue<bool>("DevAuth:Enabled");
-        if (!devAuthEnabled)
-        {
-            return BadRequest(new { error = "Diagnostic endpoints disabled. DevAuth not enabled." });
-        }
-
         try
         {
-            // Bypass global query filters by using IgnoreQueryFilters
-            var organizations = await _dbContext.Organizations
-                .IgnoreQueryFilters()
-                .ToListAsync();
+            var result = await _diagnosticService.GetDataCountsAsync();
+            if (result == null)
+                return BadRequest(new { error = "Diagnostic endpoints disabled. DevAuth not enabled." });
 
-            var houses = await _dbContext.Houses
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            var tenants = await _dbContext.Tenants
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            var tenancies = await _dbContext.Tenancies
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            var expenses = await _dbContext.Expenses
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            var documents = await _dbContext.Documents
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            var rentPayments = await _dbContext.RentPayments
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            var depositPayments = await _dbContext.DepositPayments
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            return Ok(new
-            {
-                message = "Raw data counts (bypassing organization filters)",
-                counts = new
-                {
-                    organizations = organizations.Count,
-                    houses = houses.Count,
-                    tenants = tenants.Count,
-                    tenancies = tenancies.Count,
-                    expenses = expenses.Count,
-                    documents = documents.Count,
-                    rentPayments = rentPayments.Count,
-                    depositPayments = depositPayments.Count
-                },
-                organizations = organizations.Select(o => new
-                {
-                    id = o.Id,
-                    name = o.Name,
-                    createdAt = o.CreatedAt
-                }),
-                houseSummary = houses.GroupBy(h => h.OrganizationId).Select(g => new
-                {
-                    organizationId = g.Key,
-                    count = g.Count(),
-                    names = g.Select(h => h.Name).ToList()
-                }),
-                tenantSummary = tenants.GroupBy(t => t.OrganizationId).Select(g => new
-                {
-                    organizationId = g.Key,
-                    count = g.Count(),
-                    names = g.Select(t => t.FullName).ToList()
-                })
-            });
+            return Ok(result);
         }
         catch (Exception ex)
         {
@@ -130,32 +59,13 @@ public class DiagnosticController : ControllerBase
     [HttpGet("org-members")]
     public async Task<ActionResult> GetOrgMembers()
     {
-        // Check if development mode
-        var devAuthEnabled = _configuration.GetValue<bool>("DevAuth:Enabled");
-        if (!devAuthEnabled)
-        {
-            return BadRequest(new { error = "Diagnostic endpoints disabled. DevAuth not enabled." });
-        }
-
         try
         {
-            var members = await _dbContext.OrganizationMembers
-                .IgnoreQueryFilters()
-                .Include(m => m.Organization)
-                .ToListAsync();
+            var result = await _diagnosticService.GetOrgMembersAsync();
+            if (result == null)
+                return BadRequest(new { error = "Diagnostic endpoints disabled. DevAuth not enabled." });
 
-            return Ok(new
-            {
-                message = "All organization memberships",
-                members = members.Select(m => new
-                {
-                    userId = m.UserId,
-                    organizationId = m.OrganizationId,
-                    organizationName = m.Organization?.Name,
-                    role = m.Role,
-                    joinedAt = m.JoinedAt
-                })
-            });
+            return Ok(result);
         }
         catch (Exception ex)
         {

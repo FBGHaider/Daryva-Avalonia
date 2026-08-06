@@ -11,6 +11,9 @@ public interface ITenancyRepository
 
     Task<Tenancy?> GetByIdAsync(Guid tenancyId, CancellationToken cancellationToken = default);
 
+    /// <summary>Every tenancy for the org, no includes, no filtering -- backs the backup export.</summary>
+    Task<List<Tenancy>> GetAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Tenancies (with Tenant/House included) active during [periodStart, periodEnd], for non-archived tenants,
     /// optionally restricted to a house and/or a tenant-name/address search term. Backs the rent ledger.</summary>
     Task<List<Tenancy>> GetForRentLedgerAsync(

@@ -11,6 +11,9 @@ public class RentPaymentRepository : OrgScopedRepository<RentPayment>, IRentPaym
     {
     }
 
+    public Task<List<RentPayment>> GetAllAsync(CancellationToken cancellationToken = default)
+        => Set.AsNoTracking().ToListAsync(cancellationToken);
+
     public Task<List<RentPayment>> GetForPeriodAsync(
         IReadOnlyCollection<Guid> tenancyIds,
         DateTime periodStartUtc,
