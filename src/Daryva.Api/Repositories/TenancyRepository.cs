@@ -115,4 +115,34 @@ public class TenancyRepository : OrgScopedRepository<Tenancy>, ITenancyRepositor
             query = query.Where(t => t.Status == "Ended");
         return query.ToListAsync(cancellationToken);
     }
+
+    public Task<List<Tenancy>> GetForDepositLedgerAsync(DateTime periodEnd, Guid? houseId, string? searchTerm, CancellationToken cancellationToken = default)
+    {
+        var query = Set.AsNoTracking()
+            .Include(t => t.Tenant)
+            .Include(t => t.House)
+            .Where(t => !t.Tenant.IsArchived)
+            .Where(t => t.MoveInDate <= periodEnd);
+
+        if (houseId.HasValue)
+            query = query.Where(t => t.HouseId == houseId.Value);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var search = searchTerm.Trim().ToLower();
+            query = query.Where(t =>
+                t.Tenant.FullName.ToLower().Contains(search) ||
+                t.House.AddressLine1.ToLower().Contains(search));
+        }
+
+        return query.ToListAsync(cancellationToken);
+    }
+
+    public Task<List<Tenancy>> GetEndedWithDepositExcludingAsync(IReadOnlyCollection<Guid> excludeTenancyIds, int minValidLeaveYear, CancellationToken cancellationToken = default)
+        => Set.AsNoTracking()
+            .Include(t => t.Tenant)
+            .Include(t => t.House)
+            .Where(t => t.MoveOutDate.HasValue && t.MoveOutDate.Value.Year >= minValidLeaveYear && t.DepositAmount > 0)
+            .Where(t => !excludeTenancyIds.Contains(t.Id))
+            .ToListAsync(cancellationToken);
 }

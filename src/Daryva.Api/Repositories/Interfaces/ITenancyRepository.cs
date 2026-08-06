@@ -45,6 +45,15 @@ public interface ITenancyRepository
     /// <summary>Tracked -- for bulk removal.</summary>
     Task<List<Tenancy>> GetTrackedByHouseIdAsync(Guid houseId, bool endedOnly, CancellationToken cancellationToken = default);
 
+    /// <summary>Tenant/House included, for non-archived tenants who moved in on or before periodEnd (no
+    /// move-out lower bound, unlike the rent ledger -- deposit history should still show for tenancies
+    /// that ended earlier), optionally restricted to a house and/or a tenant-name/address search term.</summary>
+    Task<List<Tenancy>> GetForDepositLedgerAsync(DateTime periodEnd, Guid? houseId, string? searchTerm, CancellationToken cancellationToken = default);
+
+    /// <summary>Tenant/House included -- ended tenancies (with a real move-out year) that still have a
+    /// deposit amount set and aren't already in excludeTenancyIds (already has a recorded return).</summary>
+    Task<List<Tenancy>> GetEndedWithDepositExcludingAsync(IReadOnlyCollection<Guid> excludeTenancyIds, int minValidLeaveYear, CancellationToken cancellationToken = default);
+
     void Add(Tenancy tenancy);
 
     void Update(Tenancy tenancy);
