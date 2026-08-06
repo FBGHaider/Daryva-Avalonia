@@ -1,9 +1,8 @@
-using Daryva.Api.Data;
 using Daryva.Api.Domain;
 using Daryva.Api.Dtos;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services;
 
@@ -13,20 +12,23 @@ namespace Daryva.Api.Services;
 /// </summary>
 public class HouseService : IHouseService
 {
-    private readonly AppDbContext _dbContext;
+    private readonly IHouseRepository _houseRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<HouseService> _logger;
     private readonly IRentLedgerService _rentLedgerService;
     private readonly ITenantContext _tenantContext;
     private readonly IAuditLogger _auditLogger;
 
     public HouseService(
-        AppDbContext dbContext,
+        IHouseRepository houseRepository,
+        IUnitOfWork unitOfWork,
         ILogger<HouseService> logger,
         IRentLedgerService rentLedgerService,
         ITenantContext tenantContext,
         IAuditLogger auditLogger)
     {
-        _dbContext = dbContext;
+        _houseRepository = houseRepository;
+        _unitOfWork = unitOfWork;
         _logger = logger;
         _rentLedgerService = rentLedgerService;
         _tenantContext = tenantContext;
@@ -38,11 +40,7 @@ public class HouseService : IHouseService
         bool includeArchived = false,
         CancellationToken cancellationToken = default)
     {
-        // Global query filter automatically filters by OrganizationId == CurrentOrgId
-        var query = _dbContext.Houses.AsNoTracking();
-        if (!includeArchived)
-            query = query.Where(h => !h.IsArchived);
-        var houses = await query.ToListAsync(cancellationToken);
+        var houses = await _houseRepository.GetAllAsync(includeArchived, cancellationToken);
         var activeTenancyStats = await BuildCurrentActiveTenancyStatsAsync(cancellationToken);
 
         return houses.Select(house =>
@@ -61,10 +59,7 @@ public class HouseService : IHouseService
         Guid houseId,
         CancellationToken cancellationToken = default)
     {
-        // Global query filter automatically filters by OrganizationId == CurrentOrgId
-        var house = await _dbContext.Houses
-            .AsNoTracking()
-            .FirstOrDefaultAsync(h => h.Id == houseId, cancellationToken);
+        var house = await _houseRepository.GetByIdAsync(houseId, cancellationToken);
         if (house == null)
             return null;
 
@@ -97,8 +92,8 @@ public class HouseService : IHouseService
             CreatedAt = DateTime.UtcNow
         };
 
-        _dbContext.Houses.Add(house);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _houseRepository.Add(house);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Created house {HouseId} in organization {OrgId}.", house.Id, orgId);
 
@@ -111,9 +106,7 @@ public class HouseService : IHouseService
         UpdateHouseRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Global query filter ensures house belongs to current org
-        var house = await _dbContext.Houses
-            .FirstOrDefaultAsync(h => h.Id == houseId, cancellationToken);
+        var house = await _houseRepository.GetTrackedByIdAsync(houseId, cancellationToken);
 
         if (house == null)
             return null;
@@ -140,7 +133,7 @@ public class HouseService : IHouseService
         if (request.TotalRooms.HasValue)
             house.TotalRooms = request.TotalRooms.Value;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Updated house {HouseId} in organization {OrgId}.", houseId, orgId);
 
@@ -152,15 +145,14 @@ public class HouseService : IHouseService
         Guid houseId,
         CancellationToken cancellationToken = default)
     {
-        var house = await _dbContext.Houses
-            .FirstOrDefaultAsync(h => h.Id == houseId, cancellationToken);
+        var house = await _houseRepository.GetTrackedByIdAsync(houseId, cancellationToken);
 
         if (house == null)
             return null;
 
         house.IsArchived = true;
         LogAudit(AuditEventTypes.HouseArchived, house.OrganizationId, nameof(House), house.Id.ToString());
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Archived house {HouseId} in organization {OrgId}.", houseId, orgId);
 
@@ -174,16 +166,14 @@ public class HouseService : IHouseService
         Guid houseId,
         CancellationToken cancellationToken = default)
     {
-        // Global query filter ensures house belongs to current org
-        var house = await _dbContext.Houses
-            .FirstOrDefaultAsync(h => h.Id == houseId, cancellationToken);
+        var house = await _houseRepository.GetTrackedByIdAsync(houseId, cancellationToken);
 
         if (house == null)
             return false;
 
-        _dbContext.Houses.Remove(house);
+        _houseRepository.Remove(house);
         LogAudit(AuditEventTypes.HouseDeleted, house.OrganizationId, nameof(House), house.Id.ToString());
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Deleted house {HouseId} from organization {OrgId}.", houseId, orgId);
 

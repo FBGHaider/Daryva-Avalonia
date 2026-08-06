@@ -25,4 +25,7 @@ public abstract class OrgScopedRepository<TEntity> where TEntity : class, IOrgSc
     public virtual void Add(TEntity entity) => Set.Add(entity);
 
     public virtual void Remove(TEntity entity) => Set.Remove(entity);
+
+    /// <summary>Attaches a detached entity graph's root and marks all its scalar properties modified.</summary>
+    public virtual void Update(TEntity entity) => Set.Update(entity);
 }

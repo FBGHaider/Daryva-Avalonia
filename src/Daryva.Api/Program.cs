@@ -78,6 +78,10 @@ builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IAppUserProfileRepository, AppUserProfileRepository>();
 builder.Services.AddScoped<ISupportSessionRepository, SupportSessionRepository>();
 builder.Services.AddScoped<ISupportAccessCodeRepository, SupportAccessCodeRepository>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
+builder.Services.AddScoped<ITenantRepository, TenantRepository>();
+builder.Services.AddScoped<IHouseRepository, HouseRepository>();
 
 // Business logic services
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();

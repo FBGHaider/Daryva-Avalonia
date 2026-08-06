@@ -1,8 +1,7 @@
-using Daryva.Api.Data;
 using Daryva.Api.Domain;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Services;
 
@@ -12,14 +11,21 @@ namespace Daryva.Api.Services;
 /// </summary>
 public class TenantService : ITenantService
 {
-    private readonly AppDbContext _dbContext;
+    private readonly ITenantRepository _tenantRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<TenantService> _logger;
     private readonly ITenantContext _tenantContext;
     private readonly IAuditLogger _auditLogger;
 
-    public TenantService(AppDbContext dbContext, ILogger<TenantService> logger, ITenantContext tenantContext, IAuditLogger auditLogger)
+    public TenantService(
+        ITenantRepository tenantRepository,
+        IUnitOfWork unitOfWork,
+        ILogger<TenantService> logger,
+        ITenantContext tenantContext,
+        IAuditLogger auditLogger)
     {
-        _dbContext = dbContext;
+        _tenantRepository = tenantRepository;
+        _unitOfWork = unitOfWork;
         _logger = logger;
         _tenantContext = tenantContext;
         _auditLogger = auditLogger;
@@ -28,37 +34,19 @@ public class TenantService : ITenantService
     public async Task<IEnumerable<Tenant>> GetAllTenantsAsync(
         bool includeArchived = false,
         CancellationToken cancellationToken = default)
-    {
-        // Global query filter automatically filters by OrganizationId == CurrentOrgId
-        var query = _dbContext.Tenants
-            .Include(t => t.Tenancies)
-                .ThenInclude(te => te.House)
-            .AsNoTracking();
-
-        if (!includeArchived)
-            query = query.Where(t => !t.IsArchived);
-
-        return await query.ToListAsync(cancellationToken);
-    }
+        => await _tenantRepository.GetAllAsync(includeArchived, cancellationToken);
 
     public async Task<Tenant?> GetTenantByIdAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default)
-    {
-        // Global query filter automatically filters by OrganizationId == CurrentOrgId
-        return await _dbContext.Tenants
-            .Include(t => t.Tenancies)
-                .ThenInclude(te => te.House)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
-    }
+        => await _tenantRepository.GetByIdAsync(tenantId, cancellationToken);
 
     public async Task<Tenant> CreateTenantAsync(
         Tenant tenant,
         CancellationToken cancellationToken = default)
     {
-        _dbContext.Tenants.Add(tenant);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _tenantRepository.Add(tenant);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         return tenant;
     }
 
@@ -67,8 +55,7 @@ public class TenantService : ITenantService
         CancellationToken cancellationToken = default)
     {
         // Load tracked entity only; do not attach the detached graph (Tenancies/House) to avoid 500 on SaveChanges
-        var existing = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.Id == tenant.Id, cancellationToken);
+        var existing = await _tenantRepository.GetTrackedByIdAsync(tenant.Id, cancellationToken);
         if (existing == null)
             return;
 
@@ -77,28 +64,25 @@ public class TenantService : ITenantService
         existing.PhoneNumber = tenant.PhoneNumber ?? string.Empty;
         existing.UniversityName = tenant.UniversityName;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteTenantAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
-        var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+        var tenant = await _tenantRepository.GetTrackedByIdAsync(tenantId, cancellationToken);
         if (tenant != null)
         {
-            _dbContext.Tenants.Remove(tenant);
+            _tenantRepository.Remove(tenant);
             LogAudit(AuditEventTypes.TenantDeleted, tenant.OrganizationId, nameof(Tenant), tenant.Id.ToString());
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }
 
     public async Task<bool> ArchiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var tenant = await _dbContext.Tenants
-            .Include(t => t.Tenancies)
-            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+        var tenant = await _tenantRepository.GetTrackedWithTenanciesByIdAsync(tenantId, cancellationToken);
         if (tenant == null)
             return false;
 
@@ -115,21 +99,20 @@ public class TenantService : ITenantService
 
         tenant.IsArchived = true;
         LogAudit(AuditEventTypes.TenantArchived, tenant.OrganizationId, nameof(Tenant), tenant.Id.ToString());
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Archived tenant {TenantId}", tenantId);
         return true;
     }
 
     public async Task<bool> UnarchiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+        var tenant = await _tenantRepository.GetTrackedByIdAsync(tenantId, cancellationToken);
         if (tenant == null)
             return false;
 
         tenant.IsArchived = false;
         LogAudit(AuditEventTypes.TenantUnarchived, tenant.OrganizationId, nameof(Tenant), tenant.Id.ToString());
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Unarchived tenant {TenantId}", tenantId);
         return true;
     }
