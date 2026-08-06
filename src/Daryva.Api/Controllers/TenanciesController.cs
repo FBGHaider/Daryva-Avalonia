@@ -1,12 +1,9 @@
-using Daryva.Api.Data;
-using Daryva.Api.Domain;
+using Daryva.Api.Dtos;
 using Daryva.Api.Security;
 using Daryva.Api.Security.Interfaces;
-using Daryva.Api.Services;
 using Daryva.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Daryva.Api.Controllers;
 
@@ -15,25 +12,13 @@ namespace Daryva.Api.Controllers;
 [Authorize]
 public class TenanciesController : ControllerBase
 {
-    private readonly AppDbContext _dbContext;
+    private readonly ITenancyService _tenancyService;
     private readonly ITenantContext _tenantContext;
-    private readonly IAuditLogger _auditLogger;
 
-    public TenanciesController(AppDbContext dbContext, ITenantContext tenantContext, IAuditLogger auditLogger)
+    public TenanciesController(ITenancyService tenancyService, ITenantContext tenantContext)
     {
-        _dbContext = dbContext;
+        _tenancyService = tenancyService;
         _tenantContext = tenantContext;
-        _auditLogger = auditLogger;
-    }
-
-    private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId)
-    {
-        if (!Guid.TryParse(_tenantContext.UserId, out var actorId))
-            return;
-
-        _auditLogger.Log(actorId, _tenantContext.CurrentRole ?? "Unknown", eventType,
-            organizationId: organizationId, targetType: targetType, targetId: targetId,
-            supportSessionId: _tenantContext.ActiveSupportSessionId);
     }
 
     [HttpGet]
@@ -47,19 +32,10 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
         try
         {
-            var query = _dbContext.Tenancies.AsNoTracking().Include(t => t.House).Include(t => t.Tenant).Where(t => t.OrganizationId == orgId);
-            if (tenantId.HasValue)
-                query = query.Where(t => t.TenantId == tenantId.Value);
-            if (houseId.HasValue)
-                query = query.Where(t => t.HouseId == houseId.Value);
-            if (activeOnly == true)
-                query = query.Where(t => t.Status == "Active");
-
-            var tenancies = await query.OrderByDescending(t => t.MoveInDate).ToListAsync(cancellationToken);
-            return Ok(tenancies.Select(MapToDetailResponse));
+            var tenancies = await _tenancyService.GetTenanciesAsync(tenantId, houseId, activeOnly, cancellationToken);
+            return Ok(tenancies);
         }
         catch (Exception ex)
         {
@@ -77,19 +53,8 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var periodStart = new DateTime(year, month, 1);
-        var periodEnd = periodStart.AddMonths(1);
-
-        var tenancies = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Include(t => t.House)
-            .Include(t => t.Tenant)
-            .Where(t => t.OrganizationId == orgId && t.MoveInDate < periodEnd && (t.MoveOutDate == null || t.MoveOutDate >= periodStart))
-            .OrderByDescending(t => t.MoveInDate)
-            .ToListAsync(cancellationToken);
-
-        return Ok(tenancies.Select(MapToDetailResponse));
+        var tenancies = await _tenancyService.GetTenanciesActiveInPeriodAsync(year, month, cancellationToken);
+        return Ok(tenancies);
     }
 
     [HttpGet("{id:guid}")]
@@ -101,18 +66,13 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
         try
         {
-            var tenancy = await _dbContext.Tenancies
-                .AsNoTracking()
-                .Include(t => t.House)
-                .Include(t => t.Tenant)
-                .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
+            var tenancy = await _tenancyService.GetTenancyAsync(id, cancellationToken);
             if (tenancy == null)
                 return NotFound();
 
-            return Ok(MapToDetailResponse(tenancy));
+            return Ok(tenancy);
         }
         catch (Exception ex)
         {
@@ -127,16 +87,8 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancies = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Include(t => t.House)
-            .Include(t => t.Tenant)
-            .Where(t => t.OrganizationId == orgId && t.Status == "Ended" && t.DepositAmount > 0 && t.MoveOutDate != null)
-            .OrderByDescending(t => t.MoveOutDate)
-            .ToListAsync(cancellationToken);
-
-        return Ok(tenancies.Select(MapToDetailResponse));
+        var tenancies = await _tenancyService.GetEndedTenanciesWithDepositAsync(cancellationToken);
+        return Ok(tenancies);
     }
 
     [HttpPatch("{id:guid}/end")]
@@ -150,19 +102,9 @@ public class TenanciesController : ControllerBase
 
         try
         {
-            var orgId = _tenantContext.CurrentOrgId.Value;
-            var tenancy = await _dbContext.Tenancies
-                .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
-            if (tenancy == null)
+            var found = await _tenancyService.EndTenancyAsync(id, request.MoveOutDate, cancellationToken);
+            if (!found)
                 return NotFound();
-
-            var moveOutUtc = request.MoveOutDate.Kind == DateTimeKind.Unspecified
-                ? DateTime.SpecifyKind(request.MoveOutDate, DateTimeKind.Utc)
-                : request.MoveOutDate.ToUniversalTime();
-            tenancy.MoveOutDate = moveOutUtc;
-            tenancy.Status = "Ended";
-            LogAudit(AuditEventTypes.TenancyEnded, tenancy.OrganizationId, nameof(Tenancy), tenancy.Id.ToString());
-            await _dbContext.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
         catch (Exception ex)
@@ -180,16 +122,9 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancy = await _dbContext.Tenancies
-            .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
-        if (tenancy == null)
+        var found = await _tenancyService.ReactivateTenancyAsync(id, cancellationToken);
+        if (!found)
             return NotFound();
-
-        tenancy.MoveOutDate = null;
-        tenancy.Status = "Active";
-        LogAudit(AuditEventTypes.TenancyReactivated, tenancy.OrganizationId, nameof(Tenancy), tenancy.Id.ToString());
-        await _dbContext.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 
@@ -203,34 +138,11 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancy = await _dbContext.Tenancies
-            .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
-        if (tenancy == null)
-            return NotFound();
-
-        var moveIn = request.MoveInDate.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(request.MoveInDate.Date, DateTimeKind.Utc)
-            : request.MoveInDate.ToUniversalTime();
-        var moveOut = request.MoveOutDate.HasValue
-            ? (DateTime?) (request.MoveOutDate.Value.Kind == DateTimeKind.Unspecified
-                ? DateTime.SpecifyKind(request.MoveOutDate.Value.Date, DateTimeKind.Utc)
-                : request.MoveOutDate.Value.ToUniversalTime())
-            : null;
-
-        tenancy.MoveInDate = moveIn;
-        tenancy.MoveOutDate = moveOut;
-        tenancy.RentStartMonth = request.RentStartMonth;
-        tenancy.RentStartYear = request.RentStartYear;
-        tenancy.RentAmountMonthly = request.RentAmountMonthly;
-        tenancy.DepositAmount = request.DepositAmount;
-        tenancy.PaymentDueDay = request.PaymentDueDay;
-        tenancy.Status = string.IsNullOrWhiteSpace(request.Status) ? (tenancy.Status ?? "Active") : request.Status.Trim();
-        tenancy.Notes = request.Notes;
-
         try
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            var found = await _tenancyService.UpdateTenancyAsync(id, request, cancellationToken);
+            if (!found)
+                return NotFound();
             return NoContent();
         }
         catch (Exception ex)
@@ -248,15 +160,9 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancy = await _dbContext.Tenancies
-            .FirstOrDefaultAsync(t => t.Id == id && t.OrganizationId == orgId, cancellationToken);
-        if (tenancy == null)
+        var found = await _tenancyService.DeleteTenancyAsync(id, cancellationToken);
+        if (!found)
             return NotFound();
-
-        _dbContext.Tenancies.Remove(tenancy);
-        LogAudit(AuditEventTypes.TenancyDeleted, tenancy.OrganizationId, nameof(Tenancy), tenancy.Id.ToString());
-        await _dbContext.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 
@@ -268,39 +174,8 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var query = _dbContext.Tenancies.Where(t => t.HouseId == houseId && t.OrganizationId == orgId);
-        if (endedOnly)
-            query = query.Where(t => t.Status == "Ended");
-        var toRemove = await query.ToListAsync(cancellationToken);
-        _dbContext.Tenancies.RemoveRange(toRemove);
-        if (toRemove.Count > 0)
-        {
-            LogAudit(AuditEventTypes.TenanciesBulkDeleted, orgId, nameof(House), houseId.ToString());
-        }
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _tenancyService.DeleteEndedTenanciesByHouseAsync(houseId, endedOnly, cancellationToken);
         return NoContent();
-    }
-
-    private static TenancyDetailResponse MapToDetailResponse(Tenancy t)
-    {
-        return new TenancyDetailResponse
-        {
-            Id = t.Id,
-            HouseId = t.HouseId,
-            TenantId = t.TenantId,
-            MoveInDate = t.MoveInDate,
-            MoveOutDate = t.MoveOutDate,
-            RentStartMonth = t.RentStartMonth,
-            RentStartYear = t.RentStartYear,
-            RentAmountMonthly = t.RentAmountMonthly,
-            DepositAmount = t.DepositAmount,
-            PaymentDueDay = t.PaymentDueDay,
-            Status = t.Status ?? "Active",
-            Notes = t.Notes,
-            House = t.House == null ? null : new TenancyHouseDto { Id = t.House.Id, AddressLine1 = t.House.AddressLine1, AddressLine2 = t.House.AddressLine2, City = t.House.City, Postcode = t.House.Postcode, TotalRooms = t.House.TotalRooms, CreatedAt = t.House.CreatedAt },
-            Tenant = t.Tenant == null ? null : new TenancyTenantDto { Id = t.Tenant.Id, FullName = t.Tenant.FullName, PhoneNumber = t.Tenant.PhoneNumber, Email = t.Tenant.Email, UniversityName = t.Tenant.UniversityName, CreatedAt = t.Tenant.CreatedAt, IsArchived = t.Tenant.IsArchived }
-        };
     }
 
     /// <summary>
@@ -319,54 +194,18 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        if (request.RentAmountMonthly <= 0)
-            return BadRequest(new { error = "Rent amount must be greater than 0." });
-        if (request.PaymentDueDay < 1 || request.PaymentDueDay > 31)
-            return BadRequest(new { error = "Payment due day must be between 1 and 31." });
-
-        var moveInDate = request.MoveInDate.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(request.MoveInDate.Date, DateTimeKind.Utc)
-            : request.MoveInDate.ToUniversalTime();
-        if (moveInDate.Year < 2000 || moveInDate.Year > 2100)
-            return BadRequest(new { error = "Move-in date must be between 2000 and 2100." });
-
-        var orgId = _tenantContext.CurrentOrgId.Value;
-
-        var house = await _dbContext.Houses
-            .AsNoTracking()
-            .FirstOrDefaultAsync(h => h.Id == request.HouseId && h.OrganizationId == orgId, cancellationToken);
-        if (house == null)
-            return NotFound(new { error = "House not found." });
-
-        var tenant = await _dbContext.Tenants
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == request.TenantId && t.OrganizationId == orgId, cancellationToken);
-        if (tenant == null)
-            return NotFound(new { error = "Tenant not found." });
-
         try
         {
-            var tenancy = new Tenancy
-            {
-                Id = Guid.NewGuid(),
-                OrganizationId = orgId,
-                HouseId = request.HouseId,
-                TenantId = request.TenantId,
-                MoveInDate = moveInDate,
-                MoveOutDate = request.MoveOutDate,
-                RentStartMonth = request.RentStartMonth,
-                RentStartYear = request.RentStartYear,
-                RentAmountMonthly = request.RentAmountMonthly,
-                DepositAmount = request.DepositAmount,
-                PaymentDueDay = request.PaymentDueDay,
-                Status = request.Status ?? "Active",
-                Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
-            };
-
-            _dbContext.Tenancies.Add(tenancy);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            return CreatedAtAction(nameof(GetTenancies), new CreateTenancyResponse { Id = tenancy.Id });
+            var id = await _tenancyService.CreateTenancyAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(GetTenancies), new CreateTenancyResponse { Id = id });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
         }
         catch (Exception ex)
         {
@@ -386,24 +225,7 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var list = await _dbContext.Tenancies
-            .AsNoTracking()
-            .Include(t => t.House)
-            .Include(t => t.Tenant)
-            .Where(t => t.OrganizationId == orgId)
-            .OrderBy(t => t.Tenant!.FullName)
-            .ThenBy(t => t.House!.AddressLine1)
-            .Select(t => new RentRepairExportItem
-            {
-                TenancyId = t.Id,
-                TenantName = t.Tenant!.FullName,
-                HouseName = t.House!.Name,
-                RentAmountMonthly = t.RentAmountMonthly,
-                DepositAmount = t.DepositAmount
-            })
-            .ToListAsync(cancellationToken);
-
+        var list = await _tenancyService.ExportForRentRepairAsync(cancellationToken);
         return Ok(list);
     }
 
@@ -424,154 +246,7 @@ public class TenanciesController : ControllerBase
         if (request.Updates == null || request.Updates.Count == 0)
             return BadRequest(new { error = "At least one update is required." });
 
-        var orgId = _tenantContext.CurrentOrgId.Value;
-        var tenancyIds = request.Updates.Select(u => u.TenancyId).Distinct().ToList();
-        var tenancies = await _dbContext.Tenancies
-            .Where(t => t.OrganizationId == orgId && tenancyIds.Contains(t.Id))
-            .ToDictionaryAsync(t => t.Id, cancellationToken);
-
-        var updated = 0;
-        var errors = new List<string>();
-
-        foreach (var u in request.Updates)
-        {
-            if (u.RentAmountMonthly <= 0)
-            {
-                errors.Add($"Tenancy {u.TenancyId}: RentAmountMonthly must be greater than 0.");
-                continue;
-            }
-
-            if (!tenancies.TryGetValue(u.TenancyId, out var tenancy))
-            {
-                errors.Add($"Tenancy {u.TenancyId}: Not found or not in this organization.");
-                continue;
-            }
-
-            tenancy.RentAmountMonthly = u.RentAmountMonthly;
-            if (u.DepositAmount.HasValue && u.DepositAmount.Value >= 0)
-                tenancy.DepositAmount = u.DepositAmount.Value;
-            updated++;
-        }
-
-        if (updated > 0)
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-
-        return Ok(new RentRepairResult { UpdatedCount = updated, Errors = errors });
+        var result = await _tenancyService.RepairRentAsync(request, cancellationToken);
+        return Ok(result);
     }
-}
-
-public class RentRepairExportItem
-{
-    public Guid TenancyId { get; set; }
-    public string TenantName { get; set; } = string.Empty;
-    public string HouseName { get; set; } = string.Empty;
-    public decimal RentAmountMonthly { get; set; }
-    public decimal DepositAmount { get; set; }
-}
-
-public class RentRepairRequest
-{
-    public List<RentRepairUpdateItem> Updates { get; set; } = new();
-}
-
-public class RentRepairUpdateItem
-{
-    public Guid TenancyId { get; set; }
-    public decimal RentAmountMonthly { get; set; }
-    public decimal? DepositAmount { get; set; }
-}
-
-public class RentRepairResult
-{
-    public int UpdatedCount { get; set; }
-    public List<string> Errors { get; set; } = new();
-}
-
-public class TenancyLookupResponse
-{
-    public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
-    public Guid HouseId { get; set; }
-    public DateTime? MoveOutDate { get; set; }
-    public string Status { get; set; } = string.Empty;
-}
-
-public class CreateTenancyRequest
-{
-    public Guid HouseId { get; set; }
-    public Guid TenantId { get; set; }
-    public DateTime MoveInDate { get; set; }
-    public DateTime? MoveOutDate { get; set; }
-    public int? RentStartMonth { get; set; }
-    public int? RentStartYear { get; set; }
-    public decimal RentAmountMonthly { get; set; }
-    public decimal DepositAmount { get; set; }
-    public byte PaymentDueDay { get; set; }
-    public string? Status { get; set; }
-    public string? Notes { get; set; }
-}
-
-public class CreateTenancyResponse
-{
-    public Guid Id { get; set; }
-}
-
-public class TenancyDetailResponse
-{
-    public Guid Id { get; set; }
-    public Guid HouseId { get; set; }
-    public Guid TenantId { get; set; }
-    public DateTime MoveInDate { get; set; }
-    public DateTime? MoveOutDate { get; set; }
-    public int? RentStartMonth { get; set; }
-    public int? RentStartYear { get; set; }
-    public decimal RentAmountMonthly { get; set; }
-    public decimal DepositAmount { get; set; }
-    public byte PaymentDueDay { get; set; }
-    public string Status { get; set; } = string.Empty;
-    public string? Notes { get; set; }
-    public TenancyHouseDto? House { get; set; }
-    public TenancyTenantDto? Tenant { get; set; }
-}
-
-public class TenancyHouseDto
-{
-    public Guid Id { get; set; }
-    public string AddressLine1 { get; set; } = string.Empty;
-    public string? AddressLine2 { get; set; }
-    public string City { get; set; } = string.Empty;
-    public string Postcode { get; set; } = string.Empty;
-    public int TotalRooms { get; set; }
-    public DateTime CreatedAt { get; set; }
-}
-
-public class TenancyTenantDto
-{
-    public Guid Id { get; set; }
-    public string FullName { get; set; } = string.Empty;
-    public string PhoneNumber { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string? UniversityName { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public bool IsArchived { get; set; }
-}
-
-public class EndTenancyRequest
-{
-    public DateTime MoveOutDate { get; set; }
-}
-
-public class UpdateTenancyRequest
-{
-    public DateTime MoveInDate { get; set; }
-    public DateTime? MoveOutDate { get; set; }
-    public int? RentStartMonth { get; set; }
-    public int? RentStartYear { get; set; }
-    public decimal RentAmountMonthly { get; set; }
-    public decimal DepositAmount { get; set; }
-    public byte PaymentDueDay { get; set; }
-    public string? Status { get; set; }
-    public string? Notes { get; set; }
 }
