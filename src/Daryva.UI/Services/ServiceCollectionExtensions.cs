@@ -181,6 +181,7 @@ namespace Daryva.Services
             services.AddTransient<Daryva.MVVM.ViewModels.AddTenantViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.EditTenantViewModel>();
             services.AddTransient<Daryva.MVVM.ViewModels.RecordPaymentViewModel>();
+            services.AddTransient<Daryva.MVVM.ViewModels.InviteMemberViewModel>();
             
             // Rent & Payments tab ViewModels
             services.AddTransient<Daryva.MVVM.ViewModels.RentLedgerViewModel>();

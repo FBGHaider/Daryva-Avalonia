@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Daryva.MVVM.Views.InviteMemberDialog"
+        x:CompileBindings="False"
+        Title="Invite member"
+        Height="260"
+        Width="440"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Invite member" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"
+                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+        <StackPanel Grid.Row="1" Spacing="10">
+            <TextBlock Text="Email address" Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5"/>
+            <TextBox Text="{Binding Email}" Watermark="name@example.com"/>
+            <TextBlock Text="They'll join as a co-managing landlord on this organisation."
+                       Foreground="{DynamicResource TextMutedBrush}" FontSize="12" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" Spacing="10">
+            <Button Classes="tertiary" Content="Cancel" Width="90" Click="CancelButton_Click"/>
+            <Button Classes="primary" Content="Send invite" Width="110" Command="{Binding SendInviteCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>

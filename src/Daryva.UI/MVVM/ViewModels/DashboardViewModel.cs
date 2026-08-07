@@ -208,7 +208,9 @@ namespace Daryva.MVVM.ViewModels
         public ICommand AddHouseCommand => new RelayCommand(_ => ShowAddHouseDialog());
         public ICommand AddTenantCommand => new RelayCommand(_ => ShowAddTenantDialog());
         public ICommand RecordPaymentCommand => new RelayCommand(_ => ShowRecordPaymentDialog());
-        public ICommand UploadDocumentCommand => new RelayCommand(_ => NavigateToDocuments());
+        public ICommand UploadDocumentCommand => new RelayCommand(_ => ShowUploadDocumentDialog());
+        public ICommand AddExpenseCommand => new RelayCommand(_ => ShowAddExpenseDialog());
+        public ICommand InviteMemberCommand => new RelayCommand(_ => ShowInviteMemberDialog(), _ => _orgContext.CurrentOrgId.HasValue);
 
         public int HousesCount
         {
@@ -742,9 +744,85 @@ namespace Daryva.MVVM.ViewModels
             }
         }
 
-        private void NavigateToDocuments()
+        private async void ShowUploadDocumentDialog()
         {
-            _navigationService.NavigateTo<DocumentsViewModel>();
+            try
+            {
+                var viewModel = _serviceProvider.GetRequiredService<UploadDocumentViewModel>();
+                var dialog = new MVVM.Views.UploadDocumentDialog(viewModel);
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                    ? desktop.MainWindow
+                    : null;
+                if (mainWindow != null)
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    await dialog.ShowDialog(mainWindow);
+                }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+                LoadDashboardDataCommand.Execute(null);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error opening upload document dialog: {ex.Message}", "Error");
+            }
+        }
+
+        private async void ShowAddExpenseDialog()
+        {
+            try
+            {
+                var viewModel = _serviceProvider.GetRequiredService<AddEditExpenseViewModel>();
+                viewModel.IsEditMode = false;
+                var dialog = new MVVM.Views.AddEditExpenseDialog(viewModel);
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                    ? desktop.MainWindow
+                    : null;
+                if (mainWindow != null)
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    await dialog.ShowDialog(mainWindow);
+                }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+                LoadDashboardDataCommand.Execute(null);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error opening add expense dialog: {ex.Message}", "Error");
+            }
+        }
+
+        private async void ShowInviteMemberDialog()
+        {
+            try
+            {
+                var viewModel = _serviceProvider.GetRequiredService<InviteMemberViewModel>();
+                var dialog = new MVVM.Views.InviteMemberDialog(viewModel);
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                    ? desktop.MainWindow
+                    : null;
+                if (mainWindow != null)
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                    await dialog.ShowDialog(mainWindow);
+                }
+                else
+                {
+                    dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+                    dialog.Show();
+                }
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error opening invite member dialog: {ex.Message}", "Error");
+            }
         }
     }
 
