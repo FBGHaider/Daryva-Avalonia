@@ -539,8 +539,16 @@ namespace Daryva.MVVM.ViewModels
 
             try
             {
+                var email = SelectedTenant.Email;
                 await _tenantService.InviteTenantAsync(SelectedTenant.TenantId);
-                _dialogService.ShowMessage($"Invite sent to {SelectedTenant.Email}.", "Invite Sent");
+                _dialogService.ShowMessage($"Invite sent to {email}.", "Invite Sent");
+
+                // Tenant is a plain model (no INotifyPropertyChanged), so PortalStatus won't
+                // re-evaluate from an in-place mutation -- reload from the API like every other
+                // mutating action in this view (see RecoverTenantAsync) so the Portal column
+                // reflects "Invited" without needing an app restart.
+                SelectedTenant = null;
+                LoadTenantsCommand.Execute(null);
             }
             catch (Exception ex)
             {
