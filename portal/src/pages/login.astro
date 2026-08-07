@@ -2,50 +2,101 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { setAuthCookies, setOrgIdCookie, checkTenantAccess, API_BASE_URL } from '../lib/api';
 
+interface IssuedAuth {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: string;
+}
+
 let error: string | null = null;
+let challengeToken: string | null = null;
+
+/** Shared by both the password step and the 2FA step once tokens are actually issued. */
+async function finishLogin(auth: IssuedAuth): Promise<string | null> {
+  const access = await checkTenantAccess(auth.accessToken);
+  if (!access.isTenant) {
+    return 'This portal is for tenants. If you are a landlord, please use the Daryva desktop app instead.';
+  }
+  setAuthCookies(Astro.cookies, auth);
+  if (access.tenantOrgId) setOrgIdCookie(Astro.cookies, access.tenantOrgId);
+  return null;
+}
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
-  const email = formData.get('email')?.toString() ?? '';
-  const password = formData.get('password')?.toString() ?? '';
+  const submittedChallengeToken = formData.get('challengeToken')?.toString();
 
-  if (!email || !password) {
-    error = 'Email and password are required.';
-  } else {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+  if (submittedChallengeToken) {
+    // Step 2: verifying the code from a 2FA challenge raised by the password step below.
+    const code = formData.get('code')?.toString() ?? '';
+    if (!code) {
+      error = 'Enter the code from your authenticator app, or a recovery code.';
+      challengeToken = submittedChallengeToken;
+    } else {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/2fa/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ challengeToken: submittedChallengeToken, code }),
+        });
 
-      if (response.status === 401) {
-        error = 'Incorrect email or password.';
-      } else if (!response.ok) {
-        error = 'Something went wrong. Please try again.';
-      } else {
-        const result = await response.json();
-        if (result.requiresTwoFactor) {
-          error = 'Two-factor accounts are not yet supported in the tenant portal. Contact your landlord for help.';
-        } else if (result.accessToken) {
-          const access = await checkTenantAccess(result.accessToken);
-          if (!access.isTenant) {
-            error = 'This portal is for tenants. If you are a landlord, please use the Daryva desktop app instead.';
+        if (response.status === 401) {
+          error = 'Invalid or expired code. Please try again.';
+          challengeToken = submittedChallengeToken;
+        } else if (!response.ok) {
+          error = 'Something went wrong. Please try again.';
+          challengeToken = submittedChallengeToken;
+        } else {
+          const auth = (await response.json()) as IssuedAuth;
+          const failMessage = await finishLogin(auth);
+          if (failMessage) {
+            error = failMessage;
           } else {
-            setAuthCookies(Astro.cookies, {
-              accessToken: result.accessToken,
-              refreshToken: result.refreshToken,
-              accessTokenExpiresAt: result.accessTokenExpiresAt,
-            });
-            if (access.tenantOrgId) setOrgIdCookie(Astro.cookies, access.tenantOrgId);
             return Astro.redirect('/');
           }
-        } else {
-          error = 'Something went wrong. Please try again.';
         }
+      } catch {
+        error = 'Could not reach the server. Please try again.';
+        challengeToken = submittedChallengeToken;
       }
-    } catch {
-      error = 'Could not reach the server. Please try again.';
+    }
+  } else {
+    // Step 1: email + password.
+    const email = formData.get('email')?.toString() ?? '';
+    const password = formData.get('password')?.toString() ?? '';
+
+    if (!email || !password) {
+      error = 'Email and password are required.';
+    } else {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (response.status === 401) {
+          error = 'Incorrect email or password.';
+        } else if (!response.ok) {
+          error = 'Something went wrong. Please try again.';
+        } else {
+          const result = await response.json();
+          if (result.requiresTwoFactor && result.challengeToken) {
+            challengeToken = result.challengeToken;
+          } else if (result.accessToken) {
+            const failMessage = await finishLogin(result);
+            if (failMessage) {
+              error = failMessage;
+            } else {
+              return Astro.redirect('/');
+            }
+          } else {
+            error = 'Something went wrong. Please try again.';
+          }
+        }
+      } catch {
+        error = 'Could not reach the server. Please try again.';
+      }
     }
   }
 }
@@ -54,18 +105,43 @@ if (Astro.request.method === 'POST') {
 <BaseLayout title="Log in">
   <div class="card form-card">
     <h1 class="page-title">Log in</h1>
-    <p class="page-lede">Access your tenancy documents.</p>
-    {error && <p class="form-error">{error}</p>}
-    <form method="POST">
-      <div class="field">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required autocomplete="email" />
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required autocomplete="current-password" />
-      </div>
-      <button type="submit" class="btn btn-primary">Log in</button>
-    </form>
+    {challengeToken ? (
+      <>
+        <p class="page-lede">Enter the code from your authenticator app.</p>
+        {error && <p class="form-error">{error}</p>}
+        <form method="POST">
+          <input type="hidden" name="challengeToken" value={challengeToken} />
+          <div class="field">
+            <label for="code">Authentication code</label>
+            <input
+              type="text"
+              id="code"
+              name="code"
+              required
+              autocomplete="one-time-code"
+              autofocus
+              placeholder="6-digit code or recovery code"
+            />
+          </div>
+          <button type="submit" class="btn btn-primary">Verify</button>
+        </form>
+      </>
+    ) : (
+      <>
+        <p class="page-lede">Access your tenancy documents.</p>
+        {error && <p class="form-error">{error}</p>}
+        <form method="POST">
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn btn-primary">Log in</button>
+        </form>
+      </>
+    )}
   </div>
 </BaseLayout>
