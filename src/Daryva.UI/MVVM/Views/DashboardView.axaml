@@ -1,34 +1,31 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             xmlns:charts="clr-namespace:Daryva.MVVM.Views.Controls.Charts"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
+             xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
              x:Class="Daryva.MVVM.Views.DashboardView"
-             x:CompileBindings="False"
-             Padding="28">
+             x:CompileBindings="False">
+    <UserControl.Resources>
+        <converters:CashFlowIncomeValuesConverter x:Key="CashFlowIncomeValuesConverter"/>
+        <converters:CashFlowExpenseValuesConverter x:Key="CashFlowExpenseValuesConverter"/>
+        <converters:CashFlowLabelsConverter x:Key="CashFlowLabelsConverter"/>
+        <converters:RentStatusToBadgeSeverityConverter x:Key="RentStatusToBadgeSeverityConverter"/>
+        <converters:RentStatusToDisplayTextConverter x:Key="RentStatusToDisplayTextConverter"/>
+        <converters:DocumentStatusToBadgeSeverityConverter x:Key="DocumentStatusToBadgeSeverityConverter"/>
+        <converters:CollectionCountToBoolConverter x:Key="CollectionCountToBoolConverter"/>
+    </UserControl.Resources>
     <UserControl.Styles>
-        <Style Selector="Border.surface-card">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="16"/>
+        <!-- Elevated card: background contrast instead of a border stroke, per the redesign's
+             "reduce borders, use layering" principle. -->
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}"/>
+            <Setter Property="Padding" Value="20"/>
         </Style>
-        <Style Selector="Button.quick-action">
-            <Setter Property="Padding" Value="12,8"/>
-            <Setter Property="Background" Value="#1A243D"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.quick-action:pointerover">
-            <Setter Property="Background" Value="#223152"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+        <Style Selector="TextBlock.panel-caption">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         </Style>
         <Style Selector="TextBox.top-search">
             <Setter Property="Width" Value="260"/>
@@ -38,136 +35,340 @@
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
+        <!-- List header row, reused by the recent-rent-activity and recent-documents tables. -->
+        <Style Selector="Border.list-header">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
+        </Style>
+        <Style Selector="TextBlock.list-header-text">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="Padding" Value="12,8"/>
+        </Style>
+        <Style Selector="Border.list-row">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style Selector="Border.list-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+        </Style>
     </UserControl.Styles>
 
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="20">
-                <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
-                        <TextBlock Text="Dashboard" Classes="page-title"/>
-                        <TextBlock Text="{Binding GreetingText}" Classes="text-muted" FontSize="14"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <TextBox Classes="top-search" Watermark="Search..."/>
-                        <!-- Notification bell with badge: centered, larger bell, badge outside box -->
-                        <Grid Width="36" Height="36" VerticalAlignment="Center" ClipToBounds="False">
+            <!-- Content stops growing sideways past ~1760px so the layout stays readable at
+                 2560x1440 instead of stretching very wide and sparse, while remaining fully fluid
+                 down to the window's 900px floor. -->
+            <Border MaxWidth="1760" HorizontalAlignment="Center" Padding="32">
+                <StackPanel Spacing="{DynamicResource Spacing24}">
+
+                    <!-- Header -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="Dashboard" Classes="page-title"/>
+                            <TextBlock Text="{Binding GreetingText}" Classes="text-muted" FontSize="14"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBox Classes="top-search" Watermark="Search...">
+                                <TextBox.InnerLeftContent>
+                                    <materialIcons:MaterialIcon Kind="Magnify" Width="15" Height="15"
+                                                                 Foreground="{DynamicResource TextMutedBrush}"
+                                                                 Margin="8,0,0,0"/>
+                                </TextBox.InnerLeftContent>
+                            </TextBox>
+                            <Grid Width="36" Height="36" VerticalAlignment="Center" ClipToBounds="False">
+                                <Button Width="36" Height="36" Padding="0"
+                                        Command="{Binding NotificationCenter.ToggleOpenCommand}"
+                                        Background="Transparent" BorderThickness="0"
+                                        VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                                    <materialIcons:MaterialIcon Kind="BellOutline" Width="19" Height="19"
+                                                                 Foreground="{DynamicResource TextMutedBrush}"/>
+                                </Button>
+                                <Border Width="18" Height="18" CornerRadius="9"
+                                        Background="{DynamicResource StatusDangerBrush}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Margin="0,-6,-6,0"
+                                        IsVisible="{Binding NotificationCenter.ShowBadge}"
+                                        ZIndex="1">
+                                    <TextBlock Text="{Binding NotificationCenter.BadgeText}" FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
                             <Button Width="36" Height="36" Padding="0"
-                                    Command="{Binding NotificationCenter.ToggleOpenCommand}"
-                                    Background="Transparent" BorderThickness="0"
-                                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                                <TextBlock Text="🔔" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Button>
-                            <!-- Badge positioned outside top-right of the box -->
-                            <Border Width="18" Height="18" CornerRadius="9"
-                                    Background="{DynamicResource StatusDangerBrush}"
-                                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                                    Margin="0,-6,-6,0"
-                                    IsVisible="{Binding NotificationCenter.ShowBadge}"
-                                    ZIndex="1">
-                                <TextBlock Text="{Binding NotificationCenter.BadgeText}" FontSize="10" FontWeight="SemiBold"
+                                    Command="{Binding ProfileMenu.ToggleOpenCommand}"
+                                    Background="{DynamicResource Surface2Brush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ProfileMenu.UserInitials}" FontSize="14" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                        </Grid>
-                        <!-- Profile avatar (36×36, same size and alignment as bell) -->
-                        <Button Width="36" Height="36" Padding="0"
-                                Command="{Binding ProfileMenu.ToggleOpenCommand}"
-                                Background="{DynamicResource Surface2Brush}"
-                                BorderBrush="{DynamicResource BorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="18"
-                                VerticalAlignment="Center">
-                            <TextBlock Text="{Binding ProfileMenu.UserInitials}" FontSize="14" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Button>
-                    </StackPanel>
-                </Grid>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
 
-            <Grid ColumnDefinitions="*,*,*,*">
-                <controls:KpiCard Grid.Column="0"
-                                  Margin="0,0,14,0"
-                                  Title="Houses"
-                                  Value="{Binding HousesCount}"
-                                  Icon="HomeCityOutline"
-                                  AccentBrush="{DynamicResource BrandPrimaryBrush}"/>
+                    <!-- KPI row -->
+                    <Grid ColumnDefinitions="*,*,*,*,*">
+                        <controls:KpiCard Grid.Column="0" Margin="0,0,16,0"
+                                          Title="Properties" Value="{Binding HousesCount}"
+                                          Icon="HomeCityOutline" AccentBrush="{DynamicResource BrandPrimaryBrush}"/>
+                        <controls:KpiCard Grid.Column="1" Margin="0,0,16,0"
+                                          Title="Active tenants" Value="{Binding ActiveTenantsCount}"
+                                          Icon="AccountGroupOutline" AccentBrush="{DynamicResource StatusSuccessBrush}"/>
+                        <controls:KpiCard Grid.Column="2" Margin="0,0,16,0"
+                                          Title="Overdue rent" Value="{Binding OverdueRentCount}"
+                                          SubText="{Binding OverdueRentAmount, StringFormat='£{0:N2} pending'}"
+                                          Icon="AlertCircleOutline" AccentBrush="{DynamicResource StatusDangerBrush}"/>
+                        <controls:KpiCard Grid.Column="3" Margin="0,0,16,0"
+                                          Title="Monthly income" Value="{Binding MonthlyIncome, StringFormat='£{0:N0}'}"
+                                          SubText="This month"
+                                          Icon="TrendingUp" AccentBrush="{DynamicResource StatusSuccessBrush}"/>
+                        <controls:KpiCard Grid.Column="4"
+                                          Title="Documents expiring" Value="{Binding DocumentsExpiringSoonCount}"
+                                          SubText="Next 30 days"
+                                          Icon="FileDocumentOutline" AccentBrush="{DynamicResource BrandSecondaryBrush}"/>
+                    </Grid>
 
-                <controls:KpiCard Grid.Column="1"
-                                  Margin="0,0,14,0"
-                                  Title="Active Tenants"
-                                  Value="{Binding ActiveTenantsCount}"
-                                  Icon="AccountGroupOutline"
-                                  AccentBrush="{DynamicResource StatusSuccessBrush}"/>
+                    <!-- Cash flow (primary, larger) + Rent collection (secondary, smaller) -->
+                    <Grid ColumnDefinitions="2*,16,1*">
+                        <Border Grid.Column="0" Classes="panel">
+                            <StackPanel Spacing="{DynamicResource Spacing8}">
+                                <TextBlock Text="Cash flow" Classes="section-title"/>
+                                <TextBlock Text="Last 6 months" Classes="panel-caption"/>
+                                <charts:LineAreaChart Height="200" Margin="0,8,0,0"
+                                    IncomeValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowIncomeValuesConverter}}"
+                                    ExpenseValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowExpenseValuesConverter}}"
+                                    Labels="{Binding CashFlowMonths, Converter={StaticResource CashFlowLabelsConverter}}"
+                                    IncomeBrush="{DynamicResource StatusSuccessBrush}"
+                                    ExpenseBrush="{DynamicResource AccentPurpleBrush}"
+                                    GridBrush="{DynamicResource BorderBrush}"
+                                    LabelBrush="{DynamicResource TextMutedBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="20" Margin="0,4,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Width="8" Height="8" CornerRadius="4" Background="{DynamicResource StatusSuccessBrush}"/>
+                                        <TextBlock Text="Income" Classes="panel-caption"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Width="8" Height="8" CornerRadius="4" Background="{DynamicResource AccentPurpleBrush}"/>
+                                        <TextBlock Text="Expenses" Classes="panel-caption"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
-                <controls:KpiCard Grid.Column="2"
-                                  Margin="0,0,14,0"
-                                  Title="Overdue Rent"
-                                  Value="{Binding OverdueRentCount}"
-                                  SubText="{Binding OverdueRentAmount, StringFormat='£{0:N2} pending'}"
-                                  Icon="AlertCircleOutline"
-                                  AccentBrush="{DynamicResource StatusDangerBrush}"/>
+                        <Border Grid.Column="2" Classes="panel">
+                            <StackPanel Spacing="{DynamicResource Spacing8}">
+                                <TextBlock Text="Rent collection" Classes="section-title"/>
+                                <TextBlock Text="This month" Classes="panel-caption"/>
+                                <charts:DonutChart x:Name="RentCollectionDonut"
+                                    Width="150" Height="150" HorizontalAlignment="Center" Margin="0,8,0,0"
+                                    CenterLabel="{Binding RentCollectedPercent, StringFormat='{}{0:N0}%'}"
+                                    CenterSubLabel="Collected"
+                                    TrackBrush="{DynamicResource Surface2Brush}"
+                                    LabelBrush="{DynamicResource TextPrimaryBrush}"
+                                    SubLabelBrush="{DynamicResource TextMutedBrush}"/>
+                                <StackPanel Spacing="8" Margin="0,8,0,0">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <controls:StatusBadge Grid.Column="0" Text="Paid" Severity="Success"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding RentCollectedPaidAmount, StringFormat='£{0:N0}'}"
+                                                   VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <controls:StatusBadge Grid.Column="0" Text="Pending" Severity="Warning"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding RentCollectedPendingAmount, StringFormat='£{0:N0}'}"
+                                                   VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <controls:StatusBadge Grid.Column="0" Text="Overdue" Severity="Danger"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding RentCollectedOverdueAmount, StringFormat='£{0:N0}'}"
+                                                   VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
-                <controls:KpiCard Grid.Column="3"
-                                  Title="Documents Expiring"
-                                  Value="{Binding DocumentsExpiringSoonCount}"
-                                  Icon="FileDocumentOutline"
-                                  AccentBrush="{DynamicResource BrandSecondaryBrush}"/>
-            </Grid>
+                    <!-- Upcoming (wider) + Quick actions (compact) -->
+                    <Grid ColumnDefinitions="1.4*,16,1*">
+                        <Border Grid.Column="0" Classes="panel">
+                            <StackPanel Spacing="{DynamicResource Spacing12}">
+                                <TextBlock Text="Upcoming" Classes="section-title"/>
+                                <ItemsControl ItemsSource="{Binding UpcomingEvents}" IsVisible="{Binding UpcomingEvents.Count, Converter={StaticResource CollectionCountToBoolConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,10">
+                                                <materialIcons:MaterialIcon Grid.Column="0" Kind="{Binding Icon}"
+                                                                             Width="17" Height="17" Margin="0,0,10,0"
+                                                                             Foreground="{DynamicResource TextMutedBrush}"
+                                                                             VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                    <TextBlock Text="{Binding Description}" FontSize="11.5" Classes="text-muted"/>
+                                                </StackPanel>
+                                                <controls:StatusBadge Grid.Column="2" Margin="8,0" VerticalAlignment="Center"
+                                                                       Text="{Binding DateDisplay}" Severity="{Binding Severity}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,8"
+                                            IsVisible="{Binding UpcomingEvents.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}">
+                                    <materialIcons:MaterialIcon Kind="CheckCircleOutline" Width="28" Height="28"
+                                                                 Foreground="{DynamicResource StatusSuccessBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Nothing needs attention right now" Classes="text-muted" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
-            <Border Classes="surface-card">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Quick Actions" Classes="section-title"/>
-                    <WrapPanel Orientation="Horizontal">
-                        <Button Classes="quick-action" Content="➕ Add House" Command="{Binding AddHouseCommand}" Margin="0,0,10,10"/>
-                        <Button Classes="quick-action" Content="👤 Add Tenant" Command="{Binding AddTenantCommand}" Margin="0,0,10,10"/>
-                        <Button Classes="quick-action" Content="💷 Record Payment" Command="{Binding RecordPaymentCommand}" Margin="0,0,10,10"/>
-                        <Button Classes="quick-action" Content="📤 Upload Document" Command="{Binding UploadDocumentCommand}" Margin="0,0,10,10"/>
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
+                        <Border Grid.Column="2" Classes="panel">
+                            <StackPanel Spacing="{DynamicResource Spacing12}">
+                                <TextBlock Text="Quick actions" Classes="section-title"/>
+                                <StackPanel Spacing="8">
+                                    <Button Classes="primary" HorizontalContentAlignment="Left" Command="{Binding RecordPaymentCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <materialIcons:MaterialIcon Kind="CashMultiple" Width="16" Height="16"/>
+                                            <TextBlock Text="Record payment"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="secondary" HorizontalContentAlignment="Left" Command="{Binding AddHouseCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <materialIcons:MaterialIcon Kind="HomeCityOutline" Width="16" Height="16"/>
+                                            <TextBlock Text="Add property"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="secondary" HorizontalContentAlignment="Left" Command="{Binding AddTenantCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <materialIcons:MaterialIcon Kind="AccountGroupOutline" Width="16" Height="16"/>
+                                            <TextBlock Text="Add tenant"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="tertiary" HorizontalContentAlignment="Left" Command="{Binding UploadDocumentCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <materialIcons:MaterialIcon Kind="Upload" Width="16" Height="16"/>
+                                            <TextBlock Text="Upload document"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
-            <Border Classes="surface-card">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Deposit Return Reminders" Classes="section-title"/>
-                    <TextBlock Text="When a tenant leaves, reminders appear here." Classes="text-muted" FontSize="12"/>
-
-                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="8" Padding="0" IsVisible="{Binding ShowEmptyDepositMessage, Converter={x:Static BoolConverters.Not}}">
-                        <Grid ColumnDefinitions="2*,2*,*,*">
-                            <TextBlock Grid.Column="0" Text="Tenant" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" Padding="16,10"/>
-                            <TextBlock Grid.Column="1" Text="House" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" Padding="16,10"/>
-                            <TextBlock Grid.Column="2" Text="Leave Date" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" Padding="16,10" HorizontalAlignment="Right"/>
-                            <TextBlock Grid.Column="3" Text="Amount" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" Padding="16,10" HorizontalAlignment="Right"/>
-                        </Grid>
-                    </Border>
-
-                    <ItemsControl ItemsSource="{Binding DepositReturnReminders}" IsVisible="{Binding ShowEmptyDepositMessage, Converter={x:Static BoolConverters.Not}}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource SecondaryBackgroundBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="0,0,0,1">
-                                    <Grid ColumnDefinitions="2*,2*,*,*">
-                                        <TextBlock Grid.Column="0" Text="{Binding TenantName}" Padding="16,10" VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" Padding="16,10" VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="{Binding LeaveDateDisplay}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="3" Text="{Binding AmountToReturn, StringFormat='£{0:N2}'}" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    <!-- Recent rent activity + Recent documents -->
+                    <Grid ColumnDefinitions="1.4*,16,1*">
+                        <Border Grid.Column="0" Classes="panel">
+                            <StackPanel Spacing="{DynamicResource Spacing12}">
+                                <TextBlock Text="This month's rent" Classes="section-title"/>
+                                <Border Classes="list-header" IsVisible="{Binding RecentRentRows.Count, Converter={StaticResource CollectionCountToBoolConverter}}">
+                                    <Grid ColumnDefinitions="2*,2*,1.1*,1.3*">
+                                        <TextBlock Grid.Column="0" Text="Tenant" Classes="list-header-text"/>
+                                        <TextBlock Grid.Column="1" Text="Property" Classes="list-header-text"/>
+                                        <TextBlock Grid.Column="2" Text="Due date" Classes="list-header-text" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="Status" Classes="list-header-text" HorizontalAlignment="Right"/>
                                     </Grid>
                                 </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding RecentRentRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Classes="list-row">
+                                                <Grid ColumnDefinitions="2*,2*,1.1*,1.3*">
+                                                    <TextBlock Grid.Column="0" Text="{Binding TenantName}" Padding="12,10"
+                                                               VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" Padding="12,10"
+                                                               VerticalAlignment="Center" Classes="text-muted" FontSize="12.5"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding DueDateDisplay}" Padding="12,10"
+                                                               VerticalAlignment="Center" HorizontalAlignment="Right" Classes="text-muted" FontSize="12.5"/>
+                                                    <Border Grid.Column="3" Padding="12,10" HorizontalAlignment="Right">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding AmountDue, StringFormat='£{0:N0}'}"
+                                                                       VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                            <controls:StatusBadge Text="{Binding Status, Converter={StaticResource RentStatusToDisplayTextConverter}}"
+                                                                                   Severity="{Binding Status, Converter={StaticResource RentStatusToBadgeSeverityConverter}}"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="No rent charges for this month yet." Classes="text-muted"
+                                           IsVisible="{Binding RecentRentRows.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}"/>
+                            </StackPanel>
+                        </Border>
 
-                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="24" IsVisible="{Binding ShowEmptyDepositMessage}">
-                        <StackPanel HorizontalAlignment="Center" Spacing="8">
-                            <TextBlock Text="✅" FontSize="36" HorizontalAlignment="Center"/>
-                            <TextBlock Text="All deposits are up to date" Classes="section-title" HorizontalAlignment="Center"/>
-                            <TextBlock Text="When a tenant leaves, reminders appear here." Classes="text-muted" HorizontalAlignment="Center"/>
+                        <Border Grid.Column="2" Classes="panel">
+                            <StackPanel Spacing="{DynamicResource Spacing12}">
+                                <TextBlock Text="Recent documents" Classes="section-title"/>
+                                <ItemsControl ItemsSource="{Binding RecentDocuments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Classes="list-row">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,2">
+                                                    <materialIcons:MaterialIcon Grid.Column="0" Kind="FileDocumentOutline"
+                                                                                 Width="17" Height="17" Margin="0,10,10,10"
+                                                                                 Foreground="{DynamicResource TextMutedBrush}"
+                                                                                 VerticalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,8">
+                                                        <TextBlock Text="{Binding DisplayName}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                        <TextBlock Text="{Binding TenantOrHouseDisplay}" FontSize="11.5" Classes="text-muted"/>
+                                                    </StackPanel>
+                                                    <controls:StatusBadge Grid.Column="2" Margin="8,0" VerticalAlignment="Center"
+                                                                           Text="{Binding DocumentStatusDisplay}"
+                                                                           Severity="{Binding DocumentStatus, Converter={StaticResource DocumentStatusToBadgeSeverityConverter}}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="No documents uploaded yet." Classes="text-muted"
+                                           IsVisible="{Binding RecentDocuments.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Deposit return reminders -->
+                    <Border Classes="panel">
+                        <StackPanel Spacing="{DynamicResource Spacing12}">
+                            <TextBlock Text="Deposit return reminders" Classes="section-title"/>
+                            <TextBlock Text="When a tenant leaves, reminders appear here." Classes="text-muted" FontSize="12"/>
+
+                            <Border Classes="list-header" IsVisible="{Binding ShowEmptyDepositMessage, Converter={x:Static BoolConverters.Not}}">
+                                <Grid ColumnDefinitions="2*,2*,*,*">
+                                    <TextBlock Grid.Column="0" Text="Tenant" Classes="list-header-text"/>
+                                    <TextBlock Grid.Column="1" Text="House" Classes="list-header-text"/>
+                                    <TextBlock Grid.Column="2" Text="Leave date" Classes="list-header-text" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="3" Text="Amount" Classes="list-header-text" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </Border>
+
+                            <ItemsControl ItemsSource="{Binding DepositReturnReminders}" IsVisible="{Binding ShowEmptyDepositMessage, Converter={x:Static BoolConverters.Not}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Classes="list-row">
+                                            <Grid ColumnDefinitions="2*,2*,*,*">
+                                                <TextBlock Grid.Column="0" Text="{Binding TenantName}" Padding="12,10" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding HouseAddress}" Padding="12,10" VerticalAlignment="Center" Classes="text-muted" FontSize="12.5"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding LeaveDateDisplay}" Padding="12,10" HorizontalAlignment="Right" VerticalAlignment="Center" Classes="text-muted" FontSize="12.5"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding AmountToReturn, StringFormat='£{0:N2}'}" Padding="12,10" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,8" IsVisible="{Binding ShowEmptyDepositMessage}">
+                                <materialIcons:MaterialIcon Kind="CheckCircleOutline" Width="28" Height="28"
+                                                             Foreground="{DynamicResource StatusSuccessBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="All deposits are up to date" Classes="section-title" HorizontalAlignment="Center"/>
+                                <TextBlock Text="When a tenant leaves, reminders appear here." Classes="text-muted" HorizontalAlignment="Center"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
+
                 </StackPanel>
             </Border>
-        </StackPanel>
         </ScrollViewer>
         <!-- Notification drawer overlay (right-side panel) -->
         <controls:NotificationDrawer DataContext="{Binding NotificationCenter}"/>

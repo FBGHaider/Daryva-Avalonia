@@ -1,3 +1,5 @@
+using Material.Icons;
+
 namespace Daryva.MVVM.Models
 {
     public enum UpcomingEventCategory
@@ -20,5 +22,13 @@ namespace Daryva.MVVM.Models
         /// <summary>True when within the "needs attention soon" window -- drives Warning vs Info
         /// severity in the UI (see NotificationFeedService's equivalent thresholds).</summary>
         public bool IsUrgent { get; set; }
+
+        /// <summary>Row icon. NavigationItem already couples MVVM.Models to MaterialIconKind the
+        /// same way, so this follows the established precedent rather than adding a converter.</summary>
+        public MaterialIconKind Icon => Category == UpcomingEventCategory.RentDueSoon
+            ? MaterialIconKind.CalendarClockOutline
+            : MaterialIconKind.FileDocumentAlertOutline;
+
+        public BadgeSeverity Severity => IsUrgent ? BadgeSeverity.Warning : BadgeSeverity.Info;
     }
 }
