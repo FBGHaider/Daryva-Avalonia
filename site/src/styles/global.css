@@ -3,10 +3,16 @@
    Concept: a ledger, not a dashboard. Daryva exists because rent
    and deposit numbers have to be exactly right, so the site is
    built like a well-kept ledger book on a dark desk — ruled lines,
-   tabular figures, one brass accent used the way an accountant
-   would use a stamp: rarely, and only where it means something.
-   Deliberately single-theme (dark) — the ledger-on-a-dark-desk
+   tabular figures, one accent used the way an accountant would use
+   a stamp: rarely, and only where it means something.
+   Palette matches the desktop app's actual theme (Daryva.UI's
+   DarkTheme.axaml) rather than an invented one, so the site and
+   the product look like the same thing. Deliberately single-theme
+   (dark) — the app defaults to dark, and the ledger-on-a-dark-desk
    world doesn't have a light-mode equivalent worth diluting it for.
+   The "paper" ledger card uses the app's own *light*-theme surface
+   colors, since that's literally what a light UI surface looks like
+   in this app's palette.
    ============================================================ */
 
 @font-face {
@@ -46,22 +52,22 @@
 }
 
 :root {
-  /* Palette */
-  --ink: #12201b;
-  --ink-deep: #0c1613;
-  --panel: #182a23;
-  --paper: #f4f0e6;
-  --paper-dim: #eae4d3;
-  --text: #e7e2d2;
-  --text-muted: #8ea295;
-  --accent: #c69a52;
-  --accent-bright: #d9b26c;
-  --on-accent: #17130a;
-  --on-paper: #1c2a24;
-  --on-paper-muted: #5c6d63;
-  --rule: rgba(231, 226, 210, 0.13);
-  --rule-strong: rgba(231, 226, 210, 0.24);
-  --paper-rule: rgba(28, 42, 36, 0.14);
+  /* Palette — matches Daryva.UI's DarkTheme.axaml / LightTheme.axaml */
+  --ink: #0b1020;
+  --ink-deep: #090e1c;
+  --panel: #121a2e;
+  --paper: #ffffff;
+  --paper-dim: #eef3ff;
+  --text: #eaf0ff;
+  --text-muted: #aab6d6;
+  --accent: #fa9704;
+  --accent-bright: #ffac30;
+  --on-accent: #0b1020;
+  --on-paper: #1b2540;
+  --on-paper-muted: #5d6b8b;
+  --rule: rgba(234, 240, 255, 0.1);
+  --rule-strong: rgba(234, 240, 255, 0.2);
+  --paper-rule: rgba(27, 37, 64, 0.12);
 
   /* Type */
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
@@ -87,8 +93,8 @@ body {
   margin: 0;
   background: var(--ink);
   background-image:
-    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(198, 154, 82, 0.07), transparent),
-    radial-gradient(ellipse 700px 500px at 100% 20%, rgba(142, 162, 149, 0.05), transparent);
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(250, 151, 4, 0.08), transparent),
+    radial-gradient(ellipse 700px 500px at 100% 20%, rgba(2, 137, 205, 0.06), transparent);
   color: var(--text);
   font-family: var(--font-body);
   font-size: 16px;
