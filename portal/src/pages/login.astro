@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { setAuthCookies, API_BASE_URL } from '../lib/api';
+import { setAuthCookies, isTenantAccount, API_BASE_URL } from '../lib/api';
 
 let error: string | null = null;
 
@@ -28,12 +28,17 @@ if (Astro.request.method === 'POST') {
         if (result.requiresTwoFactor) {
           error = 'Two-factor accounts are not yet supported in the tenant portal. Contact your landlord for help.';
         } else if (result.accessToken) {
-          setAuthCookies(Astro.cookies, {
-            accessToken: result.accessToken,
-            refreshToken: result.refreshToken,
-            accessTokenExpiresAt: result.accessTokenExpiresAt,
-          });
-          return Astro.redirect('/');
+          const isTenant = await isTenantAccount(result.accessToken);
+          if (!isTenant) {
+            error = 'This portal is for tenants. If you are a landlord, please use the Daryva desktop app instead.';
+          } else {
+            setAuthCookies(Astro.cookies, {
+              accessToken: result.accessToken,
+              refreshToken: result.refreshToken,
+              accessTokenExpiresAt: result.accessTokenExpiresAt,
+            });
+            return Astro.redirect('/');
+          }
         } else {
           error = 'Something went wrong. Please try again.';
         }

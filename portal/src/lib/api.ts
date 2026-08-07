@@ -86,6 +86,27 @@ export async function getValidAccessToken(cookies: AstroCookies): Promise<string
 }
 
 /**
+ * Confirms a just-issued access token actually resolves to the Tenant role in the
+ * caller's org, not just any valid login. Daryva.Api's shared endpoints (e.g.
+ * /api/tenancies) intentionally return org-wide data to a Landlord caller -- that's
+ * correct for the desktop app, but the portal must not render that response as if it
+ * were the caller's own personal tenancy. Call this once right after login/accept-invite,
+ * before granting a session, rather than on every page load.
+ */
+export async function isTenantAccount(accessToken: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/me/tenant-access`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return false;
+    const result = (await response.json()) as { isTenant: boolean };
+    return result.isTenant === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Some Daryva.Api endpoints return a bare primitive (ActionResult<decimal>/<string>),
  * e.g. GET /api/payments/status/rent/{id}. ASP.NET Core's content negotiation picks a
  * text/plain formatter for bare strings when no `Accept: application/json` header is

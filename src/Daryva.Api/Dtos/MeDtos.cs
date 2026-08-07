@@ -29,6 +29,16 @@ public class MeResponseDto
 }
 
 /// <summary>
+/// GET /api/me/tenant-access response: whether the caller's resolved role in their
+/// (auto-selected or header-selected) org is Tenant. The portal calls this right after
+/// login to reject landlord/other accounts before treating the response as personal data.
+/// </summary>
+public class TenantAccessResponseDto
+{
+    public bool IsTenant { get; set; }
+}
+
+/// <summary>
 /// PUT /api/me request: allowed profile fields only (DisplayName, Phone, TimeZoneId).
 /// </summary>
 public class UpdateMeRequest

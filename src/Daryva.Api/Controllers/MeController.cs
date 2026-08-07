@@ -51,6 +51,27 @@ public class MeController : ControllerBase
     }
 
     /// <summary>
+    /// Whether the caller's resolved role in their current org is Tenant. The tenant portal
+    /// calls this immediately after login/accept-invite -- unlike /api/me, this path is not a
+    /// public route, so TenantContextMiddleware has already run org auto-select and
+    /// ResolveCurrentRoleAsync before this action executes.
+    /// </summary>
+    [HttpGet("tenant-access")]
+    [ProducesResponseType(typeof(TenantAccessResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public ActionResult<TenantAccessResponseDto> GetTenantAccess()
+    {
+        var userId = _tenantContext.UserId;
+        if (string.IsNullOrEmpty(userId) || userId == "unknown-user")
+            return Unauthorized(new { error = "Not authenticated." });
+
+        return Ok(new TenantAccessResponseDto
+        {
+            IsTenant = _tenantContext.CurrentRole == Roles.Tenant
+        });
+    }
+
+    /// <summary>
     /// Update current user profile (DisplayName, Phone, TimeZoneId).
     /// Only provided fields are updated; validation applied per field.
     /// </summary>
