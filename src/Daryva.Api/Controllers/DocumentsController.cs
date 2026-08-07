@@ -12,6 +12,11 @@ namespace Daryva.Api.Controllers;
 [Authorize]
 public class DocumentsController : ControllerBase
 {
+    // Decoded (pre-base64) size. Base64 inflates bytes by ~4/3, so this keeps the encoded
+    // JSON body comfortably under nginx's client_max_body_size 25m (deploy/nginx/daryva-api.conf)
+    // and Kestrel's own MaxRequestBodySize (Program.cs) - both operate on the raw encoded body.
+    private const long MaxFileSizeBytes = 18 * 1024 * 1024;
+
     private readonly IDocumentService _documentService;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<DocumentsController> _logger;
@@ -133,6 +138,22 @@ public class DocumentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        byte[]? fileContent = null;
+        if (!string.IsNullOrWhiteSpace(request.FileContent))
+        {
+            try
+            {
+                fileContent = Convert.FromBase64String(request.FileContent);
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new { error = "FileContent is not valid base64." });
+            }
+
+            if (fileContent.Length > MaxFileSizeBytes)
+                return BadRequest(new { error = $"File exceeds the maximum allowed size of {MaxFileSizeBytes / (1024 * 1024)} MB." });
+        }
+
         try
         {
             var rawUploaded = request.UploadedAt == default ? DateTime.UtcNow : request.UploadedAt;
@@ -165,7 +186,7 @@ public class DocumentsController : ControllerBase
                 IsActive = true
             };
 
-            var created = await _documentService.CreateDocumentAsync(document, cancellationToken);
+            var created = await _documentService.CreateDocumentAsync(document, fileContent, cancellationToken);
             return CreatedAtAction(nameof(GetDocument), new { documentId = created.Id }, MapToResponse(created));
         }
         catch (Exception ex)
@@ -221,10 +242,10 @@ public class DocumentsController : ControllerBase
         if (document == null)
             return NotFound();
 
-        // TODO: Implement file download (read from storage path or blob storage)
-        // For now, return empty array
-        var fileBytes = new byte[0];
-        
+        var fileBytes = await _documentService.GetFileContentAsync(document, cancellationToken);
+        if (fileBytes == null)
+            return NotFound(new { error = "File not available for this document." });
+
         return File(fileBytes, document.FileMimeType ?? "application/octet-stream", document.FileName);
     }
 

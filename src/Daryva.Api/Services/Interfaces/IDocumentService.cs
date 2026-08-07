@@ -9,7 +9,10 @@ public interface IDocumentService
     Task<IEnumerable<Document>> GetDocumentsByTenancyAsync(Guid tenancyId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Document>> GetDocumentsByHouseAsync(Guid houseId, CancellationToken cancellationToken = default);
     Task<Document?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken = default);
-    Task<Document> CreateDocumentAsync(Document document, CancellationToken cancellationToken = default);
+    Task<Document> CreateDocumentAsync(Document document, byte[]? fileContent, CancellationToken cancellationToken = default);
     Task UpdateDocumentAsync(Document document, CancellationToken cancellationToken = default);
     Task DeleteDocumentAsync(Guid documentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns null if the document has no file on disk (missing StoragePath, or the file itself is gone).</summary>
+    Task<byte[]?> GetFileContentAsync(Document document, CancellationToken cancellationToken = default);
 }

@@ -12,19 +12,22 @@ public class DocumentService : IDocumentService
     private readonly ILogger<DocumentService> _logger;
     private readonly ITenantContext _tenantContext;
     private readonly IAuditLogger _auditLogger;
+    private readonly IFileStorageService _fileStorageService;
 
     public DocumentService(
         IDocumentRepository documentRepository,
         IUnitOfWork unitOfWork,
         ILogger<DocumentService> logger,
         ITenantContext tenantContext,
-        IAuditLogger auditLogger)
+        IAuditLogger auditLogger,
+        IFileStorageService fileStorageService)
     {
         _documentRepository = documentRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _tenantContext = tenantContext;
         _auditLogger = auditLogger;
+        _fileStorageService = fileStorageService;
     }
 
     public async Task<IEnumerable<Document>> GetAllDocumentsAsync(CancellationToken cancellationToken = default)
@@ -42,8 +45,14 @@ public class DocumentService : IDocumentService
     public async Task<Document?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken = default)
         => await _documentRepository.GetByIdAsync(documentId, cancellationToken);
 
-    public async Task<Document> CreateDocumentAsync(Document document, CancellationToken cancellationToken = default)
+    public async Task<Document> CreateDocumentAsync(Document document, byte[]? fileContent, CancellationToken cancellationToken = default)
     {
+        if (fileContent != null && fileContent.Length > 0)
+        {
+            document.StoragePath = await _fileStorageService.SaveAsync(
+                document.OrganizationId, document.Id, document.FileName, fileContent, cancellationToken);
+        }
+
         _documentRepository.Add(document);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return document;
@@ -63,8 +72,12 @@ public class DocumentService : IDocumentService
             _documentRepository.Remove(document);
             LogAudit(AuditEventTypes.DocumentDeleted, document.OrganizationId, nameof(Document), document.Id.ToString());
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _fileStorageService.DeleteAsync(document.StoragePath, cancellationToken);
         }
     }
+
+    public Task<byte[]?> GetFileContentAsync(Document document, CancellationToken cancellationToken = default)
+        => _fileStorageService.ReadAsync(document.StoragePath, cancellationToken);
 
     private void LogAudit(string eventType, Guid organizationId, string targetType, string targetId)
     {

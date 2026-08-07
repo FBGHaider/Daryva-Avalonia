@@ -21,6 +21,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+
+// Defense-in-depth alongside nginx's client_max_body_size 25m (deploy/nginx/daryva-api.conf):
+// keeps a request over that limit from surfacing as an unhandled-exception 500 in
+// environments without nginx in front (e.g. local dev), instead of relying on nginx alone.
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 27 * 1024 * 1024);
 builder.Services.AddSwaggerGen();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
@@ -107,6 +112,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IDiagnosticService, DiagnosticService>();
 builder.Services.AddScoped<IEmailSender, EmailSender>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IDataSeeder, DataSeeder>();
 builder.Services.AddScoped<IBulkImportService, BulkImportService>();
 builder.Services.AddScoped<IOrganizationSyncService, OrganizationSyncService>();

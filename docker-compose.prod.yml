@@ -35,10 +35,12 @@ services:
       Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS:?set_in_server_env}
       DataProtection__KeyPath: /app/keys
+      Storage__DocumentsRootPath: /app/storage/documents
     ports:
       - "8080:8080"
     volumes:
       - dataprotection_keys:/app/keys
+      - document_storage:/app/storage/documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,3 +65,4 @@ services:
 volumes:
   postgres_prod_data:
   dataprotection_keys:
+  document_storage:
