@@ -1,0 +1,122 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <svg class="stitch" viewBox="0 0 1064 16" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="0" y1="8" x2="1064" y2="8" stroke="var(--rule-strong)" stroke-width="1" stroke-dasharray="1 11" stroke-linecap="round"/>
+    </svg>
+
+    <div class="grid">
+      <div class="col-brand">
+        <a href="/" class="wordmark">Daryva</a>
+        <p class="tag">Rent and deposits, tracked exactly right.</p>
+      </div>
+
+      <nav aria-label="Footer">
+        <span class="col-label">Site</span>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/features">Features</a></li>
+          <li><a href="/about">About</a></li>
+          <li><a href="/contact">Contact</a></li>
+        </ul>
+      </nav>
+
+      <div class="col-contact">
+        <span class="col-label">Get in touch</span>
+        <a href="mailto:hello@daryva.com" class="mail">hello@daryva.com</a>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <span>&copy; {year} Daryva. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    padding: 64px 0 40px;
+    color: var(--text-muted);
+  }
+
+  .stitch {
+    width: 100%;
+    height: 16px;
+    margin-bottom: 48px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 40px;
+  }
+
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 19px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .tag {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--text-muted);
+    max-width: 32ch;
+  }
+
+  .col-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--on-paper-muted);
+    color: var(--text-muted);
+    opacity: 0.7;
+    margin-bottom: 14px;
+  }
+
+  nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  nav a, .mail {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 14.5px;
+    transition: color 0.15s ease;
+  }
+
+  nav a:hover, .mail:hover {
+    color: var(--accent-bright);
+  }
+
+  .mail {
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+
+  .bottom {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-size: 13px;
+  }
+
+  @media (max-width: 720px) {
+    .grid {
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+  }
+</style>

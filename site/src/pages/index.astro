@@ -1,0 +1,135 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import LedgerCard from '../components/LedgerCard.astro';
+import FeatureEntry from '../components/FeatureEntry.astro';
+---
+
+<BaseLayout
+  title="Rent and deposits, tracked exactly right"
+  description="Daryva is property management software for landlords and letting agents who want their rent ledger and deposit tracking to actually be correct — not just close."
+>
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Property management, kept honest</span>
+        <h1>Every pound,<br />tracked to the penny.</h1>
+        <p class="lede">
+          Daryva is rent and deposit software built for landlords and letting agents who are done
+          trusting a spreadsheet — or an app — that quietly gets the money wrong. Every payment,
+          every deposit, every drawdown is accounted for, always.
+        </p>
+        <div class="hero-actions">
+          <a href="/contact" class="btn btn-primary">Request access</a>
+          <a href="/features" class="btn btn-ghost">See what it tracks</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <LedgerCard />
+      </div>
+    </div>
+  </section>
+
+  <section class="what">
+    <div class="container-narrow">
+      <span class="eyebrow">What Daryva keeps straight</span>
+      <h2 class="section-title">Four things landlords keep getting wrong<br />with spreadsheets. We built Daryva to fix them.</h2>
+
+      <div class="entries">
+        <FeatureEntry code="01 · LEDGER" title="Deposits drawn down correctly">
+          A full rent and deposit ledger per tenancy. Payments made from a deposit are drawn down
+          correctly — so a deposit can never be quietly reused as rent every month while still
+          showing as fully refundable at move-out.
+        </FeatureEntry>
+        <FeatureEntry code="02 · RECORD" title="Nothing silently deleted">
+          Corrected or voided payments stay in the record so your history is always explainable,
+          not just editable.
+        </FeatureEntry>
+        <FeatureEntry code="03 · PAPERWORK" title="Documents attached to the right thing">
+          Tenancies, documents, and move-in/move-out dates live against the property and the
+          tenant they belong to — not in a folder you'll lose track of.
+        </FeatureEntry>
+        <FeatureEntry code="04 · ACCESS" title="Built for more than one portfolio">
+          Multiple properties, multiple organisations, and team members with the right level of
+          access to each — without anyone seeing more than they should.
+        </FeatureEntry>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="container-narrow cta-inner">
+      <h2>Want to see it against your own numbers?</h2>
+      <p>Tell us a bit about your properties and we'll set you up.</p>
+      <a href="/contact" class="btn btn-primary">Get in touch</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero {
+    padding-top: 76px;
+    padding-bottom: 96px;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: center;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(38px, 4.6vw, 58px);
+    margin: 20px 0 24px;
+  }
+
+  .lede {
+    font-size: 17.5px;
+    color: var(--text-muted);
+    line-height: 1.65;
+    max-width: 46ch;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 14px;
+    margin-top: 34px;
+  }
+
+  .what {
+    padding-top: 100px;
+  }
+
+  .section-title {
+    font-size: clamp(24px, 3vw, 32px);
+    margin: 18px 0 44px;
+  }
+
+  .entries {
+    border-top: 1px solid var(--rule);
+  }
+
+  .cta-inner {
+    text-align: center;
+  }
+
+  .cta-inner h2 {
+    font-size: clamp(26px, 3vw, 34px);
+  }
+
+  .cta-inner p {
+    margin: 16px auto 30px;
+    color: var(--text-muted);
+    font-size: 16px;
+  }
+
+  @media (max-width: 860px) {
+    .hero-grid {
+      grid-template-columns: 1fr;
+      gap: 48px;
+    }
+    .hero {
+      padding-top: 48px;
+    }
+  }
+</style>

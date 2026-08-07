@@ -1,0 +1,225 @@
+/* ============================================================
+   Daryva — design system
+   Concept: a ledger, not a dashboard. Daryva exists because rent
+   and deposit numbers have to be exactly right, so the site is
+   built like a well-kept ledger book on a dark desk — ruled lines,
+   tabular figures, one brass accent used the way an accountant
+   would use a stamp: rarely, and only where it means something.
+   Deliberately single-theme (dark) — the ledger-on-a-dark-desk
+   world doesn't have a light-mode equivalent worth diluting it for.
+   ============================================================ */
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/fraunces-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/fraunces-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/fraunces-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/fraunces-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/fraunces-italic-500.woff2') format('woff2');
+}
+
+:root {
+  /* Palette */
+  --ink: #12201b;
+  --ink-deep: #0c1613;
+  --panel: #182a23;
+  --paper: #f4f0e6;
+  --paper-dim: #eae4d3;
+  --text: #e7e2d2;
+  --text-muted: #8ea295;
+  --accent: #c69a52;
+  --accent-bright: #d9b26c;
+  --on-accent: #17130a;
+  --on-paper: #1c2a24;
+  --on-paper-muted: #5c6d63;
+  --rule: rgba(231, 226, 210, 0.13);
+  --rule-strong: rgba(231, 226, 210, 0.24);
+  --paper-rule: rgba(28, 42, 36, 0.14);
+
+  /* Type */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', Consolas, ui-monospace, 'Courier New', monospace;
+
+  /* Layout */
+  --container: 1120px;
+  --container-narrow: 760px;
+  --radius: 3px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--ink);
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(198, 154, 82, 0.07), transparent),
+    radial-gradient(ellipse 700px 500px at 100% 20%, rgba(142, 162, 149, 0.05), transparent);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+img, svg {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.12;
+  margin: 0;
+  text-wrap: balance;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+  max-width: 62ch;
+}
+
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.container-narrow {
+  max-width: var(--container-narrow);
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 0;
+}
+
+/* Tabular figures wherever real numbers appear */
+.figure,
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 13px 24px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-bright);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--rule-strong);
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+}
+
+section {
+  padding: 88px 0;
+}
+
+section + section {
+  border-top: 1px solid var(--rule);
+}
+
+@media (max-width: 720px) {
+  section {
+    padding: 56px 0;
+  }
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 3px;
+}

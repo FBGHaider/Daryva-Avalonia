@@ -1,0 +1,93 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="About"
+  description="Why Daryva exists: rent and deposit tracking that's actually correct, built by someone who cared more about getting the numbers right than shipping fast."
+>
+  <section class="page-hero">
+    <div class="container-narrow">
+      <span class="eyebrow">Why Daryva exists</span>
+      <h1>Most property software gets the money roughly right. We wanted it exactly right.</h1>
+    </div>
+  </section>
+
+  <section class="prose-section">
+    <div class="container-narrow prose">
+      <p>
+        Daryva started as a tool for tracking a handful of properties properly — because
+        spreadsheets and half-finished apps have a habit of getting rent and deposits <em>almost</em>
+        right, which is a different thing from right. A deposit quietly reused as rent every
+        month while still showing as fully refundable. A voided payment that just disappears
+        instead of leaving a trail. A tenancy record that only tells half the story.
+      </p>
+      <p>
+        None of that is acceptable when it's someone's money. So Daryva is built the way you'd
+        want a ledger built: every figure traceable, every correction kept rather than erased,
+        and every calculation checked against what actually happened — not what should have
+        happened if nobody made a mistake.
+      </p>
+      <p>
+        It's for landlords managing their own properties and for letting agents managing several
+        portfolios at once — anyone who'd rather trust their numbers than double-check them by
+        hand at the end of every month.
+      </p>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="container-narrow cta-inner">
+      <h2>Have properties you'd like to move over?</h2>
+      <a href="/contact" class="btn btn-primary">Get in touch</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-top: 72px;
+    padding-bottom: 56px;
+  }
+
+  .page-hero h1 {
+    font-size: clamp(30px, 4vw, 42px);
+    margin: 18px 0 0;
+    max-width: 20ch;
+  }
+
+  .prose-section {
+    padding-top: 8px;
+  }
+
+  .prose {
+    border-top: 1px solid var(--rule);
+    padding-top: 48px;
+  }
+
+  .prose p {
+    max-width: none;
+    font-size: 17px;
+    line-height: 1.75;
+    color: var(--text-muted);
+  }
+
+  .prose p + p {
+    margin-top: 22px;
+  }
+
+  .prose em {
+    color: var(--accent-bright);
+    font-style: italic;
+    font-family: var(--font-display);
+  }
+
+  .cta-inner {
+    text-align: center;
+  }
+
+  .cta-inner h2 {
+    font-size: clamp(24px, 3vw, 30px);
+    margin-bottom: 26px;
+  }
+</style>

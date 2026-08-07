@@ -1,0 +1,122 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Contact"
+  description="Get in touch about moving your properties to Daryva."
+>
+  <section class="page-hero">
+    <div class="container-narrow">
+      <span class="eyebrow">Get in touch</span>
+      <h1>Tell us about your properties.</h1>
+      <p class="lede">
+        However many you've got, and whatever you're using to track them now — email us and
+        we'll help you get set up.
+      </p>
+    </div>
+  </section>
+
+  <section class="contact-card-section">
+    <div class="container-narrow">
+      <div class="card">
+        <div class="card-row">
+          <span class="k mono">To</span>
+          <a href="mailto:hello@daryva.com" class="v mono email-link">hello@daryva.com</a>
+        </div>
+        <div class="rule-full"></div>
+        <div class="card-row">
+          <span class="k mono">Worth including</span>
+          <span class="v">
+            How many properties, roughly how many tenancies, and what you're using today (a
+            spreadsheet, another app, nothing yet).
+          </span>
+        </div>
+        <div class="rule-full"></div>
+        <div class="card-row">
+          <span class="k mono">Response time</span>
+          <span class="v">We reply to every email personally — usually within a day or two.</span>
+        </div>
+      </div>
+
+      <a href="mailto:hello@daryva.com" class="btn btn-primary email-btn">Email hello@daryva.com</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-top: 72px;
+    padding-bottom: 56px;
+  }
+
+  .page-hero h1 {
+    font-size: clamp(30px, 4vw, 42px);
+    margin: 18px 0 18px;
+    max-width: 16ch;
+  }
+
+  .lede {
+    font-size: 16.5px;
+    color: var(--text-muted);
+    max-width: 48ch;
+  }
+
+  .contact-card-section {
+    padding-top: 8px;
+  }
+
+  .card {
+    border: 1px solid var(--rule-strong);
+    border-radius: 4px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .card-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 20px;
+    padding: 22px 26px;
+  }
+
+  .k {
+    font-size: 11.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding-top: 2px;
+  }
+
+  .v {
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .email-link {
+    text-decoration: none;
+    color: var(--accent-bright);
+    font-size: 16px;
+  }
+
+  .email-link:hover {
+    text-decoration: underline;
+  }
+
+  .rule-full {
+    height: 1px;
+    background: var(--rule);
+  }
+
+  .email-btn {
+    margin-top: 32px;
+  }
+
+  @media (max-width: 560px) {
+    .card-row {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+  }
+</style>

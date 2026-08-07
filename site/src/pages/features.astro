@@ -1,0 +1,126 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FeatureEntry from '../components/FeatureEntry.astro';
+---
+
+<BaseLayout
+  title="Features"
+  description="A closer look at what Daryva actually tracks: rent, deposits, tenancies, documents, notifications, and team access — property by property."
+>
+  <section class="page-hero">
+    <div class="container-narrow">
+      <span class="eyebrow">What's inside</span>
+      <h1>Six things Daryva does properly, so you don't have to check them yourself.</h1>
+      <p class="lede">
+        Nothing here is a roadmap promise. This is what runs today, for every property in your
+        portfolio.
+      </p>
+    </div>
+  </section>
+
+  <section class="list">
+    <div class="container-narrow">
+      <div class="entries">
+        <FeatureEntry code="01 · MONEY" title="Rent & deposit ledger">
+          A running ledger per tenancy, month by month. Rent paid from a deposit is drawn down
+          against that deposit, not tracked as if it never happened — so the amount you'd owe
+          back at move-out is always the real amount, not the original amount minus whatever you
+          remember to subtract by hand.
+        </FeatureEntry>
+
+        <FeatureEntry code="02 · HISTORY" title="Voided, not deleted">
+          Made a mistake, or need to correct a payment? It's marked void and kept, with a reason,
+          rather than erased. Your transaction history always explains itself, even months later.
+        </FeatureEntry>
+
+        <FeatureEntry code="03 · TENANCIES" title="Tenancies & properties">
+          Every tenancy is tied to a property, a tenant, a move-in date, and a rent amount that
+          can change over time without losing the history of what it used to be. Ended tenancies
+          stay on record — you can always see who lived where and when.
+        </FeatureEntry>
+
+        <FeatureEntry code="04 · DOCUMENTS" title="Attached to the right thing">
+          Leases, inventories, and certificates live against the tenant, tenancy, or property
+          they belong to — not in a shared drive where the filename is the only clue what it is.
+        </FeatureEntry>
+
+        <FeatureEntry code="05 · NOTIFICATIONS" title="Reminders that go out on their own">
+          Due-date reminders and overdue notices, sent by email without you having to remember to
+          chase anyone — and a record of what was sent and when.
+        </FeatureEntry>
+
+        <FeatureEntry code="06 · TEAM & ACCESS" title="Built for more than one portfolio">
+          Manage separate organisations — different letting businesses, or properties held
+          separately — without their records ever mixing. Add team members with only the access
+          they need.
+        </FeatureEntry>
+      </div>
+    </div>
+  </section>
+
+  <section class="trust">
+    <div class="container-narrow trust-inner">
+      <span class="eyebrow">On support</span>
+      <h2>If we ever need to help, you'll know about it.</h2>
+      <p>
+        When you ask us for help, support access to your organisation is granted for a limited
+        time, and only with a code you generate and hand over yourself. It expires. It's logged.
+        Nobody has standing access to your data just because they work here.
+      </p>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="container-narrow cta-inner">
+      <h2>Ready to move your properties over?</h2>
+      <a href="/contact" class="btn btn-primary">Get in touch</a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-top: 72px;
+    padding-bottom: 64px;
+  }
+
+  .page-hero h1 {
+    font-size: clamp(30px, 4vw, 42px);
+    margin: 18px 0 20px;
+    max-width: 18ch;
+  }
+
+  .lede {
+    font-size: 16.5px;
+    color: var(--text-muted);
+  }
+
+  .list {
+    padding-top: 8px;
+  }
+
+  .entries {
+    border-top: 1px solid var(--rule);
+  }
+
+  .trust-inner h2 {
+    font-size: clamp(24px, 3vw, 30px);
+    margin: 16px 0 18px;
+    max-width: 20ch;
+  }
+
+  .trust-inner p {
+    color: var(--text-muted);
+    font-size: 15.5px;
+    line-height: 1.7;
+  }
+
+  .cta-inner {
+    text-align: center;
+  }
+
+  .cta-inner h2 {
+    font-size: clamp(24px, 3vw, 30px);
+    margin-bottom: 26px;
+  }
+</style>
