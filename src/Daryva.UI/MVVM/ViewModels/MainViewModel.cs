@@ -9,6 +9,7 @@ using Daryva.Services.Auth;
 using Daryva.Services.Dialog;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Material.Icons;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -28,6 +29,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IAuthService _authService;
         private readonly ISupportSessionApiService _supportSessionApiService;
         private readonly IDialogService _dialogService;
+        private readonly ProfileMenuViewModel _profileMenu;
         private BaseViewModel? _currentViewModel;
         private NavigationItem? _selectedNavigationItem;
         private EventHandler<BaseViewModel?>? _navigationHandler;
@@ -49,6 +51,7 @@ namespace Daryva.MVVM.ViewModels
             IAuthService authService,
             ISupportSessionApiService supportSessionApiService,
             IDialogService dialogService,
+            ProfileMenuViewModel profileMenu,
             IOrganisationService? organisationService = null)
         {
             _navigationService = navigationService;
@@ -61,6 +64,7 @@ namespace Daryva.MVVM.ViewModels
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _supportSessionApiService = supportSessionApiService ?? throw new ArgumentNullException(nameof(supportSessionApiService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _profileMenu = profileMenu ?? throw new ArgumentNullException(nameof(profileMenu));
             _organisationService = organisationService;
 
             _authService.StateChanged += OnAuthStateChanged;
@@ -72,17 +76,17 @@ namespace Daryva.MVVM.ViewModels
             // Initialize navigation items
             NavigationItems = new ObservableCollection<NavigationItem>
             {
-                new NavigationItem { Title = "Dashboard", Icon = "🏠", ViewModelType = typeof(DashboardViewModel) },
-                new NavigationItem { Title = "Houses", Icon = "🏘️", ViewModelType = typeof(HousesViewModel) },
-                new NavigationItem { Title = "Tenants", Icon = "👥", ViewModelType = typeof(TenantsViewModel) },
-                new NavigationItem { Title = "Rent & Payments", Icon = "💰", ViewModelType = typeof(RentPaymentsViewModel) },
-                new NavigationItem { Title = "Expenses", Icon = "💳", ViewModelType = typeof(ExpensesViewModel) },
-                new NavigationItem { Title = "Documents", Icon = "📄", ViewModelType = typeof(DocumentsViewModel) },
-                new NavigationItem { Title = "Notifications", Icon = "🔔", ViewModelType = typeof(NotificationsViewModel) },
-                new NavigationItem { Title = "Organisation", Icon = "🏢", ViewModelType = typeof(OrganisationViewModel) },
-                new NavigationItem { Title = "Audit Log", Icon = "📋", ViewModelType = typeof(AuditLogViewModel) },
-                new NavigationItem { Title = "Account", Icon = "👤", ViewModelType = typeof(AccountViewModel) },
-                new NavigationItem { Title = "Settings", Icon = "⚙️", ViewModelType = typeof(SettingsViewModel) }
+                new NavigationItem { Title = "Dashboard", Icon = MaterialIconKind.ViewDashboardOutline, ViewModelType = typeof(DashboardViewModel) },
+                new NavigationItem { Title = "Houses", Icon = MaterialIconKind.HomeCityOutline, ViewModelType = typeof(HousesViewModel) },
+                new NavigationItem { Title = "Tenants", Icon = MaterialIconKind.AccountGroupOutline, ViewModelType = typeof(TenantsViewModel) },
+                new NavigationItem { Title = "Rent & Payments", Icon = MaterialIconKind.CashMultiple, ViewModelType = typeof(RentPaymentsViewModel) },
+                new NavigationItem { Title = "Expenses", Icon = MaterialIconKind.CreditCardOutline, ViewModelType = typeof(ExpensesViewModel) },
+                new NavigationItem { Title = "Documents", Icon = MaterialIconKind.FileDocumentOutline, ViewModelType = typeof(DocumentsViewModel) },
+                new NavigationItem { Title = "Notifications", Icon = MaterialIconKind.BellOutline, ViewModelType = typeof(NotificationsViewModel) },
+                new NavigationItem { Title = "Organisation", Icon = MaterialIconKind.Domain, ViewModelType = typeof(OrganisationViewModel) },
+                new NavigationItem { Title = "Audit Log", Icon = MaterialIconKind.ClipboardTextClockOutline, ViewModelType = typeof(AuditLogViewModel) },
+                new NavigationItem { Title = "Account", Icon = MaterialIconKind.AccountOutline, ViewModelType = typeof(AccountViewModel) },
+                new NavigationItem { Title = "Settings", Icon = MaterialIconKind.CogOutline, ViewModelType = typeof(SettingsViewModel) }
             };
 
             // Subscribe to navigation changes
@@ -121,6 +125,12 @@ namespace Daryva.MVVM.ViewModels
             ToggleNavigationCommand = new MVVM.Commands.RelayCommand(_ => IsNavigationCollapsed = !IsNavigationCollapsed);
             SwitchOrganizationCommand = new MVVM.Commands.RelayCommand(_ => NavigateToOnboarding());
             SignOutCommand = new MVVM.Commands.RelayCommand(async _ => await _authService.SignOutAsync().ConfigureAwait(true));
+            // Quick org switch from the sidebar footer's Flyout -- distinct from
+            // SwitchOrganizationCommand above, which navigates away to the full onboarding/org-setup
+            // flow. This one stays on the current page and just re-selects CurrentOrgId.
+            SwitchToOrgCommand = new MVVM.Commands.RelayCommand<OrgSummary>(
+                async org => { if (org != null) await _orgContext.SetCurrentOrgAsync(org.Id).ConfigureAwait(true); },
+                org => org != null && org.Id != _orgContext.CurrentOrgId);
 
             // Initialize organization context before navigating
             _ = InitializeOrganizationContextAsync();
@@ -166,7 +176,7 @@ namespace Daryva.MVVM.ViewModels
             {
                 if (supportItem == null)
                 {
-                    NavigationItems.Add(new NavigationItem { Title = "Support Mode", Icon = "🛠️", ViewModelType = typeof(SupportModeViewModel) });
+                    NavigationItems.Add(new NavigationItem { Title = "Support Mode", Icon = MaterialIconKind.Lifebuoy, ViewModelType = typeof(SupportModeViewModel) });
                 }
             }
             else if (supportItem != null)
@@ -331,6 +341,19 @@ namespace Daryva.MVVM.ViewModels
             get => _currentOrganizationName;
             set => SetProperty(ref _currentOrganizationName, value);
         }
+
+        /// <summary>Read-through for SidebarProfileFooter's org switcher (Orgs/CurrentOrg/Role) --
+        /// no separate org-switcher state, this is the same IOrgContext MainViewModel already
+        /// holds for everything else.</summary>
+        public IOrgContext OrgContext => _orgContext;
+
+        /// <summary>Read-through for SidebarProfileFooter's user row -- the same app-wide singleton
+        /// the Dashboard header's avatar button already opens, not a second instance.</summary>
+        public ProfileMenuViewModel ProfileMenu => _profileMenu;
+
+        /// <summary>Quick org switch from the sidebar footer -- stays on the current page. See
+        /// SwitchOrganizationCommand for the full onboarding/org-setup navigation instead.</summary>
+        public MVVM.Commands.RelayCommand<OrgSummary> SwitchToOrgCommand { get; }
 
         /// <summary>Whether the signed-in admin is currently acting inside an org entered via
         /// Support Mode -- drives the always-visible red banner so it's obvious from any tab,

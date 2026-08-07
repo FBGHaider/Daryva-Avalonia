@@ -1,0 +1,129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
+             x:Class="Daryva.MVVM.Views.Controls.SidebarProfileFooter"
+             x:CompileBindings="False">
+    <!-- Combined org switcher + user-profile block for the sidebar footer. DataContext is
+         MainViewModel (set by the parent), which already exposes OrgContext (Orgs/CurrentOrg,
+         for the switcher) and ProfileMenu (the same app-wide singleton the Dashboard header's
+         avatar already opens, for the user row), no separate state here. -->
+    <UserControl.Styles>
+        <Style Selector="Border.footer-card">
+            <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}"/>
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+
+        <Style Selector="Button.org-switcher-trigger">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.org-switcher-trigger:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+        </Style>
+
+        <Style Selector="Border.footer-divider">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Margin" Value="0,8"/>
+        </Style>
+
+        <Style Selector="Button.user-row">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.user-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+        </Style>
+
+        <Style Selector="Border.avatar-circle">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="CornerRadius" Value="15"/>
+            <Setter Property="Background" Value="{DynamicResource BrandPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Border.avatar-circle TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="Button.org-flyout-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.org-flyout-item:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="footer-card">
+        <StackPanel>
+            <Button Classes="org-switcher-trigger" IsVisible="{Binding !IsNavigationCollapsed}">
+                <Button.Flyout>
+                    <Flyout Placement="Top">
+                        <ItemsControl ItemsSource="{Binding OrgContext.Orgs}" MinWidth="180">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Classes="org-flyout-item"
+                                            Command="{Binding DataContext.SwitchToOrgCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}">
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Flyout>
+                </Button.Flyout>
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="{Binding OrgContext.CurrentOrg.Name}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <controls:StatusBadge Text="{Binding OrgContext.CurrentOrg.Role}" Severity="Neutral"/>
+                    </StackPanel>
+                    <materialIcons:MaterialIcon Grid.Column="1"
+                                                 Kind="ChevronDown"
+                                                 Width="16" Height="16"
+                                                 Foreground="{DynamicResource TextMutedBrush}"
+                                                 VerticalAlignment="Center"/>
+                </Grid>
+            </Button>
+
+            <Border Classes="footer-divider" IsVisible="{Binding !IsNavigationCollapsed}"/>
+
+            <Button Classes="user-row" Command="{Binding ProfileMenu.ToggleOpenCommand}">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Grid.Column="0" Classes="avatar-circle">
+                        <TextBlock Text="{Binding ProfileMenu.UserInitials}"/>
+                    </Border>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding ProfileMenu.UserDisplayName}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="13"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               IsVisible="{Binding !IsNavigationCollapsed}"/>
+                </Grid>
+            </Button>
+        </StackPanel>
+    </Border>
+</UserControl>

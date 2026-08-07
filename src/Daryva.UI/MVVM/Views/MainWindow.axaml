@@ -4,6 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:converters="clr-namespace:Daryva.MVVM.Converters"
+        xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+        xmlns:materialIcons="using:Material.Icons.Avalonia"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="Daryva.MVVM.Views.MainWindow"
         x:CompileBindings="False"
@@ -44,6 +46,10 @@
         </Style>
         <Style Selector="ListBox#NavigationList ListBoxItem:pointerover /template/ Border#NavBorder">
             <Setter Property="Background" Value="{DynamicResource ControlBackgroundHoverBrush}"/>
+        </Style>
+        <!-- Active nav item's icon picks up the brand accent too, not just the indicator stripe. -->
+        <Style Selector="ListBox#NavigationList ListBoxItem:selected materialIcons|MaterialIcon">
+            <Setter Property="Foreground" Value="{DynamicResource BrandPrimaryBrush}"/>
         </Style>
         <Style Selector="Border#SupportSessionRootBorder.support-session-active">
             <Setter Property="BorderBrush" Value="#E5484D"/>
@@ -114,10 +120,9 @@
                                       Margin="10,10"
                                       Spacing="12"
                                       HorizontalAlignment="{Binding DataContext.IsNavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToAlignmentConverter}}">
-                                <TextBlock Text="{Binding Icon}" 
-                                          FontSize="18" 
+                                <materialIcons:MaterialIcon Kind="{Binding Icon}"
+                                          Width="20" Height="20"
                                           VerticalAlignment="Center"
-                                          Opacity="0.85"
                                           Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Text="{Binding Title}" 
                                           FontSize="14" 
@@ -131,23 +136,7 @@
 
                 <!-- Footer Actions -->
                 <StackPanel Grid.Row="2" Margin="8,8,8,8" Spacing="8">
-                    <Border Background="{DynamicResource Surface2Brush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="8,6"
-                            IsVisible="{Binding IsNavigationCollapsed, Converter={StaticResource InvertBoolConverter}}">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="Organization"
-                                      FontSize="11"
-                                      Opacity="0.7"/>
-                            <TextBlock Text="{Binding CurrentOrganizationName}"
-                                      FontSize="13"
-                                      FontWeight="SemiBold"
-                                      TextTrimming="CharacterEllipsis"
-                                      MaxWidth="170"/>
-                        </StackPanel>
-                    </Border>
+                    <controls:SidebarProfileFooter DataContext="{Binding}"/>
 
                         <Button Command="{Binding ToggleNavigationCommand}"
                             HorizontalAlignment="Left"

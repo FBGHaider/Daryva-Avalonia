@@ -1,3 +1,5 @@
+using Material.Icons;
+
 namespace Daryva.MVVM.Models
 {
     /// <summary>
@@ -11,9 +13,9 @@ namespace Daryva.MVVM.Models
         public string Title { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets or sets the icon (emoji or symbol) for the navigation item.
+        /// Gets or sets the icon for the navigation item.
         /// </summary>
-        public string Icon { get; set; } = string.Empty;
+        public MaterialIconKind Icon { get; set; }
 
         /// <summary>
         /// Gets or sets the type of the ViewModel associated with this navigation item.

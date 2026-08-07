@@ -90,14 +90,14 @@
                                   Margin="0,0,14,0"
                                   Title="Houses"
                                   Value="{Binding HousesCount}"
-                                  Icon="🏠"
+                                  Icon="HomeCityOutline"
                                   AccentBrush="{DynamicResource BrandPrimaryBrush}"/>
 
                 <controls:KpiCard Grid.Column="1"
                                   Margin="0,0,14,0"
                                   Title="Active Tenants"
                                   Value="{Binding ActiveTenantsCount}"
-                                  Icon="👥"
+                                  Icon="AccountGroupOutline"
                                   AccentBrush="{DynamicResource StatusSuccessBrush}"/>
 
                 <controls:KpiCard Grid.Column="2"
@@ -105,13 +105,13 @@
                                   Title="Overdue Rent"
                                   Value="{Binding OverdueRentCount}"
                                   SubText="{Binding OverdueRentAmount, StringFormat='£{0:N2} pending'}"
-                                  Icon="⚠"
+                                  Icon="AlertCircleOutline"
                                   AccentBrush="{DynamicResource StatusDangerBrush}"/>
 
                 <controls:KpiCard Grid.Column="3"
                                   Title="Documents Expiring"
                                   Value="{Binding DocumentsExpiringSoonCount}"
-                                  Icon="📄"
+                                  Icon="FileDocumentOutline"
                                   AccentBrush="{DynamicResource BrandSecondaryBrush}"/>
             </Grid>
 

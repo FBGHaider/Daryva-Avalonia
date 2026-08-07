@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Material.Icons;
 
 namespace Daryva.MVVM.Views.Controls;
 
@@ -16,8 +17,8 @@ public partial class KpiCard : UserControl
     public static readonly StyledProperty<string> SubTextProperty =
         AvaloniaProperty.Register<KpiCard, string>(nameof(SubText), string.Empty);
 
-    public static readonly StyledProperty<string> IconProperty =
-        AvaloniaProperty.Register<KpiCard, string>(nameof(Icon), string.Empty);
+    public static readonly StyledProperty<MaterialIconKind?> IconProperty =
+        AvaloniaProperty.Register<KpiCard, MaterialIconKind?>(nameof(Icon));
 
     public static readonly StyledProperty<IBrush?> AccentBrushProperty =
         AvaloniaProperty.Register<KpiCard, IBrush?>(nameof(AccentBrush));
@@ -54,7 +55,7 @@ public partial class KpiCard : UserControl
         set => SetValue(SubTextProperty, value);
     }
 
-    public string Icon
+    public MaterialIconKind? Icon
     {
         get => GetValue(IconProperty);
         set => SetValue(IconProperty, value);
@@ -74,5 +75,5 @@ public partial class KpiCard : UserControl
     private static readonly DirectProperty<KpiCard, bool> HasIconProperty =
         AvaloniaProperty.RegisterDirect<KpiCard, bool>(nameof(HasIcon), card => card.HasIcon);
 
-    public bool HasIcon => !string.IsNullOrWhiteSpace(Icon);
+    public bool HasIcon => Icon.HasValue;
 }

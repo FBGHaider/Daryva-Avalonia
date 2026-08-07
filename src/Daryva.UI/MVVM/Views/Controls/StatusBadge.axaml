@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             x:Class="Daryva.MVVM.Views.Controls.StatusBadge"
+             x:Name="Root"
+             x:CompileBindings="False"
+             HorizontalAlignment="Left"
+             VerticalAlignment="Center">
+    <!-- Text+color status pill. Severity is never the sole signal, the Text is always shown
+         alongside the color, so color-blind/low-vision users still get the status. Selectors
+         below cross from this UserControl's own severity-* class (set in code-behind) down into
+         the inner Border/TextBlock, since Content here isn't inside a ControlTemplate. -->
+    <UserControl.Styles>
+        <Style Selector="controls|StatusBadge Border.badge-pill">
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+        </Style>
+        <Style Selector="controls|StatusBadge Border.badge-pill TextBlock">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+
+        <Style Selector="controls|StatusBadge.severity-success Border.badge-pill">
+            <Setter Property="Background" Value="{DynamicResource SuccessSubtleBrush}"/>
+        </Style>
+        <Style Selector="controls|StatusBadge.severity-success Border.badge-pill TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource StatusSuccessBrush}"/>
+        </Style>
+
+        <Style Selector="controls|StatusBadge.severity-warning Border.badge-pill">
+            <Setter Property="Background" Value="{DynamicResource WarningSubtleBrush}"/>
+        </Style>
+        <Style Selector="controls|StatusBadge.severity-warning Border.badge-pill TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}"/>
+        </Style>
+
+        <Style Selector="controls|StatusBadge.severity-danger Border.badge-pill">
+            <Setter Property="Background" Value="{DynamicResource DangerSubtleBrush}"/>
+        </Style>
+        <Style Selector="controls|StatusBadge.severity-danger Border.badge-pill TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource StatusDangerBrush}"/>
+        </Style>
+
+        <Style Selector="controls|StatusBadge.severity-info Border.badge-pill">
+            <Setter Property="Background" Value="{DynamicResource InfoSubtleBrush}"/>
+        </Style>
+        <Style Selector="controls|StatusBadge.severity-info Border.badge-pill TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrandSecondaryBrush}"/>
+        </Style>
+
+        <Style Selector="controls|StatusBadge.severity-purple Border.badge-pill">
+            <Setter Property="Background" Value="{DynamicResource AccentPurpleSubtleBrush}"/>
+        </Style>
+        <Style Selector="controls|StatusBadge.severity-purple Border.badge-pill TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource AccentPurpleBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="badge-pill">
+        <TextBlock Text="{Binding Text, ElementName=Root}"/>
+    </Border>
+</UserControl>
