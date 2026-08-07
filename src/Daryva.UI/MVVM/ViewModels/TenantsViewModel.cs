@@ -130,6 +130,7 @@ namespace Daryva.MVVM.ViewModels
                 if (SetProperty(ref _selectedTenant, value))
                 {
                     ((RelayCommand)EditTenantCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)InviteTenantCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RemoveTenantCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)DeleteArchivedCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RecoverTenantCommand).RaiseCanExecuteChanged();
@@ -145,6 +146,7 @@ namespace Daryva.MVVM.ViewModels
                 if (SetProperty(ref _showArchivedOnly, value))
                 {
                     ((RelayCommand)EditTenantCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)InviteTenantCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RemoveTenantCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)DeleteArchivedCommand).RaiseCanExecuteChanged();
                     ((RelayCommand)RecoverTenantCommand).RaiseCanExecuteChanged();
