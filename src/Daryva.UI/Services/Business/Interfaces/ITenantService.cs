@@ -14,5 +14,8 @@ namespace Daryva.Services.Business
         Task UnarchiveTenantAsync(int tenantId);
         Task<IEnumerable<Tenant>> SearchTenantsAsync(string searchTerm);
         Task DeleteTenantAsync(int tenantId);
+
+        /// <summary>Email the tenant a portal invite link so they can view their tenancy documents online.</summary>
+        Task InviteTenantAsync(int tenantId);
     }
 }

@@ -128,6 +128,17 @@ public class TenantService : ITenantService
             throw new InvalidOperationException($"Failed to delete tenant with ID {tenantId}.");
     }
 
+    public async Task InviteTenantAsync(int tenantId)
+    {
+        var tenant = await GetTenantByIdAsync(tenantId);
+        if (tenant == null || !tenant.ApiId.HasValue)
+            throw new InvalidOperationException($"Tenant with ID {tenantId} not found or has no API ID.");
+
+        var invited = await _tenantApiService.InviteTenantAsync(tenant.ApiId.Value);
+        if (!invited)
+            throw new InvalidOperationException($"Tenant with ID {tenantId} not found.");
+    }
+
     /// <summary>
     /// Map TenantDto from API to UI Tenant model.
     /// Assigns a local int ID based on the hash of the Guid.

@@ -173,7 +173,7 @@ public class TenantApiService : ITenantApiService
         try
         {
             var response = await _apiClient.HttpClient.DeleteAsync($"api/tenants/{tenantId}", cancellationToken);
-            
+
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return false;
 
@@ -181,6 +181,29 @@ public class TenantApiService : ITenantApiService
             {
                 var error = await response.Content.ReadAsStringAsync(cancellationToken);
                 throw new InvalidOperationException($"Failed to delete tenant: {response.StatusCode} - {error}");
+            }
+
+            return true;
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException("Failed to connect to API. Please check that the backend is running.", ex);
+        }
+    }
+
+    public async Task<bool> InviteTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _apiClient.HttpClient.PostAsync($"api/tenants/{tenantId}/invite", null, cancellationToken);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return false;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new InvalidOperationException(ApiErrorFormatter.Format("send tenant invite", response.StatusCode, body));
             }
 
             return true;

@@ -56,6 +56,7 @@ namespace Daryva.MVVM.ViewModels
             ClearSearchCommand = new RelayCommand(_ => SearchTerm = string.Empty, _ => !string.IsNullOrWhiteSpace(SearchTerm));
             AddTenantCommand = new RelayCommand(_ => ShowAddTenantDialog());
             EditTenantCommand = new RelayCommand(_ => ShowEditTenantDialog(), _ => SelectedTenant != null && !ShowArchivedOnly);
+            InviteTenantCommand = new RelayCommand(_ => InviteTenantAsync(), _ => SelectedTenant != null && !ShowArchivedOnly);
             RemoveTenantCommand = new RelayCommand(_ => RemoveTenantAsync(), _ => SelectedTenant != null && !ShowArchivedOnly);
             ViewArchivedCommand = new RelayCommand(_ => ToggleArchivedView());
             DeleteArchivedCommand = new RelayCommand(_ => DeleteArchivedTenantAsync(), _ => SelectedTenant != null && ShowArchivedOnly);
@@ -84,6 +85,7 @@ namespace Daryva.MVVM.ViewModels
         public ICommand ClearSearchCommand { get; }
         public ICommand AddTenantCommand { get; }
         public ICommand EditTenantCommand { get; }
+        public ICommand InviteTenantCommand { get; }
         public ICommand RemoveTenantCommand { get; }
         public ICommand ViewArchivedCommand { get; }
         public ICommand DeleteArchivedCommand { get; }
@@ -512,6 +514,35 @@ namespace Daryva.MVVM.ViewModels
             catch (Exception ex)
             {
                 _dialogService.ShowMessage($"Error recovering tenant: {ex.Message}", "Error");
+            }
+        }
+
+        private async void InviteTenantAsync()
+        {
+            if (SelectedTenant == null) return;
+
+            if (string.IsNullOrWhiteSpace(SelectedTenant.Email))
+            {
+                _dialogService.ShowMessage(
+                    "This tenant has no email address on file. Add one before sending a portal invite.",
+                    "No Email Address");
+                return;
+            }
+
+            var confirmed = await _dialogService.ShowConfirmationAsync(
+                $"Send '{SelectedTenant.FullName}' an email invite to set up their tenant portal login?\n\nThey'll be able to view their tenancy documents online without installing the desktop app.",
+                "Invite to Portal");
+
+            if (!confirmed) return;
+
+            try
+            {
+                await _tenantService.InviteTenantAsync(SelectedTenant.TenantId);
+                _dialogService.ShowMessage($"Invite sent to {SelectedTenant.Email}.", "Invite Sent");
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowMessage($"Error sending invite: {ex.Message}", "Error");
             }
         }
     }

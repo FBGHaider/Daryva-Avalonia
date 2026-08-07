@@ -52,6 +52,10 @@
                                     Command="{Binding EditTenantCommand}"
                                     Classes="secondary"
                                     IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
+                            <Button Content="Invite to Portal"
+                                    Command="{Binding InviteTenantCommand}"
+                                    Classes="secondary"
+                                    IsVisible="{Binding ShowArchivedOnly, Converter={StaticResource InvertBoolConverter}}"/>
                             <Button Content="Mark as leave"
                                     Command="{Binding RemoveTenantCommand}"
                                     Classes="secondary"

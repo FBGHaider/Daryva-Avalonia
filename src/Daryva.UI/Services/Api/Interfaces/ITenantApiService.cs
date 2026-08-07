@@ -81,4 +81,10 @@ public interface ITenantApiService
     /// Delete a tenant.
     /// </summary>
     Task<bool> DeleteTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Email the tenant a portal invite link so they can set up their own login and view
+    /// their tenancy documents online. Throws if the tenant has no email address on file.
+    /// </summary>
+    Task<bool> InviteTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
 }
