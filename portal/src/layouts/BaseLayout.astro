@@ -1,0 +1,48 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  showNav?: boolean;
+}
+
+const { title, showNav = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <title>{title} · Daryva Portal</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0b1020" />
+  </head>
+  <body>
+    {showNav && (
+      <header class="site-header">
+        <div class="container bar">
+          <a href="/" class="wordmark">
+            <img src="/logo.png" width="22" height="22" alt="" />
+            <span>Daryva</span>
+          </a>
+          <ul class="nav-links">
+            <li><a href="/" aria-current={Astro.url.pathname === '/' ? 'page' : undefined}>My tenancy</a></li>
+            <li><a href="/documents" aria-current={Astro.url.pathname === '/documents' ? 'page' : undefined}>Documents</a></li>
+            <li>
+              <form method="POST" action="/logout" style="margin: 0;">
+                <button type="submit" class="btn btn-ghost">Log out</button>
+              </form>
+            </li>
+          </ul>
+        </div>
+      </header>
+    )}
+    <main>
+      <div class="container">
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>

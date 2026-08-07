@@ -46,6 +46,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  portal:
+    image: ${DARYVA_PORTAL_IMAGE:-ghcr.io/your-org/daryva-portal:latest}
+    container_name: daryva-portal
+    environment:
+      # Compose's default network resolves services by name - "api" is the service key
+      # below, reached over the internal Docker network rather than the public internet.
+      API_BASE_URL: http://api:8080
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: daryva-postgres-prod

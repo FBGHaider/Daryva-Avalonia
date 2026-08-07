@@ -1,15 +1,18 @@
-# Nginx setup for daryva.com + api.daryva.com
+# Nginx setup for daryva.com + api.daryva.com + portal.daryva.com
 
-The VPS runs **two independent Nginx sites**, each with its own Certbot-managed
-certificate — not one shared config/cert as earlier notes here assumed:
+The VPS runs **three independent Nginx sites**, each with its own
+Certbot-managed certificate:
 
 - `daryva-api.conf` → `api.daryva.com`, proxies to the API Docker container on
   `127.0.0.1:8080`. Cert lineage: `/etc/letsencrypt/live/api.daryva.com/`.
 - `daryva-website.conf` → `daryva.com` + `www.daryva.com`, serves static files
   from `/var/www/daryva.com`. Cert lineage: `/etc/letsencrypt/live/daryva.com/`.
+- `daryva-portal.conf` → `portal.daryva.com`, proxies to the portal's Docker
+  container on `127.0.0.1:8081`. Cert lineage:
+  `/etc/letsencrypt/live/portal.daryva.com/`.
 
-Keeping them separate means a website deploy or cert renewal can never
-accidentally break the API's Nginx config, or vice versa.
+Keeping them separate means a deploy or cert renewal for one can never
+accidentally break the others.
 
 ## 1) Install Nginx + Certbot
 
@@ -26,8 +29,10 @@ Copy each file to `/etc/nginx/sites-available/` under the name Certbot expects
 ```bash
 sudo cp deploy/nginx/daryva-api.conf /etc/nginx/sites-available/daryva-api
 sudo cp deploy/nginx/daryva-website.conf /etc/nginx/sites-available/daryva-website
+sudo cp deploy/nginx/daryva-portal.conf /etc/nginx/sites-available/daryva-portal
 sudo ln -sf /etc/nginx/sites-available/daryva-api /etc/nginx/sites-enabled/daryva-api
 sudo ln -sf /etc/nginx/sites-available/daryva-website /etc/nginx/sites-enabled/daryva-website
+sudo ln -sf /etc/nginx/sites-available/daryva-portal /etc/nginx/sites-enabled/daryva-portal
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -36,28 +41,33 @@ The committed files here already include the `# managed by Certbot` blocks
 exactly as they exist on the server, since Certbot rewrites the file in place
 when it issues/renews a cert. If you're setting this up fresh, start with just
 the `server_name`/`root`/`location` parts on port 80, run Certbot (step 3), and
-let it add the SSL blocks itself — that's how both were originally created.
+let it add the SSL blocks itself — that's how all three were originally created.
 
 ## 3) Issue TLS certificates
 
-Two separate certs, issued independently:
+Three separate certs, issued independently:
 
 ```bash
 sudo certbot --nginx -d api.daryva.com
 sudo certbot --nginx -d daryva.com -d www.daryva.com --redirect
+sudo certbot --nginx -d portal.daryva.com --redirect
 ```
 
 Certbot registers one Let's Encrypt account per server on first use and reuses
-it for later certs, so the second command won't re-prompt for an email/ToS
-once the first has run.
+it for later certs, so the second and third commands won't re-prompt for an
+email/ToS once the first has run.
 
-## 4) API container exposure
+## 4) Container exposure
 
-The API service should publish host port `8080`:
+The API and portal services should publish their own host ports:
 
 ```yaml
+# api
 ports:
   - "8080:8080"
+# portal
+ports:
+  - "8081:8080"
 ```
 
 ## 5) Validate
@@ -66,9 +76,10 @@ ports:
 curl -I https://daryva.com
 curl -I https://www.daryva.com
 curl -I https://api.daryva.com/health
+curl -I https://portal.daryva.com
 ```
 
-Expected: all three respond over HTTPS, and `api.daryva.com/health` returns
+Expected: all four respond over HTTPS, and `api.daryva.com/health` returns
 `200 OK`.
 
 **Don't stop at the status code** — a `200` can come from the wrong place (a

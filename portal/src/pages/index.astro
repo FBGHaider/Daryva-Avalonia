@@ -1,0 +1,112 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { apiFetch, readJsonLoose } from '../lib/api';
+
+interface TenancyHouse {
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  postcode: string;
+}
+
+interface Tenancy {
+  id: string;
+  moveInDate: string;
+  rentAmountMonthly: number;
+  depositAmount: number;
+  paymentDueDay: number;
+  status: string;
+  house: TenancyHouse | null;
+}
+
+const tenanciesResponse = await apiFetch(Astro.cookies, '/api/tenancies');
+if (!tenanciesResponse) {
+  return Astro.redirect('/login');
+}
+if (!tenanciesResponse.ok) {
+  throw new Error(`Failed to load tenancies (${tenanciesResponse.status})`);
+}
+
+const tenancies: Tenancy[] = await tenanciesResponse.json();
+
+const now = new Date();
+const year = now.getUTCFullYear();
+const month = now.getUTCMonth() + 1;
+
+const tenanciesWithStatus = await Promise.all(
+  tenancies.map(async (tenancy) => {
+    const [rentRes, depositRes] = await Promise.all([
+      apiFetch(Astro.cookies, `/api/payments/status/rent/${tenancy.id}?year=${year}&month=${month}`),
+      apiFetch(Astro.cookies, `/api/payments/status/deposit/${tenancy.id}`),
+    ]);
+    const rentStatus = rentRes?.ok ? await readJsonLoose<string>(rentRes) : null;
+    const depositStatus = depositRes?.ok ? await readJsonLoose<string>(depositRes) : null;
+    return { ...tenancy, rentStatus, depositStatus };
+  }),
+);
+
+function badgeClass(status: string | null): string {
+  if (!status) return 'badge-neutral';
+  const s = status.toLowerCase();
+  // Check the negative cases first - "unpaid" contains "paid" as a substring, so a
+  // naive "paid"-first check would misclassify it as good.
+  if (s.includes('overdue') || s.includes('unpaid') || s.includes('missing')) return 'badge-attention';
+  if (s.includes('paid') || s.includes('protected')) return 'badge-good';
+  return 'badge-neutral';
+}
+
+function formatMoney(amount: number): string {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount);
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+---
+
+<BaseLayout title="My tenancy" showNav>
+  <h1 class="page-title">My tenancy</h1>
+  <p class="page-lede">An overview of your current tenancy and payment status.</p>
+
+  {tenanciesWithStatus.length === 0 && (
+    <div class="card">
+      <p class="empty-state">No tenancy is linked to your account yet. Contact your landlord if this looks wrong.</p>
+    </div>
+  )}
+
+  {tenanciesWithStatus.map((tenancy) => (
+    <div class="card">
+      <h2 style="font-size: 18px; margin-bottom: 4px;">
+        {tenancy.house ? tenancy.house.addressLine1 : 'Your property'}
+      </h2>
+      {tenancy.house && (
+        <p class="entry-meta" style="margin-bottom: 18px;">
+          {[tenancy.house.addressLine2, tenancy.house.city, tenancy.house.postcode].filter(Boolean).join(', ')}
+        </p>
+      )}
+
+      <div class="entry-list">
+        <div class="entry">
+          <div>
+            <div class="entry-title">Rent</div>
+            <div class="entry-meta figure">{formatMoney(tenancy.rentAmountMonthly)} / month</div>
+          </div>
+          <span class={`badge ${badgeClass(tenancy.rentStatus)}`}>{tenancy.rentStatus ?? 'Unknown'}</span>
+        </div>
+        <div class="entry">
+          <div>
+            <div class="entry-title">Deposit</div>
+            <div class="entry-meta figure">{formatMoney(tenancy.depositAmount)}</div>
+          </div>
+          <span class={`badge ${badgeClass(tenancy.depositStatus)}`}>{tenancy.depositStatus ?? 'Unknown'}</span>
+        </div>
+        <div class="entry" style="border-bottom: none;">
+          <div>
+            <div class="entry-title">Move-in date</div>
+          </div>
+          <div class="entry-meta">{formatDate(tenancy.moveInDate)}</div>
+        </div>
+      </div>
+    </div>
+  ))}
+</BaseLayout>

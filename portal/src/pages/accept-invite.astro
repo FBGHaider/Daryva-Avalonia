@@ -1,0 +1,69 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { setAuthCookies } from '../lib/api';
+
+const API_BASE_URL = import.meta.env.API_BASE_URL || 'http://localhost:5000';
+
+const token = Astro.url.searchParams.get('token') ?? '';
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const formToken = formData.get('token')?.toString() ?? '';
+  const password = formData.get('password')?.toString() ?? '';
+  const confirmPassword = formData.get('confirmPassword')?.toString() ?? '';
+
+  if (!formToken) {
+    error = 'This invite link is missing its token. Ask your landlord to resend it.';
+  } else if (!password) {
+    error = 'Choose a password.';
+  } else if (password !== confirmPassword) {
+    error = 'Passwords do not match.';
+  } else {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/tenant/accept-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: formToken, password }),
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success && result.accessToken) {
+        setAuthCookies(Astro.cookies, {
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          accessTokenExpiresAt: result.accessTokenExpiresAt,
+        });
+        return Astro.redirect('/');
+      } else {
+        error = result.message || result.error || 'Something went wrong. Please try again.';
+      }
+    } catch {
+      error = 'Could not reach the server. Please try again.';
+    }
+  }
+}
+---
+
+<BaseLayout title="Set up your portal login">
+  <div class="card form-card">
+    <h1 class="page-title">Set up your login</h1>
+    <p class="page-lede">Choose a password to access your tenancy documents online.</p>
+    {!token && !error && (
+      <p class="form-error">This invite link is missing its token. Ask your landlord to resend it.</p>
+    )}
+    {error && <p class="form-error">{error}</p>}
+    <form method="POST">
+      <input type="hidden" name="token" value={token} />
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="new-password" minlength="8" />
+      </div>
+      <div class="field">
+        <label for="confirmPassword">Confirm password</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password" minlength="8" />
+      </div>
+      <button type="submit" class="btn btn-primary">Set password and log in</button>
+    </form>
+  </div>
+</BaseLayout>

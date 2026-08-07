@@ -1,0 +1,50 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { apiFetch } from '../lib/api';
+
+interface DocumentItem {
+  id: string;
+  type: string;
+  displayName: string;
+  fileName: string;
+  uploadedAt: string;
+}
+
+const documentsResponse = await apiFetch(Astro.cookies, '/api/documents');
+if (!documentsResponse) {
+  return Astro.redirect('/login');
+}
+if (!documentsResponse.ok) {
+  throw new Error(`Failed to load documents (${documentsResponse.status})`);
+}
+
+const documents: DocumentItem[] = await documentsResponse.json();
+documents.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+---
+
+<BaseLayout title="Documents" showNav>
+  <h1 class="page-title">Documents</h1>
+  <p class="page-lede">Tenancy agreements, certificates, and other documents your landlord has shared.</p>
+
+  <div class="card">
+    {documents.length === 0 ? (
+      <p class="empty-state">No documents have been shared with you yet.</p>
+    ) : (
+      <div class="entry-list">
+        {documents.map((doc) => (
+          <div class="entry">
+            <div>
+              <div class="entry-title">{doc.displayName || doc.fileName}</div>
+              <div class="entry-meta">{doc.type} · uploaded {formatDate(doc.uploadedAt)}</div>
+            </div>
+            <a href={`/documents/${doc.id}/download`} class="btn btn-ghost">Download</a>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</BaseLayout>
