@@ -35,6 +35,7 @@ public class AuthService : IAuthService
     private static readonly TimeSpan TwoFactorChallengeLifetime = TimeSpan.FromMinutes(5);
     private readonly IAppUserRepository _appUserRepository;
     private readonly IAuthRefreshTokenRepository _authRefreshTokenRepository;
+    private readonly ITenantRepository _tenantRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
     private readonly JwtOptions _jwtOptions;
@@ -46,6 +47,7 @@ public class AuthService : IAuthService
     public AuthService(
         IAppUserRepository appUserRepository,
         IAuthRefreshTokenRepository authRefreshTokenRepository,
+        ITenantRepository tenantRepository,
         IUnitOfWork unitOfWork,
         IAuditLogger auditLogger,
         IOptions<JwtOptions> jwtOptions,
@@ -56,6 +58,7 @@ public class AuthService : IAuthService
     {
         _appUserRepository = appUserRepository;
         _authRefreshTokenRepository = authRefreshTokenRepository;
+        _tenantRepository = tenantRepository;
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
         _jwtOptions = jwtOptions.Value;
@@ -94,7 +97,7 @@ public class AuthService : IAuthService
             return resendResult;
         }
 
-        var tokenPlain = GenerateVerificationToken();
+        var tokenPlain = TokenGenerator.GenerateToken();
 
         var user = new AppUser
         {
@@ -103,7 +106,7 @@ public class AuthService : IAuthService
             LastName = lastName,
             Email = email,
             PasswordHash = HashPassword(request.Password),
-            EmailVerificationTokenHash = Sha256(tokenPlain),
+            EmailVerificationTokenHash = TokenGenerator.Hash(tokenPlain),
             EmailVerificationTokenExpiresAt = now.Add(EmailVerificationTokenLifetime),
             EmailVerificationSentAt = now,
             IsActive = true,
@@ -132,7 +135,7 @@ public class AuthService : IAuthService
         }
 
         var now = DateTime.UtcNow;
-        var tokenHash = Sha256(token.Trim());
+        var tokenHash = TokenGenerator.Hash(token.Trim());
 
         var user = await _appUserRepository.GetByEmailVerificationTokenHashAsync(tokenHash, cancellationToken);
 
@@ -280,7 +283,7 @@ public class AuthService : IAuthService
         if (!verified && !string.IsNullOrWhiteSpace(user.RecoveryCodesHash))
         {
             var hashes = System.Text.Json.JsonSerializer.Deserialize<List<string>>(user.RecoveryCodesHash) ?? new List<string>();
-            var codeHash = Sha256(trimmedCode.ToLowerInvariant());
+            var codeHash = TokenGenerator.Hash(trimmedCode.ToLowerInvariant());
             if (hashes.Remove(codeHash))
             {
                 user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(hashes);
@@ -311,7 +314,7 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(refreshToken))
             return null;
 
-        var tokenHash = Sha256(refreshToken);
+        var tokenHash = TokenGenerator.Hash(refreshToken);
         var now = DateTime.UtcNow;
 
         var session = await _authRefreshTokenRepository.GetByTokenHashWithUserAsync(tokenHash, cancellationToken);
@@ -331,7 +334,7 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(refreshToken))
             return false;
 
-        var tokenHash = Sha256(refreshToken);
+        var tokenHash = TokenGenerator.Hash(refreshToken);
         var session = await _authRefreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
         if (session == null || session.RevokedAt.HasValue)
             return false;
@@ -376,8 +379,8 @@ public class AuthService : IAuthService
         if (user.PasswordResetSentAt.HasValue && now - user.PasswordResetSentAt.Value < ResendThrottleWindow)
             return new ForgotPasswordResponse { Message = genericMessage };
 
-        var tokenPlain = GenerateVerificationToken();
-        user.PasswordResetTokenHash = Sha256(tokenPlain);
+        var tokenPlain = TokenGenerator.GenerateToken();
+        user.PasswordResetTokenHash = TokenGenerator.Hash(tokenPlain);
         user.PasswordResetTokenExpiresAt = now.Add(PasswordResetTokenLifetime);
         user.PasswordResetSentAt = now;
 
@@ -397,7 +400,7 @@ public class AuthService : IAuthService
         ValidatePassword(newPassword);
 
         var now = DateTime.UtcNow;
-        var tokenHash = Sha256(token.Trim());
+        var tokenHash = TokenGenerator.Hash(token.Trim());
 
         var user = await _appUserRepository.GetByPasswordResetTokenHashAsync(tokenHash, cancellationToken);
         if (user == null)
@@ -422,6 +425,64 @@ public class AuthService : IAuthService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ResetPasswordResponse { Success = true, Message = "Password has been reset. You can now log in with your new password." };
+    }
+
+    public async Task<AcceptTenantInviteResponse> AcceptTenantInviteAsync(string token, string password, string? clientIp, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return new AcceptTenantInviteResponse { Success = false, Message = "Invite token is required." };
+
+        ValidatePassword(password);
+
+        var now = DateTime.UtcNow;
+        var tokenHash = TokenGenerator.Hash(token.Trim());
+
+        var tenant = await _tenantRepository.GetByInviteTokenHashAsync(tokenHash, cancellationToken);
+        if (tenant == null)
+            return new AcceptTenantInviteResponse { Success = false, Message = "Invalid or expired invite link." };
+
+        if (!tenant.InviteTokenExpiresAt.HasValue || tenant.InviteTokenExpiresAt.Value <= now)
+            return new AcceptTenantInviteResponse { Success = false, Message = "Invite link has expired. Ask your landlord to resend it." };
+
+        var email = NormalizeEmail(tenant.Email);
+        var existingUser = await _appUserRepository.GetByEmailAsync(email, cancellationToken);
+        if (existingUser != null)
+            return new AcceptTenantInviteResponse { Success = false, Message = "An account with this email already exists. Contact your landlord for help linking it." };
+
+        var nameParts = tenant.FullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var user = new AppUser
+        {
+            Id = Guid.NewGuid(),
+            FirstName = nameParts.Length > 0 ? nameParts[0] : tenant.FullName,
+            LastName = nameParts.Length > 1 ? nameParts[1] : string.Empty,
+            Email = email,
+            PasswordHash = HashPassword(password),
+            EmailVerifiedAt = now, // the invite email already proved the address
+            IsActive = true,
+            CreatedAt = now
+        };
+
+        _appUserRepository.Add(user);
+
+        tenant.AppUserId = user.Id;
+        tenant.InviteTokenHash = null;
+        tenant.InviteTokenExpiresAt = null;
+
+        _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TenantInviteAccepted,
+            organizationId: tenant.OrganizationId, targetType: nameof(Tenant), targetId: tenant.Id.ToString(), ipAddress: clientIp);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var authResponse = await IssueTokensAsync(user, clientIp, cancellationToken);
+        return new AcceptTenantInviteResponse
+        {
+            Success = true,
+            Message = "Account created. You're now logged in.",
+            AccessToken = authResponse.AccessToken,
+            RefreshToken = authResponse.RefreshToken,
+            AccessTokenExpiresAt = authResponse.AccessTokenExpiresAt,
+            UserId = authResponse.UserId,
+            Email = authResponse.Email
+        };
     }
 
     public async Task<TwoFactorEnrollResponse> EnrollTwoFactorAsync(string userId, CancellationToken cancellationToken = default)
@@ -469,7 +530,7 @@ public class AuthService : IAuthService
 
         var recoveryCodes = GenerateRecoveryCodes();
         user.TwoFactorEnabled = true;
-        user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(recoveryCodes.Select(Sha256));
+        user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(recoveryCodes.Select(TokenGenerator.Hash));
 
         _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TwoFactorEnabled,
             targetType: nameof(AppUser), targetId: user.Id.ToString());
@@ -523,7 +584,7 @@ public class AuthService : IAuthService
             return new TwoFactorRegenerateRecoveryCodesResponse { Success = false, Message = "Incorrect password." };
 
         var recoveryCodes = GenerateRecoveryCodes();
-        user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(recoveryCodes.Select(Sha256));
+        user.RecoveryCodesHash = System.Text.Json.JsonSerializer.Serialize(recoveryCodes.Select(TokenGenerator.Hash));
 
         _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TwoFactorRecoveryCodesRegenerated,
             targetType: nameof(AppUser), targetId: user.Id.ToString());
@@ -585,8 +646,8 @@ public class AuthService : IAuthService
 
     private async Task<RegisterResponse> RotateVerificationTokenAndSendAsync(AppUser user, DateTime now, CancellationToken cancellationToken)
     {
-        var tokenPlain = GenerateVerificationToken();
-        user.EmailVerificationTokenHash = Sha256(tokenPlain);
+        var tokenPlain = TokenGenerator.GenerateToken();
+        user.EmailVerificationTokenHash = TokenGenerator.Hash(tokenPlain);
         user.EmailVerificationTokenExpiresAt = now.Add(EmailVerificationTokenLifetime);
         user.EmailVerificationSentAt = now;
 
@@ -644,11 +705,6 @@ public class AuthService : IAuthService
         return $"{baseUrl}{separator}token={Uri.EscapeDataString(token)}";
     }
 
-    private static string GenerateVerificationToken()
-    {
-        var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
-        return raw.TrimEnd('=').Replace('+', '-').Replace('/', '_');
-    }
 
     private async Task<AuthResponse> IssueTokensAsync(AppUser user, string? clientIp, CancellationToken cancellationToken)
     {
@@ -677,7 +733,7 @@ public class AuthService : IAuthService
         var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
 
         var refreshTokenPlain = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-        var refreshTokenHash = Sha256(refreshTokenPlain);
+        var refreshTokenHash = TokenGenerator.Hash(refreshTokenPlain);
 
         var refreshSession = new AuthRefreshToken
         {
@@ -844,11 +900,5 @@ public class AuthService : IAuthService
             MemorySize = memoryKb
         };
         return argon2.GetBytes(hashLength);
-    }
-
-    private static string Sha256(string value)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
-        return Convert.ToHexString(bytes);
     }
 }

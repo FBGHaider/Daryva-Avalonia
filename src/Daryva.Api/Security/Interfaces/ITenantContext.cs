@@ -50,15 +50,24 @@ public interface ITenantContext
     Guid? ActiveSupportSessionId { get; }
 
     /// <summary>
+    /// Set when CurrentRole is Roles.Tenant -- the Tenant.Id (not AppUser.Id) the caller is
+    /// linked to for CurrentOrgId. Null for every other role. Controllers that expose data to
+    /// the Tenant role must use this to scope their own queries (documents, tenancy, payments)
+    /// -- the global org-wide query filter alone is not enough to isolate one tenant from
+    /// another within the same org. Same population caveat as CurrentRole.
+    /// </summary>
+    Guid? CurrentTenantId { get; }
+
+    /// <summary>
     /// Set the current organization context (used by middleware after validation).
     /// Resets any previously resolved CurrentRole/IsPrimaryOwnerOfCurrentOrg/IsPlatformAdmin/
-    /// ActiveSupportSessionId.
+    /// ActiveSupportSessionId/CurrentTenantId.
     /// </summary>
     void SetCurrentOrgId(Guid? orgId);
 
     /// <summary>
     /// Resolves IsPlatformAdmin, then CurrentRole/IsPrimaryOwnerOfCurrentOrg/
-    /// ActiveSupportSessionId, from the database for the current (UserId, CurrentOrgId) pair.
+    /// ActiveSupportSessionId/CurrentTenantId, from the database for the current (UserId, CurrentOrgId) pair.
     /// IsPlatformAdmin resolves even if CurrentOrgId is null. Called once per request by
     /// TenantContextMiddleware, after SetCurrentOrgId, so the rest of the pipeline can read
     /// these as plain sync properties -- mirroring how CurrentOrgId itself is resolved once and

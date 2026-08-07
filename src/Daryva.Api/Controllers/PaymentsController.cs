@@ -13,12 +13,28 @@ namespace Daryva.Api.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentService _paymentService;
+    private readonly ITenancyService _tenancyService;
     private readonly ITenantContext _tenantContext;
 
-    public PaymentsController(IPaymentService paymentService, ITenantContext tenantContext)
+    public PaymentsController(IPaymentService paymentService, ITenancyService tenancyService, ITenantContext tenantContext)
     {
         _paymentService = paymentService;
+        _tenancyService = tenancyService;
         _tenantContext = tenantContext;
+    }
+
+    /// <summary>
+    /// True if the caller is a Tenant and the given tenancy isn't theirs (or doesn't exist) --
+    /// the per-tenancy totals/status endpoints are the only payment views the portal exposes,
+    /// so this is the one ownership check that matters here.
+    /// </summary>
+    private async Task<bool> IsForbiddenTenancyForCaller(Guid tenancyId, CancellationToken cancellationToken)
+    {
+        if (_tenantContext.CurrentRole != Roles.Tenant)
+            return false;
+
+        var tenancy = await _tenancyService.GetTenancyAsync(tenancyId, cancellationToken);
+        return tenancy == null || tenancy.TenantId != _tenantContext.CurrentTenantId;
     }
 
     [HttpPost("record")]
@@ -58,6 +74,9 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        if (await IsForbiddenTenancyForCaller(tenancyId, cancellationToken))
+            return Forbid();
+
         try
         {
             var total = await _paymentService.GetTotalDepositPaidAsync(tenancyId, cancellationToken);
@@ -83,6 +102,9 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        if (await IsForbiddenTenancyForCaller(tenancyId, cancellationToken))
+            return Forbid();
+
         try
         {
             var total = await _paymentService.GetTotalRentPaidForPeriodAsync(tenancyId, year, month, cancellationToken);
@@ -107,6 +129,9 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        if (await IsForbiddenTenancyForCaller(tenancyId, cancellationToken))
+            return Forbid();
+
         var status = await _paymentService.GetDepositStatusAsync(tenancyId, requiredAmount, cancellationToken);
         if (status == null)
             return NotFound(new { error = "Tenancy not found." });
@@ -125,6 +150,9 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        if (await IsForbiddenTenancyForCaller(tenancyId, cancellationToken))
+            return Forbid();
+
         var status = await _paymentService.GetRentStatusForPeriodAsync(tenancyId, year, month, cancellationToken);
         if (status == null)
             return NotFound(new { error = "Tenancy not found." });
@@ -142,6 +170,10 @@ public class PaymentsController : ControllerBase
         [FromQuery] string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
+        // Portfolio-wide view with no natural per-tenant scoping -- not exposed to the portal.
+        if (_tenantContext.CurrentRole == Roles.Tenant)
+            return Forbid();
+
         var entries = await _paymentService.GetRentLedgerAsync(year, month, houseId, statusFilter, searchTerm, cancellationToken);
         return Ok(entries);
     }
@@ -158,6 +190,10 @@ public class PaymentsController : ControllerBase
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
+
+        // Portfolio-wide view with no natural per-tenant scoping -- not exposed to the portal.
+        if (_tenantContext.CurrentRole == Roles.Tenant)
+            return Forbid();
 
         var result = await _paymentService.GetDepositLedgerAsync(year, month, houseId, statusFilter, searchTerm, cancellationToken);
         return Ok(result);
@@ -177,6 +213,10 @@ public class PaymentsController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        // Portfolio-wide view with no natural per-tenant scoping -- not exposed to the portal.
+        if (_tenantContext.CurrentRole == Roles.Tenant)
+            return Forbid();
+
         var transactions = await _paymentService.GetTransactionsAsync(startDate, endDate, paymentType, houseId, tenantId, method, cancellationToken);
         return Ok(transactions);
     }
@@ -187,6 +227,10 @@ public class PaymentsController : ControllerBase
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
+
+        // Portfolio-wide operational list -- not exposed to the portal.
+        if (_tenantContext.CurrentRole == Roles.Tenant)
+            return Forbid();
 
         var result = await _paymentService.GetDepositReturnRemindersAsync(cancellationToken);
         return Ok(result);

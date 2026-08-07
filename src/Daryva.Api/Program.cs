@@ -117,6 +117,7 @@ builder.Services.AddScoped<IDataSeeder, DataSeeder>();
 builder.Services.AddScoped<IBulkImportService, BulkImportService>();
 builder.Services.AddScoped<IOrganizationSyncService, OrganizationSyncService>();
 builder.Services.AddScoped<IPlatformAdminBootstrapper, PlatformAdminBootstrapper>();
+builder.Services.AddScoped<ITenantInviteService, TenantInviteService>();
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");

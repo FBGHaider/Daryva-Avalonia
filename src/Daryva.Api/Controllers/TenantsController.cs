@@ -17,15 +17,18 @@ namespace Daryva.Api.Controllers;
 public class TenantsController : ControllerBase
 {
     private readonly ITenantService _tenantService;
+    private readonly ITenantInviteService _tenantInviteService;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<TenantsController> _logger;
 
     public TenantsController(
         ITenantService tenantService,
+        ITenantInviteService tenantInviteService,
         ITenantContext tenantContext,
         ILogger<TenantsController> logger)
     {
         _tenantService = tenantService;
+        _tenantInviteService = tenantInviteService;
         _tenantContext = tenantContext;
         _logger = logger;
     }
@@ -207,5 +210,39 @@ public class TenantsController : ControllerBase
         await _tenantService.DeleteTenantAsync(tenantId, cancellationToken);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Email the tenant a portal invite link so they can set up their own login and view their
+    /// tenancy documents online, without installing the desktop app.
+    ///
+    /// POST /api/tenants/{tenantId}/invite
+    /// </summary>
+    [HttpPost("{tenantId:guid}/invite")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [Authorize(Policy = Permissions.Tenants.Manage)]
+    public async Task<IActionResult> InviteTenant(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_tenantContext.CurrentOrgId.HasValue)
+            return BadRequest(new { error = "Organization context not set." });
+
+        try
+        {
+            await _tenantInviteService.SendInviteAsync(tenantId, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }

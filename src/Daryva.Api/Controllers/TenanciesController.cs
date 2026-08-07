@@ -32,6 +32,11 @@ public class TenanciesController : ControllerBase
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
 
+        // A Tenant caller only ever sees their own tenancy -- ignore any client-supplied
+        // tenantId and force their own, regardless of what was requested.
+        if (_tenantContext.CurrentRole == Roles.Tenant)
+            tenantId = _tenantContext.CurrentTenantId ?? Guid.Empty;
+
         try
         {
             var tenancies = await _tenancyService.GetTenanciesAsync(tenantId, houseId, activeOnly, cancellationToken);
@@ -54,7 +59,7 @@ public class TenanciesController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var tenancies = await _tenancyService.GetTenanciesActiveInPeriodAsync(year, month, cancellationToken);
-        return Ok(tenancies);
+        return Ok(tenancies.Where(IsVisibleToCaller));
     }
 
     [HttpGet("{id:guid}")]
@@ -69,7 +74,7 @@ public class TenanciesController : ControllerBase
         try
         {
             var tenancy = await _tenancyService.GetTenancyAsync(id, cancellationToken);
-            if (tenancy == null)
+            if (tenancy == null || !IsVisibleToCaller(tenancy))
                 return NotFound();
 
             return Ok(tenancy);
@@ -88,8 +93,12 @@ public class TenanciesController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var tenancies = await _tenancyService.GetEndedTenanciesWithDepositAsync(cancellationToken);
-        return Ok(tenancies);
+        return Ok(tenancies.Where(IsVisibleToCaller));
     }
+
+    /// <summary>Same isolation rationale as DocumentsController.IsVisibleToCaller.</summary>
+    private bool IsVisibleToCaller(TenancyDetailResponse tenancy)
+        => _tenantContext.CurrentRole != Roles.Tenant || tenancy.TenantId == _tenantContext.CurrentTenantId;
 
     [HttpPatch("{id:guid}/end")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

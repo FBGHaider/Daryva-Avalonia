@@ -36,4 +36,13 @@ public class TenantRepository : OrgScopedRepository<Tenant>, ITenantRepository
             query = query.Where(t => tenantIds.Contains(t.Id));
         return query.ToListAsync(cancellationToken);
     }
+
+    public Task<List<Tenant>> GetAllByAppUserIdAsync(Guid appUserId, CancellationToken cancellationToken = default)
+        => Set.IgnoreQueryFilters().AsNoTracking()
+            .Where(t => t.AppUserId == appUserId && !t.IsArchived)
+            .ToListAsync(cancellationToken);
+
+    public Task<Tenant?> GetByInviteTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+        => Set.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.InviteTokenHash == tokenHash, cancellationToken);
 }

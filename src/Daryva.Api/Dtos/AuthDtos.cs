@@ -97,6 +97,23 @@ public class ResetPasswordResponse
     public string Message { get; set; } = string.Empty;
 }
 
+public class AcceptTenantInviteRequest
+{
+    public string Token { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class AcceptTenantInviteResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? AccessTokenExpiresAt { get; set; }
+    public string? UserId { get; set; }
+    public string? Email { get; set; }
+}
+
 public class TwoFactorEnrollResponse
 {
     /// <summary>Base32 secret, for manual entry if the user can't scan the QR code.</summary>

@@ -180,6 +180,27 @@ public class AuthController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
+    [HttpPost("tenant/accept-invite")]
+    [ProducesResponseType(typeof(AcceptTenantInviteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<AcceptTenantInviteResponse>> AcceptTenantInvite([FromBody] AcceptTenantInviteRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _authService.AcceptTenantInviteAsync(request.Token, request.Password, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [Authorize]
     [HttpGet("me")]
     [ProducesResponseType(typeof(MeResponse), StatusCodes.Status200OK)]

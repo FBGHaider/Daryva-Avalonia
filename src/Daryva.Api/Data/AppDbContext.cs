@@ -186,7 +186,15 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(256);
             entity.Property(e => e.UniversityName).HasMaxLength(256);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.InviteTokenHash).HasMaxLength(512);
             entity.HasIndex(e => e.OrganizationId);
+
+            entity.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(e => e.AppUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.AppUserId).IsUnique();
+            entity.HasIndex(e => e.InviteTokenHash).IsUnique();
         });
 
         // ========== TENANCY (Org-Scoped Entity) ==========

@@ -40,7 +40,11 @@ public class DocumentsController : ControllerBase
 
         try
         {
-            var documents = await _documentService.GetAllDocumentsAsync(cancellationToken);
+            // A Tenant caller only ever sees their own documents -- the org-wide query filter
+            // alone isn't enough to isolate one tenant from another within the same org.
+            var documents = _tenantContext.CurrentRole == Roles.Tenant
+                ? await _documentService.GetDocumentsByTenantAsync(_tenantContext.CurrentTenantId ?? Guid.Empty, cancellationToken)
+                : await _documentService.GetAllDocumentsAsync(cancellationToken);
             var response = documents.Select(MapToResponse).ToList();
             return Ok(response);
         }
@@ -58,6 +62,9 @@ public class DocumentsController : ControllerBase
     {
         if (!_tenantContext.CurrentOrgId.HasValue)
             return BadRequest(new { error = "Organization context not set." });
+
+        if (_tenantContext.CurrentRole == Roles.Tenant && tenantId != _tenantContext.CurrentTenantId)
+            return Forbid();
 
         try
         {
@@ -83,7 +90,7 @@ public class DocumentsController : ControllerBase
         try
         {
             var documents = await _documentService.GetDocumentsByTenancyAsync(tenancyId, cancellationToken);
-            var response = documents.Select(MapToResponse).ToList();
+            var response = documents.Where(IsVisibleToCaller).Select(MapToResponse).ToList();
             return Ok(response);
         }
         catch (Exception ex)
@@ -102,7 +109,7 @@ public class DocumentsController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var documents = await _documentService.GetDocumentsByHouseAsync(houseId, cancellationToken);
-        var response = documents.Select(MapToResponse).ToList();
+        var response = documents.Where(IsVisibleToCaller).Select(MapToResponse).ToList();
         return Ok(response);
     }
 
@@ -118,7 +125,7 @@ public class DocumentsController : ControllerBase
         try
         {
             var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
-            if (document == null)
+            if (document == null || !IsVisibleToCaller(document))
                 return NotFound();
 
             return Ok(MapToResponse(document));
@@ -239,7 +246,7 @@ public class DocumentsController : ControllerBase
             return BadRequest(new { error = "Organization context not set." });
 
         var document = await _documentService.GetDocumentByIdAsync(documentId, cancellationToken);
-        if (document == null)
+        if (document == null || !IsVisibleToCaller(document))
             return NotFound();
 
         var fileBytes = await _documentService.GetFileContentAsync(document, cancellationToken);
@@ -272,6 +279,15 @@ public class DocumentsController : ControllerBase
             return StatusCode(500, new { error = "Failed to delete document.", detail = ex.Message });
         }
     }
+
+    /// <summary>
+    /// A Tenant caller may only see documents explicitly linked to their own TenantId -- house-only
+    /// documents (TenantId null, e.g. a whole-property gas safety certificate) are deliberately
+    /// excluded from the portal for this first cut rather than guessed at. Every other role passes
+    /// through unchanged; the org-wide query filter already isolates them from other orgs.
+    /// </summary>
+    private bool IsVisibleToCaller(Document document)
+        => _tenantContext.CurrentRole != Roles.Tenant || document.TenantId == _tenantContext.CurrentTenantId;
 
     private static DocumentResponse MapToResponse(Document document)
     {

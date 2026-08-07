@@ -16,6 +16,13 @@ public class Tenant : IOrgScopedEntity
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public bool IsArchived { get; set; }
 
+    // Portal login link -- null until the tenant accepts an invite. See TenantContext's
+    // Tenant-role resolution branch for how this is used to authenticate a caller.
+    public Guid? AppUserId { get; set; }
+    public string? InviteTokenHash { get; set; }
+    public DateTime? InviteTokenExpiresAt { get; set; }
+    public DateTime? InviteSentAt { get; set; }
+
     // Navigation
     public Organization Organization { get; set; } = null!;
     public ICollection<Tenancy> Tenancies { get; set; } = new List<Tenancy>();

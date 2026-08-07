@@ -18,6 +18,17 @@ public interface ITenantRepository
     /// <summary>Non-archived tenants, optionally restricted to a specific set of ids (null = all). Used to build notification recipient lists.</summary>
     Task<List<Tenant>> GetActiveAsync(IReadOnlyCollection<Guid>? tenantIds, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every Tenant row linked to this AppUser, across all organizations. Always bypasses the
+    /// org-scoped query filter (IgnoreQueryFilters) -- callers use this precisely because no org
+    /// context is established yet (role resolution, middleware org auto-selection) or shouldn't
+    /// be assumed (a tenant could in principle be invited by more than one landlord org).
+    /// </summary>
+    Task<List<Tenant>> GetAllByAppUserIdAsync(Guid appUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>Bypasses the org-scoped query filter -- looked up from the public accept-invite endpoint, before any org context exists.</summary>
+    Task<Tenant?> GetByInviteTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
+
     void Add(Tenant tenant);
 
     void Remove(Tenant tenant);

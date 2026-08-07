@@ -34,6 +34,8 @@ public static class AuditEventTypes
     public const string TenancyDeleted = "TenancyDeleted";
     public const string TenanciesBulkDeleted = "TenanciesBulkDeleted";
     public const string DocumentDeleted = "DocumentDeleted";
+    public const string TenantInviteSent = "TenantInviteSent";
+    public const string TenantInviteAccepted = "TenantInviteAccepted";
 
     /// <summary>Superseded by ExpenseArchived (task #44: expenses are archived, not hard-deleted) -- kept for historical audit log entries written before the switch.</summary>
     public const string ExpenseDeleted = "ExpenseDeleted";

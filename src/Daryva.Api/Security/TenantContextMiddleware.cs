@@ -1,4 +1,5 @@
 using Daryva.Api.Data;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,7 +27,8 @@ public class TenantContextMiddleware
     public async Task InvokeAsync(
         HttpContext httpContext,
         ITenantContext tenantContext,
-        AppDbContext dbContext)
+        AppDbContext dbContext,
+        ITenantRepository tenantRepository)
     {
         // Extract X-Org-Id header if provided
         var orgIdHeader = httpContext.Request.Headers["X-Org-Id"].FirstOrDefault();
@@ -59,6 +61,20 @@ public class TenantContextMiddleware
             .Where(m => m.UserId == userId)
             .Select(m => m.OrganizationId)
             .ToListAsync();
+
+        // Tenants (landlord-invited, see TenantInviteService) are never OrganizationMembers by
+        // design -- union in the org(s) of any Tenant record linked to this AppUser so a tenant
+        // caller flows through the exact same auto-select/multi-org logic below as a landlord
+        // would, instead of incorrectly falling into the "no orgs yet" branch.
+        if (Guid.TryParse(userId, out var userGuidForTenantLookup))
+        {
+            var linkedTenants = await tenantRepository.GetAllByAppUserIdAsync(userGuidForTenantLookup);
+            foreach (var tenant in linkedTenants)
+            {
+                if (!userOrgs.Contains(tenant.OrganizationId))
+                    userOrgs.Add(tenant.OrganizationId);
+            }
+        }
 
         if (requestedOrgId.HasValue && !userOrgs.Contains(requestedOrgId.Value))
         {

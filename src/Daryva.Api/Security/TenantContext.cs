@@ -17,6 +17,7 @@ public class TenantContext : ITenantContext
     private bool _isPrimaryOwnerOfCurrentOrg;
     private bool _isPlatformAdmin;
     private Guid? _activeSupportSessionId;
+    private Guid? _currentTenantId;
     private bool _roleResolved;
 
     // Repositories are resolved lazily (not constructor-injected) because they depend on
@@ -65,6 +66,8 @@ public class TenantContext : ITenantContext
 
     public Guid? ActiveSupportSessionId => _activeSupportSessionId;
 
+    public Guid? CurrentTenantId => _currentTenantId;
+
     public void SetCurrentOrgId(Guid? orgId)
     {
         _currentOrgId = orgId;
@@ -72,6 +75,7 @@ public class TenantContext : ITenantContext
         _isPrimaryOwnerOfCurrentOrg = false;
         _isPlatformAdmin = false;
         _activeSupportSessionId = null;
+        _currentTenantId = null;
         _roleResolved = false;
     }
 
@@ -125,6 +129,28 @@ public class TenantContext : ITenantContext
             {
                 _currentRole = Roles.Landlord;
                 _activeSupportSessionId = activeSession.Id;
+                return;
+            }
+        }
+
+        // Still not resolved: check whether this AppUser is linked to a Tenant record in this
+        // org (a landlord-invited tenant -- see TenantInviteService). Tenants are never
+        // OrganizationMembers by design (see OrganizationMember's class doc), so this is the
+        // only other legitimate way a caller resolves to a role for CurrentOrgId. Deliberately
+        // not nested inside the _isPlatformAdmin check above -- a tenant caller is never a
+        // platform admin.
+        if (isValidUserGuid)
+        {
+            var tenantRepository = _serviceProvider.GetRequiredService<ITenantRepository>();
+            var linkedTenants = await tenantRepository
+                .GetAllByAppUserIdAsync(userGuid, cancellationToken)
+                .ConfigureAwait(false);
+
+            var tenantInCurrentOrg = linkedTenants.FirstOrDefault(t => t.OrganizationId == _currentOrgId.Value);
+            if (tenantInCurrentOrg != null)
+            {
+                _currentRole = Roles.Tenant;
+                _currentTenantId = tenantInCurrentOrg.Id;
             }
         }
     }

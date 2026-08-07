@@ -17,6 +17,14 @@ public interface IAuthService
     Task<ForgotPasswordResponse> ForgotPasswordAsync(string email, string? clientIp, CancellationToken cancellationToken = default);
     Task<ResetPasswordResponse> ResetPasswordAsync(string token, string newPassword, string? clientIp, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Redeems a tenant portal invite: validates the token, creates a new AppUser (email
+    /// pre-verified -- the invite email already proved the address) or fails cleanly if that
+    /// email already has an account, links Tenant.AppUserId, and returns tokens so the portal
+    /// can log the tenant straight in. Single-use -- clears the invite token fields on success.
+    /// </summary>
+    Task<AcceptTenantInviteResponse> AcceptTenantInviteAsync(string token, string password, string? clientIp, CancellationToken cancellationToken = default);
+
     /// <summary>Starts (or restarts) TOTP enrollment: generates a new secret, stores it encrypted with TwoFactorEnabled still false.</summary>
     Task<TwoFactorEnrollResponse> EnrollTwoFactorAsync(string userId, CancellationToken cancellationToken = default);
 
