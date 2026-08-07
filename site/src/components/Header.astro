@@ -27,7 +27,10 @@ const path = Astro.url.pathname;
       </ul>
     </nav>
 
-    <a href="/contact" class="btn btn-primary cta-small">Get in touch</a>
+    <div class="actions">
+      <a href="https://portal.daryva.com/login" class="btn btn-ghost cta-small">Log in</a>
+      <a href="/contact" class="btn btn-primary cta-small">Get in touch</a>
+    </div>
   </div>
 </header>
 
@@ -86,6 +89,12 @@ const path = Astro.url.pathname;
   nav a[aria-current='page'] {
     color: var(--accent-bright);
     border-color: var(--accent);
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .cta-small {
