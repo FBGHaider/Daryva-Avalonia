@@ -1,0 +1,55 @@
+name: Deploy Website
+
+# Static-file sync only — no Docker image, matches deploy/nginx/daryva.conf's
+# root at /var/www/daryva.com on the VPS. Reuses the same DEPLOY_* secrets
+# as deploy-api.yml.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["master"]
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy-website.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-website-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and deploy to VPS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci
+
+      - name: Build
+        working-directory: site
+        run: npm run build
+
+      - name: Sync static files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          source: "site/dist/*"
+          target: "/var/www/daryva.com"
+          strip_components: 2
+          rm: true
