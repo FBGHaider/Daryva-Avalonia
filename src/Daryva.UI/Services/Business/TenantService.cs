@@ -158,7 +158,10 @@ public class TenantService : ITenantService
             CurrentHouseAddress = dto.CurrentHouseAddress,
             CurrentHouseId = dto.CurrentHouseId.HasValue ? (int?)_idMapper.MapHouseId(dto.CurrentHouseId.Value) : null,
             CurrentTenancyId = dto.CurrentTenancyId.HasValue ? (int?)_idMapper.MapTenancyId(dto.CurrentTenancyId.Value) : null,
-            LeaveDate = dto.LeaveDate
+            LeaveDate = dto.LeaveDate,
+            PortalAppUserId = dto.AppUserId,
+            PortalInviteSentAt = dto.InviteSentAt,
+            PortalInviteAcceptedAt = dto.InviteAcceptedAt
         };
     }
 }

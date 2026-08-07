@@ -38,6 +38,10 @@ namespace Daryva.MVVM.Converters
                         "Scheduled" => new SolidColorBrush(Color.FromRgb(0x02, 0x89, 0xCD)),
                         "Failed" => new SolidColorBrush(Color.FromRgb(0xEF, 0x53, 0x50)),
                         "Cancelled" => new SolidColorBrush(Color.FromRgb(0xEF, 0x53, 0x50)),
+                        // Tenant portal statuses
+                        "Verified" => new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0x6A)), // Light green
+                        "Invited" => new SolidColorBrush(Color.FromRgb(0xFF, 0xB7, 0x4D)),  // Light orange
+                        "Not Invited" => new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB0)), // Light gray
                         _ => new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB0)) // Light gray
                     };
                 }
@@ -63,6 +67,10 @@ namespace Daryva.MVVM.Converters
                         "Scheduled" => new SolidColorBrush(Color.FromRgb(0x02, 0x89, 0xCD)), // BrandSecondary
                         "Failed" => new SolidColorBrush(Color.FromRgb(0xF3, 0x5B, 0x05)),  // StatusDanger
                         "Cancelled" => new SolidColorBrush(Color.FromRgb(0xF3, 0x5B, 0x05)),
+                        // Tenant portal statuses
+                        "Verified" => new SolidColorBrush(Color.FromRgb(0x6B, 0xAB, 0x26)),  // StatusSuccess
+                        "Invited" => new SolidColorBrush(Color.FromRgb(0xF6, 0xA6, 0x09)),   // StatusWarning
+                        "Not Invited" => new SolidColorBrush(Colors.Gray),
                         _ => new SolidColorBrush(Colors.Gray)
                     };
                 }

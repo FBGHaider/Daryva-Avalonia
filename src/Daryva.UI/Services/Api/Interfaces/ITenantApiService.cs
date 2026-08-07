@@ -18,6 +18,11 @@ public class TenantDto
     public Guid? CurrentTenancyId { get; set; }
     public Guid? CurrentHouseId { get; set; }
     public DateTime? LeaveDate { get; set; }
+
+    // Tenant portal status
+    public Guid? AppUserId { get; set; }
+    public DateTime? InviteSentAt { get; set; }
+    public DateTime? InviteAcceptedAt { get; set; }
 }
 
 /// <summary>

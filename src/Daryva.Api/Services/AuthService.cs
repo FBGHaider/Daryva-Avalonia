@@ -467,6 +467,7 @@ public class AuthService : IAuthService
         tenant.AppUserId = user.Id;
         tenant.InviteTokenHash = null;
         tenant.InviteTokenExpiresAt = null;
+        tenant.InviteAcceptedAt = now;
 
         _auditLogger.Log(user.Id, AuditActorRoles.User, AuditEventTypes.TenantInviteAccepted,
             organizationId: tenant.OrganizationId, targetType: nameof(Tenant), targetId: tenant.Id.ToString(), ipAddress: clientIp);

@@ -10,13 +10,15 @@ namespace Daryva.Services.Business
     {
         private readonly IPaymentService _paymentService;
         private readonly IDocumentService _documentService;
+        private readonly ITenantService _tenantService;
         private readonly HashSet<Guid> _readIds = new();
         private readonly object _readLock = new();
 
-        public NotificationFeedService(IPaymentService paymentService, IDocumentService documentService)
+        public NotificationFeedService(IPaymentService paymentService, IDocumentService documentService, ITenantService tenantService)
         {
             _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
             _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
+            _tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
         }
 
         public async Task<IReadOnlyList<NotificationItem>> GetNotificationsAsync(CancellationToken cancellationToken = default)
@@ -106,6 +108,36 @@ namespace Daryva.Services.Business
             catch
             {
                 // Skip
+            }
+
+            // 4) Tenant portal signups completed in the last 7 days
+            try
+            {
+                var recentCutoff = now.AddDays(-7);
+                var tenants = await _tenantService.GetAllTenantsAsync().ConfigureAwait(false);
+                foreach (var tenant in tenants)
+                {
+                    if (!tenant.PortalInviteAcceptedAt.HasValue) continue;
+                    var acceptedAt = new DateTimeOffset(DateTime.SpecifyKind(tenant.PortalInviteAcceptedAt.Value, DateTimeKind.Utc));
+                    if (acceptedAt < recentCutoff) continue;
+
+                    var id = StableId("portalsignup", tenant.TenantId);
+                    list.Add(new NotificationItem
+                    {
+                        Id = id,
+                        Type = NotificationFeedType.PortalSignupCompleted,
+                        Title = "Tenant portal signup completed",
+                        Message = $"{tenant.FullName} set up their tenant portal login.",
+                        CreatedAt = acceptedAt,
+                        IsRead = IsRead(id),
+                        Severity = NotificationSeverity.Info,
+                        NavigationTarget = new NotificationNavigationTarget(NotificationTargetType.Tenant, tenant.ApiId)
+                    });
+                }
+            }
+            catch
+            {
+                // Skip source on error
             }
 
             // Sort by severity (Critical first) then created

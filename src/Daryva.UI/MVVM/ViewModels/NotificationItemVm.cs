@@ -39,6 +39,7 @@ namespace Daryva.MVVM.ViewModels
             NotificationFeedType.DocsExpiring => "📄",
             NotificationFeedType.PaymentReceived => "✓",
             NotificationFeedType.TeamActivity => "👥",
+            NotificationFeedType.PortalSignupCompleted => "🔑",
             _ => "ℹ"
         };
 

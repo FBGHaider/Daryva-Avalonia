@@ -11,6 +11,7 @@
         <converters:BoolToTitleConverter x:Key="BoolToTitleConverter"/>
         <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
         <converters:DateTimeToDisplayConverter x:Key="DateTimeToDisplayConverter"/>
+        <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
     </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Border.command-bar">
@@ -130,13 +131,14 @@
                 <Border Classes="command-bar" IsVisible="{Binding HasTenants}">
                     <Grid RowDefinitions="Auto,*">
                         <Border Grid.Row="0" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="10,8">
-                            <Grid ColumnDefinitions="200,220,140,160,*,120">
+                            <Grid ColumnDefinitions="200,220,140,140,*,110,120">
                                 <TextBlock Grid.Column="0" Text="Name" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Grid.Column="1" Text="Email" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Grid.Column="2" Text="Phone" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Grid.Column="3" Text="University" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Grid.Column="4" Text="Current House" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
-                                <TextBlock Grid.Column="5" Text="Leave date" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding ShowArchivedOnly}"/>
+                                <TextBlock Grid.Column="5" Text="Portal" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Grid.Column="6" Text="Leave date" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding ShowArchivedOnly}"/>
                             </Grid>
                         </Border>
                         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -154,13 +156,17 @@
                                                 Background="Transparent"
                                                 Cursor="Hand"
                                                 MinHeight="48">
-                                            <Grid ColumnDefinitions="200,220,140,160,*,120">
+                                            <Grid ColumnDefinitions="200,220,140,140,*,110,120">
                                                 <TextBlock Grid.Column="0" Text="{Binding FullName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding Email}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <TextBlock Grid.Column="2" Text="{Binding PhoneNumber}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <TextBlock Grid.Column="3" Text="{Binding UniversityName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <TextBlock Grid.Column="4" Text="{Binding CurrentHouseAddress}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                <TextBlock Grid.Column="5" Text="{Binding LeaveDate, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding DataContext.ShowArchivedOnly, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                <Border Grid.Column="5" CornerRadius="999" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        Background="{Binding PortalStatus, Converter={StaticResource StatusToColorConverter}}">
+                                                    <TextBlock Text="{Binding PortalStatus}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                                </Border>
+                                                <TextBlock Grid.Column="6" Text="{Binding LeaveDate, Converter={StaticResource DateTimeToDisplayConverter}, ConverterParameter=date}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding DataContext.ShowArchivedOnly, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

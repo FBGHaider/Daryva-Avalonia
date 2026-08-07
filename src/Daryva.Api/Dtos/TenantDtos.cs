@@ -31,4 +31,10 @@ public class TenantResponse
     public Guid? CurrentHouseId { get; set; }
     public Guid? CurrentTenancyId { get; set; }
     public DateTime? LeaveDate { get; set; }
+
+    // Tenant portal status -- AppUserId set means they've completed signup;
+    // InviteSentAt set with no AppUserId means an invite is outstanding.
+    public Guid? AppUserId { get; set; }
+    public DateTime? InviteSentAt { get; set; }
+    public DateTime? InviteAcceptedAt { get; set; }
 }

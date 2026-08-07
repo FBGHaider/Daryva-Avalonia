@@ -78,7 +78,10 @@ public class TenantService : ITenantService
             PhoneNumber = tenant.PhoneNumber,
             UniversityName = tenant.UniversityName,
             CreatedAt = tenant.CreatedAt,
-            IsArchived = tenant.IsArchived
+            IsArchived = tenant.IsArchived,
+            AppUserId = tenant.AppUserId,
+            InviteSentAt = tenant.InviteSentAt,
+            InviteAcceptedAt = tenant.InviteAcceptedAt
         };
     }
 
@@ -105,7 +108,10 @@ public class TenantService : ITenantService
             Email = tenant.Email,
             PhoneNumber = tenant.PhoneNumber,
             CreatedAt = tenant.CreatedAt,
-            IsArchived = tenant.IsArchived
+            IsArchived = tenant.IsArchived,
+            AppUserId = tenant.AppUserId,
+            InviteSentAt = tenant.InviteSentAt,
+            InviteAcceptedAt = tenant.InviteAcceptedAt
         };
     }
 
@@ -201,7 +207,10 @@ public class TenantService : ITenantService
             CurrentHouseAddress = currentTenancy?.House?.AddressLine1 ?? string.Empty,
             CurrentHouseId = currentTenancy?.HouseId,
             CurrentTenancyId = currentTenancy?.Id,
-            LeaveDate = leaveDate
+            LeaveDate = leaveDate,
+            AppUserId = t.AppUserId,
+            InviteSentAt = t.InviteSentAt,
+            InviteAcceptedAt = t.InviteAcceptedAt
         };
     }
 

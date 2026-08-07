@@ -17,5 +17,17 @@ namespace Daryva.MVVM.Models
         public int? CurrentTenancyId { get; set; }
         /// <summary>Move-out date from the tenant's ended tenancy (for archived tenants).</summary>
         public DateTime? LeaveDate { get; set; }
+
+        // Tenant portal status. Named with a "Portal" prefix to avoid confusion with
+        // ApiId (this tenant's own API id) -- PortalAppUserId is the linked login's id.
+        public Guid? PortalAppUserId { get; set; }
+        public DateTime? PortalInviteSentAt { get; set; }
+        public DateTime? PortalInviteAcceptedAt { get; set; }
+
+        /// <summary>Derived display status for the Tenants list's Portal column.</summary>
+        public string PortalStatus =>
+            PortalAppUserId.HasValue ? "Verified" :
+            PortalInviteSentAt.HasValue ? "Invited" :
+            "Not Invited";
     }
 }

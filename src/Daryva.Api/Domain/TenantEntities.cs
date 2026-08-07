@@ -22,6 +22,7 @@ public class Tenant : IOrgScopedEntity
     public string? InviteTokenHash { get; set; }
     public DateTime? InviteTokenExpiresAt { get; set; }
     public DateTime? InviteSentAt { get; set; }
+    public DateTime? InviteAcceptedAt { get; set; }
 
     // Navigation
     public Organization Organization { get; set; } = null!;

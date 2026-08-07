@@ -10,7 +10,8 @@ namespace Daryva.MVVM.Models
         DocsExpiring,
         PaymentReceived,
         TeamActivity,
-        System
+        System,
+        PortalSignupCompleted
     }
 
     /// <summary>
