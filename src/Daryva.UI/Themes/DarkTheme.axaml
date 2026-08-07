@@ -4,12 +4,18 @@
     <Color x:Key="BrandSecondary">#0289CD</Color>
     <Color x:Key="StatusDanger">#F35B05</Color>
     <Color x:Key="StatusSuccess">#6BAB26</Color>
+    <!-- Was missing from this file; silently fell back to Theme.axaml's baseline value (same
+         hex) via merged-dictionary lookup. Adding it explicitly here since the new subtle-
+         semantic brush below needs to StaticResource it within this same file. -->
+    <Color x:Key="StatusWarning">#F6A609</Color>
     <Color x:Key="DeepBlue">#034D91</Color>
     <Color x:Key="Teal">#1E745A</Color>
+    <Color x:Key="AccentPurple">#7C6FE0</Color>
 
     <Color x:Key="Bg">#0B1020</Color>
     <Color x:Key="Surface">#121A2E</Color>
     <Color x:Key="Surface2">#18233C</Color>
+    <Color x:Key="ElevatedSurface">#16213A</Color>
     <Color x:Key="Border">#2A3550</Color>
     <Color x:Key="TextPrimary">#EAF0FF</Color>
     <Color x:Key="TextMuted">#AAB6D6</Color>
@@ -34,6 +40,19 @@
     <Color x:Key="TableRowEvenBackground">#161F35</Color>
     <Color x:Key="TableRowOddBackground">#141C31</Color>
     
+    <!-- Semantic + accent brushes (also missing from this file previously, falling back to
+         Theme.axaml's baseline) and the new subtle-semantic/purple/elevated-surface tokens. -->
+    <SolidColorBrush x:Key="StatusDangerBrush" Color="{StaticResource StatusDanger}"/>
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccess}"/>
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}"/>
+    <SolidColorBrush x:Key="AccentPurpleBrush" Color="{StaticResource AccentPurple}"/>
+    <SolidColorBrush x:Key="SuccessSubtleBrush" Color="{StaticResource StatusSuccess}" Opacity="0.16"/>
+    <SolidColorBrush x:Key="WarningSubtleBrush" Color="{StaticResource StatusWarning}" Opacity="0.16"/>
+    <SolidColorBrush x:Key="DangerSubtleBrush" Color="{StaticResource StatusDanger}" Opacity="0.14"/>
+    <SolidColorBrush x:Key="InfoSubtleBrush" Color="{StaticResource BrandSecondary}" Opacity="0.14"/>
+    <SolidColorBrush x:Key="AccentPurpleSubtleBrush" Color="{StaticResource AccentPurple}" Opacity="0.16"/>
+    <SolidColorBrush x:Key="ElevatedSurfaceBrush" Color="{StaticResource ElevatedSurface}"/>
+
     <!-- Base Brushes -->
     <SolidColorBrush x:Key="PrimaryBackgroundBrush" Color="{StaticResource PrimaryBackground}"/>
     <SolidColorBrush x:Key="SecondaryBackgroundBrush" Color="{StaticResource SecondaryBackground}"/>

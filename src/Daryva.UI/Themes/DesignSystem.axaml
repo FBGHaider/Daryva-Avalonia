@@ -5,7 +5,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="Transitions">
             <Transitions>
@@ -24,7 +24,7 @@
         <Setter Property="Foreground" Value="{DynamicResource BrandPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrandPrimaryBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
         <Setter Property="Padding" Value="12,8"/>
     </Style>
     <Style Selector="Button.secondary:pointerover">
@@ -35,12 +35,51 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
         <Setter Property="Padding" Value="8"/>
     </Style>
     <Style Selector="Button.icon-button:pointerover">
         <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+    </Style>
+
+    <!-- Transparent until hovered, for the lowest-frequency action in a group, so it doesn't
+         compete visually with primary/secondary actions next to it. -->
+    <Style Selector="Button.tertiary">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.14"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.tertiary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+    <!-- Subtle red styling for destructive actions, not a solid red block. -->
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="{DynamicResource DangerSubtleBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource StatusDangerBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.14"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.danger:pointerover">
+        <Setter Property="Background" Value="{DynamicResource StatusDangerBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
     <Style Selector="TextBox">
