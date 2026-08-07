@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Daryva.MVVM.Models;
+using Material.Icons;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -31,16 +32,16 @@ namespace Daryva.MVVM.ViewModels
         public NotificationSeverity Severity { get; }
         public NotificationNavigationTarget? NavigationTarget { get; }
 
-        /// <summary>Emoji icon for the notification type.</summary>
-        public string TypeIcon => Type switch
+        /// <summary>Icon for the notification type.</summary>
+        public MaterialIconKind TypeIcon => Type switch
         {
-            NotificationFeedType.OverdueRent => "⚠",
-            NotificationFeedType.RentDueSoon => "📅",
-            NotificationFeedType.DocsExpiring => "📄",
-            NotificationFeedType.PaymentReceived => "✓",
-            NotificationFeedType.TeamActivity => "👥",
-            NotificationFeedType.PortalSignupCompleted => "🔑",
-            _ => "ℹ"
+            NotificationFeedType.OverdueRent => MaterialIconKind.AlertCircleOutline,
+            NotificationFeedType.RentDueSoon => MaterialIconKind.CalendarClockOutline,
+            NotificationFeedType.DocsExpiring => MaterialIconKind.FileDocumentAlertOutline,
+            NotificationFeedType.PaymentReceived => MaterialIconKind.CheckCircleOutline,
+            NotificationFeedType.TeamActivity => MaterialIconKind.AccountGroupOutline,
+            NotificationFeedType.PortalSignupCompleted => MaterialIconKind.KeyOutline,
+            _ => MaterialIconKind.InformationOutline
         };
 
         public bool IsRead

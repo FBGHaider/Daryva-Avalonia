@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
              x:Class="Daryva.MVVM.Views.Controls.ProfileDrawer"
              x:Name="ProfileDrawerRoot"
              Focusable="True"
@@ -32,13 +33,38 @@
                     </StackPanel>
                 </Border>
                 <!-- Menu items -->
-                <Button Classes="profile-menu-item" Command="{Binding OpenMyProfileCommand}" Content="👤  My Account"/>
-                <Button Classes="profile-menu-item" Command="{Binding OpenOrganisationCommand}" Content="🏢  Organisation / Team"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenMyProfileCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <materialIcons:MaterialIcon Kind="AccountOutline" Width="16" Height="16"/>
+                        <TextBlock Text="My account"/>
+                    </StackPanel>
+                </Button>
+                <Button Classes="profile-menu-item" Command="{Binding OpenOrganisationCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <materialIcons:MaterialIcon Kind="Domain" Width="16" Height="16"/>
+                        <TextBlock Text="Organisation / team"/>
+                    </StackPanel>
+                </Button>
                 <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="12,0"/>
-                <Button Classes="profile-menu-item" Command="{Binding OpenPreferencesCommand}" Content="⚙  Preferences"/>
-                <Button Classes="profile-menu-item" Command="{Binding OpenSupportCommand}" Content="❓  Help &amp; Support"/>
+                <Button Classes="profile-menu-item" Command="{Binding OpenPreferencesCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <materialIcons:MaterialIcon Kind="CogOutline" Width="16" Height="16"/>
+                        <TextBlock Text="Preferences"/>
+                    </StackPanel>
+                </Button>
+                <Button Classes="profile-menu-item" Command="{Binding OpenSupportCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <materialIcons:MaterialIcon Kind="HelpCircleOutline" Width="16" Height="16"/>
+                        <TextBlock Text="Help &amp; support"/>
+                    </StackPanel>
+                </Button>
                 <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="12,0"/>
-                <Button Classes="profile-menu-item" Command="{Binding LogoutCommand}" Content="🚪  Log out" Foreground="{DynamicResource StatusDangerBrush}"/>
+                <Button Classes="profile-menu-item" Command="{Binding LogoutCommand}" Foreground="{DynamicResource StatusDangerBrush}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <materialIcons:MaterialIcon Kind="LogoutVariant" Width="16" Height="16"/>
+                        <TextBlock Text="Log out"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Border>
     </Grid>

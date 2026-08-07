@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:Daryva.MVVM.Views.Controls"
              xmlns:vm="clr-namespace:Daryva.MVVM.ViewModels;assembly=Daryva"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
              x:Class="Daryva.MVVM.Views.Controls.NotificationDrawer"
              x:Name="DrawerRoot"
              Focusable="True"
@@ -46,7 +47,7 @@
                         <TextBlock Text="Loading…" Foreground="{DynamicResource TextMutedBrush}" Padding="20" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center"/>
                         <!-- Empty state -->
                         <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="32" IsVisible="{Binding ShowEmptyState}">
-                            <TextBlock Text="✓" FontSize="32" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                            <materialIcons:MaterialIcon Kind="CheckAll" Width="28" Height="28" Foreground="{DynamicResource StatusSuccessBrush}" HorizontalAlignment="Center"/>
                             <TextBlock Text="You're all caught up." FontSize="15" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
                         </StackPanel>
                         <!-- List -->
@@ -69,7 +70,9 @@
                                         </Button.Styles>
                                         <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
                                             <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Width="36" Height="36" CornerRadius="18" Background="{DynamicResource Surface2Brush}" Margin="0,0,12,0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding TypeIcon}" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <materialIcons:MaterialIcon Kind="{Binding TypeIcon}" Width="17" Height="17"
+                                                                             Foreground="{DynamicResource TextMutedBrush}"
+                                                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             <Border Grid.Row="0" Grid.Column="2" Width="8" Height="8" CornerRadius="4" Background="{DynamicResource BrandPrimaryBrush}" IsVisible="{Binding !IsRead}" VerticalAlignment="Center" Margin="8,0,0,0"/>
