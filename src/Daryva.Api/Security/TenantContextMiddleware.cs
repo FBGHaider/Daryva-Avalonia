@@ -171,6 +171,7 @@ public class TenantContextMiddleware
         var path = httpContext.Request.Path.Value ?? "";
         return path == "/health" ||
                path == "/api/me" ||    // Current user profile + onboarding state (no org context required)
+               path == "/api/me/tenant-access" || // Looks up Tenant links directly, pre-org-resolution (see MeController)
                path == "/api/orgs" ||  // Allow listing user's organizations without X-Org-Id
                path.StartsWith("/api/orgs/join/") || // Accept invite / join by code (no org context required)
                path.StartsWith("/api/auth/") ||

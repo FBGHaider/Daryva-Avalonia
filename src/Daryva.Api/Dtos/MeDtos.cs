@@ -29,13 +29,16 @@ public class MeResponseDto
 }
 
 /// <summary>
-/// GET /api/me/tenant-access response: whether the caller's resolved role in their
-/// (auto-selected or header-selected) org is Tenant. The portal calls this right after
-/// login to reject landlord/other accounts before treating the response as personal data.
+/// GET /api/me/tenant-access response: whether this login has a Tenant identity anywhere, and
+/// which org it's in. The portal calls this right after login to reject non-tenant accounts
+/// before treating the response as personal data, and stores TenantOrgId so subsequent portal
+/// API calls can send X-Org-Id explicitly (needed when the same login also belongs to other
+/// orgs, e.g. as a landlord elsewhere -- see MeController.GetTenantAccess).
 /// </summary>
 public class TenantAccessResponseDto
 {
     public bool IsTenant { get; set; }
+    public Guid? TenantOrgId { get; set; }
 }
 
 /// <summary>

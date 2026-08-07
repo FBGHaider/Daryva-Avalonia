@@ -12,6 +12,7 @@ export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
 const ACCESS_TOKEN_COOKIE = 'daryva_access_token';
 const REFRESH_TOKEN_COOKIE = 'daryva_refresh_token';
 const EXPIRES_AT_COOKIE = 'daryva_expires_at';
+const ORG_ID_COOKIE = 'daryva_org_id';
 
 // httpOnly so client JS (and any XSS) can never read these; secure only in production
 // since local dev runs over plain http. Never sent to api.daryva.com - scoped to this
@@ -39,6 +40,17 @@ export function clearAuthCookies(cookies: AstroCookies): void {
   cookies.delete(ACCESS_TOKEN_COOKIE, { path: '/' });
   cookies.delete(REFRESH_TOKEN_COOKIE, { path: '/' });
   cookies.delete(EXPIRES_AT_COOKIE, { path: '/' });
+  cookies.delete(ORG_ID_COOKIE, { path: '/' });
+}
+
+/**
+ * Which org apiFetch should send as X-Org-Id. Needed because a tenant portal login can also
+ * belong to other orgs (e.g. as a landlord elsewhere, or a tenant of more than one landlord) --
+ * without this, Daryva.Api's TenantContextMiddleware can't auto-select a single org and 400s.
+ * Set once from GET /api/me/tenant-access's TenantOrgId right after login/accept-invite.
+ */
+export function setOrgIdCookie(cookies: AstroCookies, orgId: string): void {
+  cookies.set(ORG_ID_COOKIE, orgId, COOKIE_OPTIONS);
 }
 
 export function getRefreshToken(cookies: AstroCookies): string | undefined {
@@ -86,23 +98,25 @@ export async function getValidAccessToken(cookies: AstroCookies): Promise<string
 }
 
 /**
- * Confirms a just-issued access token actually resolves to the Tenant role in the
- * caller's org, not just any valid login. Daryva.Api's shared endpoints (e.g.
- * /api/tenancies) intentionally return org-wide data to a Landlord caller -- that's
- * correct for the desktop app, but the portal must not render that response as if it
- * were the caller's own personal tenancy. Call this once right after login/accept-invite,
- * before granting a session, rather than on every page load.
+ * Confirms a just-issued access token actually has a Tenant identity somewhere, not just any
+ * valid login -- and which org it's in. Daryva.Api's shared endpoints (e.g. /api/tenancies)
+ * intentionally return org-wide data to a Landlord caller -- that's correct for the desktop
+ * app, but the portal must not render that response as if it were the caller's own personal
+ * tenancy. Call this once right after login/accept-invite, before granting a session, rather
+ * than on every page load.
  */
-export async function isTenantAccount(accessToken: string): Promise<boolean> {
+export async function checkTenantAccess(
+  accessToken: string,
+): Promise<{ isTenant: boolean; tenantOrgId: string | null }> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/me/tenant-access`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!response.ok) return false;
-    const result = (await response.json()) as { isTenant: boolean };
-    return result.isTenant === true;
+    if (!response.ok) return { isTenant: false, tenantOrgId: null };
+    const result = (await response.json()) as { isTenant: boolean; tenantOrgId: string | null };
+    return { isTenant: result.isTenant === true, tenantOrgId: result.tenantOrgId ?? null };
   } catch {
-    return false;
+    return { isTenant: false, tenantOrgId: null };
   }
 }
 
@@ -137,6 +151,9 @@ export async function apiFetch(
 
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${accessToken}`);
+
+  const orgId = cookies.get(ORG_ID_COOKIE)?.value;
+  if (orgId) headers.set('X-Org-Id', orgId);
 
   return fetch(`${API_BASE_URL}${path}`, { ...init, headers });
 }

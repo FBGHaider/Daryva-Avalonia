@@ -1,4 +1,5 @@
 using Daryva.Api.Dtos;
+using Daryva.Api.Repositories.Interfaces;
 using Daryva.Api.Security;
 using Daryva.Api.Security.Interfaces;
 using Daryva.Api.Services.Interfaces;
@@ -18,12 +19,14 @@ public class MeController : ControllerBase
 {
     private readonly IMeService _meService;
     private readonly ITenantContext _tenantContext;
+    private readonly ITenantRepository _tenantRepository;
     private readonly ILogger<MeController> _logger;
 
-    public MeController(IMeService meService, ITenantContext tenantContext, ILogger<MeController> logger)
+    public MeController(IMeService meService, ITenantContext tenantContext, ITenantRepository tenantRepository, ILogger<MeController> logger)
     {
         _meService = meService;
         _tenantContext = tenantContext;
+        _tenantRepository = tenantRepository;
         _logger = logger;
     }
 
@@ -51,23 +54,34 @@ public class MeController : ControllerBase
     }
 
     /// <summary>
-    /// Whether the caller's resolved role in their current org is Tenant. The tenant portal
-    /// calls this immediately after login/accept-invite -- unlike /api/me, this path is not a
-    /// public route, so TenantContextMiddleware has already run org auto-select and
-    /// ResolveCurrentRoleAsync before this action executes.
+    /// Whether this login has a Tenant identity at all, and which org it's in. Deliberately does
+    /// NOT read _tenantContext.CurrentRole/CurrentOrgId -- those require TenantContextMiddleware
+    /// to have already auto-selected a single unambiguous org, which fails (400) for a caller who
+    /// belongs to more than one org (e.g. a landlord who was themselves invited as a tenant by a
+    /// different landlord). This route is listed in TenantContextMiddleware.IsPublicRoute for
+    /// exactly that reason -- it skips org resolution and looks up Tenant links directly instead,
+    /// the same way GetAllByAppUserIdAsync is already used pre-org-resolution in TenantContext
+    /// and TenantContextMiddleware itself.
     /// </summary>
     [HttpGet("tenant-access")]
     [ProducesResponseType(typeof(TenantAccessResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public ActionResult<TenantAccessResponseDto> GetTenantAccess()
+    public async Task<ActionResult<TenantAccessResponseDto>> GetTenantAccess(CancellationToken cancellationToken = default)
     {
         var userId = _tenantContext.UserId;
-        if (string.IsNullOrEmpty(userId) || userId == "unknown-user")
+        if (string.IsNullOrEmpty(userId) || userId == "unknown-user" || !Guid.TryParse(userId, out var userGuid))
             return Unauthorized(new { error = "Not authenticated." });
+
+        var linkedTenants = await _tenantRepository.GetAllByAppUserIdAsync(userGuid, cancellationToken);
+        // A person could in principle be invited as a tenant by more than one landlord org (see
+        // GetAllByAppUserIdAsync's doc comment); picking the first is a known limitation, not a
+        // decision that a second such tenancy is unsupported -- just not surfaced by this check.
+        var tenant = linkedTenants.FirstOrDefault();
 
         return Ok(new TenantAccessResponseDto
         {
-            IsTenant = _tenantContext.CurrentRole == Roles.Tenant
+            IsTenant = tenant != null,
+            TenantOrgId = tenant?.OrganizationId
         });
     }
 
