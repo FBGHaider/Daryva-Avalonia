@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Threading;
@@ -19,6 +20,8 @@ namespace Daryva.MVVM.ViewModels
         private readonly IHouseService _houseService;
         private readonly ITenantService _tenantService;
         private readonly IPaymentService _paymentService;
+        private readonly IExpenseService _expenseService;
+        private readonly IDocumentService _documentService;
         private readonly IServiceProvider _serviceProvider;
         private readonly INavigationService _navigationService;
         private readonly IDialogService _dialogService;
@@ -34,6 +37,11 @@ namespace Daryva.MVVM.ViewModels
         private int _overdueRentCount;
         private decimal _overdueRentAmount;
         private int _documentsExpiringSoonCount;
+        private decimal _monthlyIncome;
+        private decimal _rentCollectedPaidAmount;
+        private decimal _rentCollectedPendingAmount;
+        private decimal _rentCollectedOverdueAmount;
+        private decimal _rentCollectedPercent;
         private bool _showEmptyDepositMessage = true;
         private string _greetingText = "Hello";
 
@@ -43,11 +51,13 @@ namespace Daryva.MVVM.ViewModels
         private EventHandler<BaseViewModel?>? _navigationHandler;
         private EventHandler? _paymentDataHandler;
 
-        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService, NotificationCenterViewModel notificationCenter, ProfileMenuViewModel profileMenu, IOrgContext orgContext)
+        public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IExpenseService expenseService, IDocumentService documentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService, NotificationCenterViewModel notificationCenter, ProfileMenuViewModel profileMenu, IOrgContext orgContext)
         {
             _houseService = houseService;
             _tenantService = tenantService;
             _paymentService = paymentService;
+            _expenseService = expenseService ?? throw new ArgumentNullException(nameof(expenseService));
+            _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
             _serviceProvider = serviceProvider;
             _navigationService = navigationService;
             _dialogService = dialogService;
@@ -61,6 +71,10 @@ namespace Daryva.MVVM.ViewModels
             OverdueRent = new ObservableCollection<OverdueRentItem>();
             MissingDocuments = new ObservableCollection<MissingDocumentItem>();
             DepositReturnReminders = new ObservableCollection<DepositReturnReminderItem>();
+            CashFlowMonths = new ObservableCollection<CashFlowMonthPoint>();
+            UpcomingEvents = new ObservableCollection<UpcomingEventItem>();
+            RecentRentRows = new ObservableCollection<RentLedgerRowViewModel>();
+            RecentDocuments = new ObservableCollection<Document>();
 
             LoadDashboardDataCommand = new RelayCommand(async _ => 
             {
@@ -226,6 +240,42 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _documentsExpiringSoonCount, value);
         }
 
+        /// <summary>Sum of recorded rent transactions so far this calendar month.</summary>
+        public decimal MonthlyIncome
+        {
+            get => _monthlyIncome;
+            set => SetProperty(ref _monthlyIncome, value);
+        }
+
+        /// <summary>Sum of this month's ledger rows' AmountDue where Status == "Paid".</summary>
+        public decimal RentCollectedPaidAmount
+        {
+            get => _rentCollectedPaidAmount;
+            set => SetProperty(ref _rentCollectedPaidAmount, value);
+        }
+
+        /// <summary>Sum of this month's ledger rows' AmountDue where Status is "Unpaid" or "PartPaid"
+        /// (not yet overdue).</summary>
+        public decimal RentCollectedPendingAmount
+        {
+            get => _rentCollectedPendingAmount;
+            set => SetProperty(ref _rentCollectedPendingAmount, value);
+        }
+
+        /// <summary>Sum of this month's ledger rows' AmountDue where Status == "Overdue".</summary>
+        public decimal RentCollectedOverdueAmount
+        {
+            get => _rentCollectedOverdueAmount;
+            set => SetProperty(ref _rentCollectedOverdueAmount, value);
+        }
+
+        /// <summary>RentCollectedPaidAmount as a percentage of the month's total AmountDue.</summary>
+        public decimal RentCollectedPercent
+        {
+            get => _rentCollectedPercent;
+            set => SetProperty(ref _rentCollectedPercent, value);
+        }
+
         public string GreetingText
         {
             get => _greetingText;
@@ -235,6 +285,22 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<OverdueRentItem> OverdueRent { get; }
         public ObservableCollection<MissingDocumentItem> MissingDocuments { get; }
         public ObservableCollection<DepositReturnReminderItem> DepositReturnReminders { get; }
+
+        /// <summary>Last 6 months of income (recorded rent transactions) vs. expenses, for the
+        /// cash-flow chart.</summary>
+        public ObservableCollection<CashFlowMonthPoint> CashFlowMonths { get; }
+
+        /// <summary>Rent due soon (next 3 days) and documents expiring soon (next 30 days),
+        /// merged and sorted by date. No maintenance/lease-renewal rows -- neither concept exists
+        /// anywhere in this product.</summary>
+        public ObservableCollection<UpcomingEventItem> UpcomingEvents { get; }
+
+        /// <summary>This month's rent ledger rows (already fetched for the collection breakdown
+        /// above), most-recently-due first -- "this month's rent status per tenancy," not a
+        /// rolling transaction feed, since the ledger is what actually carries Status/DueDate.</summary>
+        public ObservableCollection<RentLedgerRowViewModel> RecentRentRows { get; }
+
+        public ObservableCollection<Document> RecentDocuments { get; }
 
         /// <summary>True when there are no deposit return reminders (show placeholder message).</summary>
         public bool ShowEmptyDepositMessage
@@ -261,101 +327,92 @@ namespace Daryva.MVVM.ViewModels
 
                     var houses = await _houseService.GetAllHousesAsync();
                     var houseCount = houses.Count();
-                    
+
                     var tenants = await _tenantService.GetAllTenantsAsync();
                     var activeTenantCount = tenants.Count(t => !string.IsNullOrEmpty(t.CurrentHouseAddress));
 
-                    // Load rent data - get current month and previous 2 months to capture all overdue rents
                     var currentDate = DateTime.Now;
-                    var allLedgerRows = new List<RentLedgerRowViewModel>();
-                    
-                    // Get current month
-                    var currentMonthLedger = await _paymentService.GetRentLedgerForMonthAsync(
-                        currentDate.Year, currentDate.Month, null, null, null);
-                    allLedgerRows.AddRange(currentMonthLedger);
 
-                    // Get previous 2 months to capture overdue rents
-                    for (int i = 1; i <= 2; i++)
+                    // This month's ledger: source for the rent-collection breakdown and the
+                    // "recent rent activity" table -- the only ledger fetch needed now that
+                    // overdue rent uses the dedicated GetOverdueRentAsync() below instead of a
+                    // hand-rolled multi-month scan.
+                    var currentMonthLedger = (await _paymentService.GetRentLedgerForMonthAsync(
+                        currentDate.Year, currentDate.Month, null, null, null)).ToList();
+
+                    var overdueItems = (await _paymentService.GetOverdueRentAsync()).ToList();
+                    var overdueRentList = overdueItems.Select(i => new OverdueRentItem
                     {
-                        var checkDate = currentDate.AddMonths(-i);
-                        var monthLedger = await _paymentService.GetRentLedgerForMonthAsync(
-                            checkDate.Year, checkDate.Month, null, null, null);
-                        allLedgerRows.AddRange(monthLedger);
-                    }
-                    
-                    var ledgerList = allLedgerRows.ToList(); // Materialize
-
-                    // Rent due total: use charge-based unpaid balance (payments linked by RentChargeId) so it matches
-                    // reality when all tenants have paid. Ledger aggregation can differ; this is the source of truth.
-                    // NOTE: Rent due calculation kept for overdue rent logic but not displayed separately anymore
-                    var currentMonthUnpaid = await _paymentService.GetTotalUnpaidBalanceForMonthAsync(currentDate.Year, currentDate.Month);
-
-                    // Calculate rent due in next 7 days - includes current month and next month if needed
-                    // NOTE: This calculation is kept internally but the "Rent Due in Next 7 Days" table is no longer displayed
-                    var endDate = currentDate.AddDays(7);
-
-                    // Calculate overdue rent - only show tenants whose MOST RECENT period is unpaid/overdue
-                    // If a tenant paid their most recent period, they should NOT appear, even if they have older unpaid periods
-                    var overdueRentList = new List<OverdueRentItem>();
-                    decimal totalOverdue = 0;
-                    
-                    // Group by tenancy first, then check the most recent period for each tenant
-                    var overdueRows = ledgerList
-                        .GroupBy(r => r.TenancyId)
-                        .Select(g => 
-                        {
-                            // Get ALL periods for this tenancy, ordered by due date (most recent first)
-                            var allPeriods = g.OrderByDescending(r => r.DueDate).ToList();
-                            
-                            // Find the most recent period (by due date)
-                            var mostRecentPeriod = allPeriods.First();
-                            
-                            // Only include if:
-                            // 1. The most recent period is overdue (due date in the past)
-                            // 2. The most recent period has Balance > 0 (not fully paid)
-                            if (mostRecentPeriod.DueDate < currentDate.Date && mostRecentPeriod.Balance > 0)
-                            {
-                                return mostRecentPeriod;
-                            }
-                            else
-                            {
-                                return null;
-                            }
-                        })
-                        .Where(r => r != null) // Filter out nulls
-                        .ToList();
-                    
-                    foreach (var row in overdueRows)
-                    {
-                        if (row != null && row.Balance > 0)
-                        {
-                            var daysLate = (currentDate.Date - row.DueDate.Date).Days;
-                            overdueRentList.Add(new OverdueRentItem
-                            {
-                                TenantName = row.TenantName,
-                                HouseAddress = row.HouseAddress,
-                                Amount = row.Balance,
-                                DaysLate = daysLate
-                            });
-                            totalOverdue += row.Balance;
-                        }
-                    }
+                        TenantName = i.TenantName,
+                        HouseAddress = i.HouseAddress,
+                        Amount = i.Amount,
+                        DaysLate = i.DaysLate
+                    }).ToList();
+                    var totalOverdue = overdueItems.Sum(i => i.Amount);
 
                     var depositRemindersList = (await _paymentService.GetDepositReturnRemindersAsync()).ToList();
-                    
+
+                    // Documents expiring in the next 30 days -- feeds both the KPI count (fixing
+                    // a bug where it was hardcoded to 0 and never actually computed) and the
+                    // Upcoming widget's document-expiry rows. One call for both.
+                    var expiringDocuments = (await _documentService.GetExpiringDocumentsAsync(30)).ToList();
+
+                    // Rent due in the next 3 days -- same window/logic NotificationFeedService
+                    // already uses for the header bell's "Rent due soon" items.
+                    var rentDueSoon = await GetRentDueSoonAsync(currentDate, currentMonthLedger);
+
+                    // This calendar month's recorded rent transactions.
+                    var monthStart = new DateTime(currentDate.Year, currentDate.Month, 1);
+                    var monthlyIncome = (await _paymentService.GetTransactionsAsync(monthStart, currentDate, "Rent"))
+                        .Sum(t => t.Amount);
+
+                    var cashFlowMonths = await BuildCashFlowMonthsAsync(currentDate);
+
+                    var recentDocuments = (await _documentService.GetDocumentsAsync())
+                        .OrderByDescending(d => d.UploadedAt)
+                        .Take(5)
+                        .ToList();
+
+                    var upcomingEvents = BuildUpcomingEvents(rentDueSoon, expiringDocuments, currentDate);
+
+                    var recentRentRows = currentMonthLedger
+                        .OrderBy(r => r.DueDate)
+                        .ThenBy(r => r.TenantName)
+                        .Take(8)
+                        .ToList();
+
+                    var (paidAmount, pendingAmount, overdueAmount) = SummarizeRentCollection(currentMonthLedger);
+                    var totalDue = currentMonthLedger.Sum(r => r.AmountDue);
+                    var collectedPercent = totalDue > 0 ? paidAmount / totalDue * 100m : 0m;
+
+                    var snapshot = new DashboardSnapshot
+                    {
+                        HouseCount = houseCount,
+                        ActiveTenantCount = activeTenantCount,
+                        OverdueRentList = overdueRentList,
+                        OverdueCount = overdueItems.Count,
+                        OverdueAmount = totalOverdue,
+                        DepositRemindersList = depositRemindersList,
+                        DocumentsExpiringSoonCount = expiringDocuments.Count,
+                        MonthlyIncome = monthlyIncome,
+                        CashFlowMonths = cashFlowMonths,
+                        UpcomingEvents = upcomingEvents,
+                        RecentRentRows = recentRentRows,
+                        RecentDocuments = recentDocuments,
+                        RentCollectedPaidAmount = paidAmount,
+                        RentCollectedPendingAmount = pendingAmount,
+                        RentCollectedOverdueAmount = overdueAmount,
+                        RentCollectedPercent = collectedPercent
+                    };
+
                     // Update ALL UI properties on UI thread in a single dispatcher call
                     if (Dispatcher.UIThread.CheckAccess())
                     {
-                        // Already on UI thread - update directly
-                        UpdateDashboardProperties(houseCount, activeTenantCount, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
+                        UpdateDashboardProperties(snapshot);
                     }
                     else
                     {
-                        // Need to marshal to UI thread
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            UpdateDashboardProperties(houseCount, activeTenantCount, overdueRentList, overdueRows.Count, totalOverdue, depositRemindersList);
-                        });
+                        await Dispatcher.UIThread.InvokeAsync(() => UpdateDashboardProperties(snapshot));
                     }
 
                     // Successfully completed without exceptions
@@ -380,6 +437,129 @@ namespace Daryva.MVVM.ViewModels
                     return;
                 }
             }
+        }
+
+        /// <summary>Ports NotificationFeedService's "rent due soon" rule (next 3 days, Balance > 0)
+        /// so the dashboard's Upcoming widget and the notification bell agree on what counts as
+        /// due soon. Reuses the already-fetched current-month ledger instead of re-fetching it.</summary>
+        private async Task<List<RentLedgerRowViewModel>> GetRentDueSoonAsync(DateTime currentDate, List<RentLedgerRowViewModel> currentMonthLedger)
+        {
+            var today = currentDate.Date;
+            var endSoon = today.AddDays(3);
+            var seenTenancies = new HashSet<int>();
+            var result = new List<RentLedgerRowViewModel>();
+
+            void Collect(IEnumerable<RentLedgerRowViewModel> rows)
+            {
+                foreach (var row in rows)
+                {
+                    if (row.DueDate < today || row.DueDate > endSoon || row.Balance <= 0)
+                        continue;
+                    if (!seenTenancies.Add(row.TenancyId))
+                        continue;
+                    result.Add(row);
+                }
+            }
+
+            Collect(currentMonthLedger);
+            var nextMonth = today.AddMonths(1);
+            var nextMonthLedger = await _paymentService.GetRentLedgerForMonthAsync(nextMonth.Year, nextMonth.Month, null, null, null);
+            Collect(nextMonthLedger);
+
+            return result;
+        }
+
+        /// <summary>Last 6 months (5 back + current) of income (per-month sum of recorded rent
+        /// transactions) vs. expenses (IExpenseService's own ByMonth aggregate). No combined
+        /// endpoint exists for this, so income is composed client-side the same way the old
+        /// overdue-rent logic used to loop over months -- an accepted, explicitly-confirmed
+        /// tradeoff over adding a new API aggregate endpoint.</summary>
+        private async Task<List<CashFlowMonthPoint>> BuildCashFlowMonthsAsync(DateTime currentDate)
+        {
+            const int monthsBack = 5;
+            var currentMonthStart = new DateTime(currentDate.Year, currentDate.Month, 1);
+            var earliestMonth = currentMonthStart.AddMonths(-monthsBack);
+
+            var expenseSummary = await _expenseService.GetExpenseSummaryAsync(startDate: earliestMonth, endDate: currentDate);
+            var expensesByMonth = expenseSummary.ByMonth.ToDictionary(m => (m.Year, m.Month), m => m.Total);
+
+            var points = new List<CashFlowMonthPoint>();
+            for (var i = monthsBack; i >= 0; i--)
+            {
+                var monthDate = currentMonthStart.AddMonths(-i);
+                var monthEnd = monthDate.AddMonths(1).AddDays(-1);
+                if (monthEnd > currentDate)
+                    monthEnd = currentDate; // Don't count days that haven't happened yet for the in-progress month.
+
+                var income = (await _paymentService.GetTransactionsAsync(monthDate, monthEnd, "Rent")).Sum(t => t.Amount);
+                expensesByMonth.TryGetValue((monthDate.Year, monthDate.Month), out var expenses);
+
+                points.Add(new CashFlowMonthPoint
+                {
+                    Year = monthDate.Year,
+                    Month = monthDate.Month,
+                    MonthLabel = monthDate.ToString("MMM", CultureInfo.InvariantCulture),
+                    Income = income,
+                    Expenses = expenses
+                });
+            }
+            return points;
+        }
+
+        private static List<UpcomingEventItem> BuildUpcomingEvents(
+            List<RentLedgerRowViewModel> rentDueSoon, List<Document> expiringDocuments, DateTime currentDate)
+        {
+            var today = currentDate.Date;
+            var items = new List<UpcomingEventItem>();
+
+            foreach (var row in rentDueSoon)
+            {
+                items.Add(new UpcomingEventItem
+                {
+                    Category = UpcomingEventCategory.RentDueSoon,
+                    Title = "Rent due soon",
+                    Description = $"{row.TenantName} — £{row.Balance:N2}",
+                    Date = row.DueDate,
+                    DateDisplay = row.DueDateDisplay,
+                    IsUrgent = (row.DueDate.Date - today).Days <= 1
+                });
+            }
+
+            foreach (var doc in expiringDocuments.Where(d => d.ValidTo.HasValue))
+            {
+                items.Add(new UpcomingEventItem
+                {
+                    Category = UpcomingEventCategory.DocumentExpiring,
+                    Title = "Document expiring",
+                    Description = doc.DisplayName,
+                    Date = doc.ValidTo!.Value,
+                    DateDisplay = doc.ValidTo.Value.ToString("dd MMM"),
+                    IsUrgent = doc.ValidTo.Value <= today.AddDays(7)
+                });
+            }
+
+            return items.OrderBy(i => i.Date).ToList();
+        }
+
+        private static (decimal Paid, decimal Pending, decimal Overdue) SummarizeRentCollection(List<RentLedgerRowViewModel> ledger)
+        {
+            decimal paid = 0, pending = 0, overdue = 0;
+            foreach (var row in ledger)
+            {
+                switch (row.Status)
+                {
+                    case "Paid":
+                        paid += row.AmountDue;
+                        break;
+                    case "Overdue":
+                        overdue += row.AmountDue;
+                        break;
+                    default: // Unpaid, PartPaid
+                        pending += row.AmountDue;
+                        break;
+                }
+            }
+            return (paid, pending, overdue);
         }
 
         private async Task UpdateGreetingAsync()
@@ -428,40 +608,68 @@ namespace Daryva.MVVM.ViewModels
             return char.ToUpperInvariant(firstChunk[0]) + firstChunk[1..].ToLowerInvariant();
         }
 
-        private void UpdateDashboardProperties(int houseCount, int activeTenantCount, 
-            List<OverdueRentItem> overdueRentList, 
-            int overdueCount, decimal overdueAmount, List<DepositReturnReminderItem> depositRemindersList)
+        private void UpdateDashboardProperties(DashboardSnapshot s)
         {
-            // Update basic counts
-            HousesCount = houseCount;
-            ActiveTenantsCount = activeTenantCount;
-            
-            // Update overdue rent
+            HousesCount = s.HouseCount;
+            ActiveTenantsCount = s.ActiveTenantCount;
+
             OverdueRent.Clear();
-            foreach (var item in overdueRentList)
-            {
+            foreach (var item in s.OverdueRentList)
                 OverdueRent.Add(item);
-            }
+            OverdueRentCount = s.OverdueCount;
+            OverdueRentAmount = s.OverdueAmount;
 
             DepositReturnReminders.Clear();
-            foreach (var item in depositRemindersList)
-            {
+            foreach (var item in s.DepositRemindersList)
                 DepositReturnReminders.Add(item);
-            }
-            ShowEmptyDepositMessage = depositRemindersList.Count == 0;
-            
-            OverdueRentCount = overdueCount;
-            OverdueRentAmount = overdueAmount;
-            DocumentsExpiringSoonCount = 0;
-            
-            // Force property change notifications
-            OnPropertyChanged(nameof(OverdueRentAmount));
-            OnPropertyChanged(nameof(OverdueRentCount));
-            OnPropertyChanged(nameof(HousesCount));
-            OnPropertyChanged(nameof(ActiveTenantsCount));
-            OnPropertyChanged(nameof(OverdueRent));
-            OnPropertyChanged(nameof(DepositReturnReminders));
-            OnPropertyChanged(nameof(ShowEmptyDepositMessage));
+            ShowEmptyDepositMessage = s.DepositRemindersList.Count == 0;
+
+            DocumentsExpiringSoonCount = s.DocumentsExpiringSoonCount;
+            MonthlyIncome = s.MonthlyIncome;
+
+            CashFlowMonths.Clear();
+            foreach (var point in s.CashFlowMonths)
+                CashFlowMonths.Add(point);
+
+            UpcomingEvents.Clear();
+            foreach (var item in s.UpcomingEvents)
+                UpcomingEvents.Add(item);
+
+            RecentRentRows.Clear();
+            foreach (var row in s.RecentRentRows)
+                RecentRentRows.Add(row);
+
+            RecentDocuments.Clear();
+            foreach (var doc in s.RecentDocuments)
+                RecentDocuments.Add(doc);
+
+            RentCollectedPaidAmount = s.RentCollectedPaidAmount;
+            RentCollectedPendingAmount = s.RentCollectedPendingAmount;
+            RentCollectedOverdueAmount = s.RentCollectedOverdueAmount;
+            RentCollectedPercent = s.RentCollectedPercent;
+        }
+
+        /// <summary>Everything LoadDashboardDataAsync fetches off the UI thread, bundled so it can
+        /// be handed to UpdateDashboardProperties in one Dispatcher call -- replaces the previous
+        /// 6-parameter version now that there's meaningfully more state to carry.</summary>
+        private sealed class DashboardSnapshot
+        {
+            public int HouseCount { get; set; }
+            public int ActiveTenantCount { get; set; }
+            public List<OverdueRentItem> OverdueRentList { get; set; } = new();
+            public int OverdueCount { get; set; }
+            public decimal OverdueAmount { get; set; }
+            public List<DepositReturnReminderItem> DepositRemindersList { get; set; } = new();
+            public int DocumentsExpiringSoonCount { get; set; }
+            public decimal MonthlyIncome { get; set; }
+            public List<CashFlowMonthPoint> CashFlowMonths { get; set; } = new();
+            public List<UpcomingEventItem> UpcomingEvents { get; set; } = new();
+            public List<RentLedgerRowViewModel> RecentRentRows { get; set; } = new();
+            public List<Document> RecentDocuments { get; set; } = new();
+            public decimal RentCollectedPaidAmount { get; set; }
+            public decimal RentCollectedPendingAmount { get; set; }
+            public decimal RentCollectedOverdueAmount { get; set; }
+            public decimal RentCollectedPercent { get; set; }
         }
 
         private async void ShowAddHouseDialog()
