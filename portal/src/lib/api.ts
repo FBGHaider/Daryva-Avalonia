@@ -1,10 +1,13 @@
 import type { AstroCookies } from 'astro';
 
-// Server-side only (no PUBLIC_ prefix) - never sent to the client bundle, since every
-// API call the portal makes happens in SSR code, not browser JS. In production this is
-// set to Docker Compose's internal service DNS (http://api:8080); the localhost fallback
-// is for `astro dev` against a locally-run Daryva.Api.
-const API_BASE_URL = import.meta.env.API_BASE_URL || 'http://localhost:5000';
+// Server-side only, and deliberately process.env not import.meta.env: Vite statically
+// inlines import.meta.env.X at build time, so in a Docker deployment where the build
+// stage never has API_BASE_URL set, "import.meta.env.API_BASE_URL || 'default'" gets
+// baked in as the literal default string, permanently ignoring whatever the container
+// is actually given at runtime via docker-compose. process.env stays a genuine runtime
+// lookup. In production this is Docker Compose's internal service DNS (http://api:8080);
+// the localhost fallback is for `astro dev` against a locally-run Daryva.Api.
+export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
 
 const ACCESS_TOKEN_COOKIE = 'daryva_access_token';
 const REFRESH_TOKEN_COOKIE = 'daryva_refresh_token';

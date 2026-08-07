@@ -1,8 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { setAuthCookies } from '../lib/api';
-
-const API_BASE_URL = import.meta.env.API_BASE_URL || 'http://localhost:5000';
+import { setAuthCookies, API_BASE_URL } from '../lib/api';
 
 let error: string | null = null;
 

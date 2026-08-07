@@ -1,7 +1,5 @@
 import type { APIRoute } from 'astro';
-import { clearAuthCookies, getRefreshToken } from '../lib/api';
-
-const API_BASE_URL = import.meta.env.API_BASE_URL || 'http://localhost:5000';
+import { clearAuthCookies, getRefreshToken, API_BASE_URL } from '../lib/api';
 
 export const POST: APIRoute = async ({ cookies, redirect }) => {
   const refreshToken = getRefreshToken(cookies);
