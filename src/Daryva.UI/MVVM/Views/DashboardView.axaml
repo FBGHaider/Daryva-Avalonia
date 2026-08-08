@@ -59,8 +59,14 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <!-- Content stops growing sideways past ~1760px so the layout stays readable at
                  2560x1440 instead of stretching very wide and sparse, while remaining fully fluid
-                 down to the window's 900px floor. -->
-            <Border MaxWidth="1760" HorizontalAlignment="Center" Padding="32">
+                 down to the window's 900px floor. HorizontalAlignment is intentionally left at its
+                 Stretch default here: Center forces this element (and everything inside its "*"
+                 Grid columns) to be measured against an unconstrained/infinite available width
+                 first and centered afterward, which collapses star-sized columns and produced both
+                 the reported side margins and a blank cash-flow chart. Stretch measures directly
+                 against the real available width at every size, so it fills edge-to-edge below the
+                 cap and simply stays left-aligned (not centered) above it. -->
+            <Border MaxWidth="1760" Padding="32">
                 <StackPanel Spacing="{DynamicResource Spacing24}">
 
                     <!-- Header -->
@@ -133,17 +139,21 @@
                     </Grid>
 
                     <!-- Cash flow (primary, larger) + Rent collection (secondary, smaller).
-                         VerticalAlignment="Top" on both panels below: without it, Grid stretches
-                         both to the height of the taller sibling, and since neither panel's inner
-                         content fills that extra space, the shorter one is left with a dead empty
-                         gap at the bottom, exactly the "irregular shape" this fixes. Each panel
-                         now sizes to its own natural content instead. -->
+                         Panels stretch to share the row's full height (Grid default) so paired
+                         widgets never look mismatched in size. Each panel is a Grid with an Auto
+                         header row (title/caption stay pinned to the top, matching its sibling) and
+                         a Star body row whose content is vertically centered, so a naturally shorter
+                         body (e.g. the donut) sits centered in the extra space instead of leaving a
+                         dead gap at the bottom or dragging the title down with it. -->
                     <Grid ColumnDefinitions="2*,16,1*">
-                        <Border Grid.Column="0" Classes="panel" VerticalAlignment="Top">
-                            <StackPanel Spacing="{DynamicResource Spacing8}">
-                                <TextBlock Text="Cash flow" Classes="section-title"/>
-                                <TextBlock Text="Last 6 months" Classes="panel-caption"/>
-                                <StackPanel IsVisible="{Binding ShowEmptyCashFlowMessage, Converter={x:Static BoolConverters.Not}}">
+                        <Border Grid.Column="0" Classes="panel">
+                            <Grid RowDefinitions="Auto,*">
+                                <StackPanel Grid.Row="0" Spacing="{DynamicResource Spacing8}">
+                                    <TextBlock Text="Cash flow" Classes="section-title"/>
+                                    <TextBlock Text="Last 6 months" Classes="panel-caption"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center"
+                                            IsVisible="{Binding ShowEmptyCashFlowMessage, Converter={x:Static BoolConverters.Not}}">
                                     <charts:LineAreaChart Height="200" Margin="0,8,0,0"
                                         IncomeValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowIncomeValuesConverter}}"
                                         ExpenseValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowExpenseValuesConverter}}"
@@ -163,20 +173,23 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,32"
+                                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="0,32"
                                             IsVisible="{Binding ShowEmptyCashFlowMessage}">
                                     <materialIcons:MaterialIcon Kind="ChartLineVariant" Width="28" Height="28"
                                                                  Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
                                     <TextBlock Text="No income or expenses recorded in the last 6 months." Classes="text-muted" HorizontalAlignment="Center"/>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
-                        <Border Grid.Column="2" Classes="panel" VerticalAlignment="Top">
-                            <StackPanel Spacing="{DynamicResource Spacing8}">
-                                <TextBlock Text="Rent collection" Classes="section-title"/>
-                                <TextBlock Text="This month" Classes="panel-caption"/>
-                                <StackPanel IsVisible="{Binding ShowEmptyRentCollectionMessage, Converter={x:Static BoolConverters.Not}}">
+                        <Border Grid.Column="2" Classes="panel">
+                            <Grid RowDefinitions="Auto,*">
+                                <StackPanel Grid.Row="0" Spacing="{DynamicResource Spacing8}">
+                                    <TextBlock Text="Rent collection" Classes="section-title"/>
+                                    <TextBlock Text="This month" Classes="panel-caption"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center"
+                                            IsVisible="{Binding ShowEmptyRentCollectionMessage, Converter={x:Static BoolConverters.Not}}">
                                     <charts:DonutChart x:Name="RentCollectionDonut"
                                         Width="150" Height="150" HorizontalAlignment="Center" Margin="0,8,0,0"
                                         CenterLabel="{Binding RentCollectedPercent, StringFormat='{}{0:N0}%'}"
@@ -202,22 +215,25 @@
                                         </Grid>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,32"
+                                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="0,32"
                                             IsVisible="{Binding ShowEmptyRentCollectionMessage}">
                                     <materialIcons:MaterialIcon Kind="CashMultiple" Width="28" Height="28"
                                                                  Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
                                     <TextBlock Text="No rent due this month." Classes="text-muted" HorizontalAlignment="Center"/>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
 
-                    <!-- Upcoming (wider) + Quick actions (compact) -->
+                    <!-- Upcoming (wider) + Quick actions (compact). Same Auto-header/Star-body
+                         pattern as the row above: whichever side is naturally shorter centers
+                         within the shared row height instead of leaving a gap or shrinking the row. -->
                     <Grid ColumnDefinitions="1.4*,16,1*">
-                        <Border Grid.Column="0" Classes="panel" VerticalAlignment="Top">
-                            <StackPanel Spacing="{DynamicResource Spacing12}">
-                                <TextBlock Text="Upcoming" Classes="section-title"/>
-                                <ItemsControl ItemsSource="{Binding UpcomingEvents}" IsVisible="{Binding UpcomingEvents.Count, Converter={StaticResource CollectionCountToBoolConverter}}">
+                        <Border Grid.Column="0" Classes="panel">
+                            <Grid RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0" Text="Upcoming" Classes="section-title"/>
+                                <ItemsControl Grid.Row="1" VerticalAlignment="Center" Margin="0,12,0,0"
+                                              ItemsSource="{Binding UpcomingEvents}" IsVisible="{Binding UpcomingEvents.Count, Converter={StaticResource CollectionCountToBoolConverter}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,10">
@@ -235,19 +251,19 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,8"
+                                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="0,8"
                                             IsVisible="{Binding UpcomingEvents.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}">
                                     <materialIcons:MaterialIcon Kind="CheckCircleOutline" Width="28" Height="28"
                                                                  Foreground="{DynamicResource StatusSuccessBrush}" HorizontalAlignment="Center"/>
                                     <TextBlock Text="Nothing needs attention right now" Classes="text-muted" HorizontalAlignment="Center"/>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
-                        <Border Grid.Column="2" Classes="panel" VerticalAlignment="Top">
-                            <StackPanel Spacing="{DynamicResource Spacing12}">
-                                <TextBlock Text="Quick actions" Classes="section-title"/>
-                                <StackPanel Spacing="8">
+                        <Border Grid.Column="2" Classes="panel">
+                            <Grid RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0" Text="Quick actions" Classes="section-title"/>
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="0,12,0,0" Spacing="8">
                                     <Button Classes="primary" HorizontalContentAlignment="Left" Command="{Binding RecordPaymentCommand}">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <materialIcons:MaterialIcon Kind="CashMultiple" Width="16" Height="16"/>
@@ -285,15 +301,16 @@
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
 
                     <!-- Recent rent activity + Recent documents -->
                     <Grid ColumnDefinitions="1.4*,16,1*">
-                        <Border Grid.Column="0" Classes="panel" VerticalAlignment="Top">
-                            <StackPanel Spacing="{DynamicResource Spacing12}">
-                                <TextBlock Text="This month's rent" Classes="section-title"/>
+                        <Border Grid.Column="0" Classes="panel">
+                            <Grid RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0" Text="This month's rent" Classes="section-title"/>
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="{DynamicResource Spacing12}" Margin="0,12,0,0">
                                 <Border Classes="list-header" IsVisible="{Binding RecentRentRows.Count, Converter={StaticResource CollectionCountToBoolConverter}}">
                                     <Grid ColumnDefinitions="2*,2*,1.1*,1.3*">
                                         <TextBlock Grid.Column="0" Text="Tenant" Classes="list-header-text"/>
@@ -326,19 +343,21 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,8"
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="0,8"
                                             IsVisible="{Binding RecentRentRows.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}">
                                     <materialIcons:MaterialIcon Kind="CashMultiple" Width="26" Height="26"
                                                                  Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
                                     <TextBlock Text="No rent charges for this month yet." Classes="text-muted" HorizontalAlignment="Center"/>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
-                        <Border Grid.Column="2" Classes="panel" VerticalAlignment="Top">
-                            <StackPanel Spacing="{DynamicResource Spacing12}">
-                                <TextBlock Text="Recent documents" Classes="section-title"/>
-                                <ItemsControl ItemsSource="{Binding RecentDocuments}">
+                        <Border Grid.Column="2" Classes="panel">
+                            <Grid RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0" Text="Recent documents" Classes="section-title"/>
+                                <ItemsControl Grid.Row="1" VerticalAlignment="Center" Margin="0,12,0,0"
+                                              ItemsSource="{Binding RecentDocuments}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Classes="list-row">
@@ -359,13 +378,13 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,8"
+                                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="0,8"
                                             IsVisible="{Binding RecentDocuments.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}">
                                     <materialIcons:MaterialIcon Kind="FileDocumentOutline" Width="26" Height="26"
                                                                  Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
                                     <TextBlock Text="No documents uploaded yet." Classes="text-muted" HorizontalAlignment="Center"/>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
 
