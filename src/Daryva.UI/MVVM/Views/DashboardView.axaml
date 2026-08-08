@@ -16,10 +16,12 @@
         <converters:CollectionCountToBoolConverter x:Key="CollectionCountToBoolConverter"/>
     </UserControl.Resources>
     <UserControl.Styles>
-        <!-- Elevated card: background contrast instead of a border stroke, per the redesign's
-             "reduce borders, use layering" principle. -->
+        <!-- Elevated card: background contrast plus the same subtle outline as the KPI cards
+             above, for consistent panel definition across the page. -->
         <Style Selector="Border.panel">
             <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}"/>
             <Setter Property="Padding" Value="20"/>
         </Style>
@@ -225,10 +227,15 @@
                         </Border>
                     </Grid>
 
+                    <!-- These three rows reorder by whether they have real data to show, see
+                         DashboardViewModel.RecomputeRowRanks. The Cash flow/Rent collection row
+                         above stays fixed regardless. -->
+                    <Grid RowDefinitions="Auto,Auto,Auto">
+
                     <!-- Upcoming (wider) + Quick actions (compact). Same Auto-header/Star-body
                          pattern as the row above: whichever side is naturally shorter centers
                          within the shared row height instead of leaving a gap or shrinking the row. -->
-                    <Grid ColumnDefinitions="1.4*,16,1*">
+                    <Grid Grid.Row="{Binding UpcomingRowRank}" ColumnDefinitions="1.4*,16,1*" Margin="0,0,0,24">
                         <Border Grid.Column="0" Classes="panel">
                             <Grid RowDefinitions="Auto,*">
                                 <TextBlock Grid.Row="0" Text="Upcoming" Classes="section-title"/>
@@ -306,7 +313,7 @@
                     </Grid>
 
                     <!-- Recent rent activity + Recent documents -->
-                    <Grid ColumnDefinitions="1.4*,16,1*">
+                    <Grid Grid.Row="{Binding RecentActivityRowRank}" ColumnDefinitions="1.4*,16,1*" Margin="0,0,0,24">
                         <Border Grid.Column="0" Classes="panel">
                             <Grid RowDefinitions="Auto,*">
                                 <TextBlock Grid.Row="0" Text="This month's rent" Classes="section-title"/>
@@ -389,7 +396,7 @@
                     </Grid>
 
                     <!-- Deposit return reminders -->
-                    <Border Classes="panel">
+                    <Border Grid.Row="{Binding DepositRemindersRowRank}" Classes="panel">
                         <StackPanel Spacing="{DynamicResource Spacing12}">
                             <TextBlock Text="Deposit return reminders" Classes="section-title"/>
                             <TextBlock Text="When a tenant leaves, reminders appear here." Classes="text-muted" FontSize="12"/>
@@ -426,6 +433,8 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
+
+                    </Grid>
 
                 </StackPanel>
             </Border>

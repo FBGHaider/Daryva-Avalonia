@@ -47,6 +47,13 @@ namespace Daryva.MVVM.ViewModels
         private bool _showEmptyRentCollectionMessage;
         private string _greetingText = "Hello";
 
+        // Below the fixed Cash flow/Rent collection row, these three rows reorder by whether they
+        // have real data to show -- see UpdateDashboardProperties' RecomputeRowRanks. 0/1/2 is a
+        // permutation (Grid.Row position), not a priority weight.
+        private int _upcomingRowRank;
+        private int _recentActivityRowRank = 1;
+        private int _depositRemindersRowRank = 2;
+
         // Static event to notify all DashboardViewModel instances when payment is recorded/unrecorded
         public static event EventHandler? PaymentDataChanged;
 
@@ -341,6 +348,27 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<RentLedgerRowViewModel> RecentRentRows { get; }
 
         public ObservableCollection<Document> RecentDocuments { get; }
+
+        /// <summary>Grid.Row for the Upcoming/Quick-actions row -- see RecomputeRowRanks.</summary>
+        public int UpcomingRowRank
+        {
+            get => _upcomingRowRank;
+            private set => SetProperty(ref _upcomingRowRank, value);
+        }
+
+        /// <summary>Grid.Row for the This month's rent/Recent documents row -- see RecomputeRowRanks.</summary>
+        public int RecentActivityRowRank
+        {
+            get => _recentActivityRowRank;
+            private set => SetProperty(ref _recentActivityRowRank, value);
+        }
+
+        /// <summary>Grid.Row for the Deposit return reminders row -- see RecomputeRowRanks.</summary>
+        public int DepositRemindersRowRank
+        {
+            get => _depositRemindersRowRank;
+            private set => SetProperty(ref _depositRemindersRowRank, value);
+        }
 
         /// <summary>True when there are no deposit return reminders (show placeholder message).</summary>
         public bool ShowEmptyDepositMessage
@@ -783,6 +811,32 @@ namespace Daryva.MVVM.ViewModels
             RentCollectedOverdueAmount = s.RentCollectedOverdueAmount;
             RentCollectedPercent = s.RentCollectedPercent;
             ShowEmptyRentCollectionMessage = s.RentCollectedPaidAmount == 0 && s.RentCollectedPendingAmount == 0 && s.RentCollectedOverdueAmount == 0;
+
+            RecomputeRowRanks(s);
+        }
+
+        /// <summary>Reorders the three rows below the fixed Cash flow/Rent collection row so
+        /// whichever ones actually have data to show sit above the ones that don't -- a landlord
+        /// with no upcoming events shouldn't see an empty "Upcoming" card above a populated
+        /// "Recent documents" list. Quick actions is excluded from the "has data" check for its
+        /// own row (it's always-populated action buttons, not user data) -- the Upcoming/Quick
+        /// actions row's rank follows Upcoming alone. A stable partition (has-data rows keep their
+        /// original relative order, then no-data rows keep theirs) rather than a full sort, so two
+        /// equally-empty rows don't swap places from run to run for no visible reason.</summary>
+        private void RecomputeRowRanks(DashboardSnapshot s)
+        {
+            var upcomingHasData = s.UpcomingEvents.Count > 0;
+            var recentActivityHasData = s.RecentRentRows.Count > 0 || s.RecentDocuments.Count > 0;
+            var depositHasData = s.DepositRemindersList.Count > 0;
+
+            var hasData = new[] { upcomingHasData, recentActivityHasData, depositHasData };
+            var order = Enumerable.Range(0, 3)
+                .OrderBy(i => hasData[i] ? 0 : 1)
+                .ToList();
+
+            UpcomingRowRank = order.IndexOf(0);
+            RecentActivityRowRank = order.IndexOf(1);
+            DepositRemindersRowRank = order.IndexOf(2);
         }
 
         /// <summary>Everything LoadDashboardDataAsync fetches off the UI thread, bundled so it can
