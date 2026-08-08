@@ -132,60 +132,81 @@
                                           Icon="FileDocumentOutline" AccentBrush="{DynamicResource BrandSecondaryBrush}"/>
                     </Grid>
 
-                    <!-- Cash flow (primary, larger) + Rent collection (secondary, smaller) -->
+                    <!-- Cash flow (primary, larger) + Rent collection (secondary, smaller).
+                         VerticalAlignment="Top" on both panels below: without it, Grid stretches
+                         both to the height of the taller sibling, and since neither panel's inner
+                         content fills that extra space, the shorter one is left with a dead empty
+                         gap at the bottom, exactly the "irregular shape" this fixes. Each panel
+                         now sizes to its own natural content instead. -->
                     <Grid ColumnDefinitions="2*,16,1*">
-                        <Border Grid.Column="0" Classes="panel">
+                        <Border Grid.Column="0" Classes="panel" VerticalAlignment="Top">
                             <StackPanel Spacing="{DynamicResource Spacing8}">
                                 <TextBlock Text="Cash flow" Classes="section-title"/>
                                 <TextBlock Text="Last 6 months" Classes="panel-caption"/>
-                                <charts:LineAreaChart Height="200" Margin="0,8,0,0"
-                                    IncomeValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowIncomeValuesConverter}}"
-                                    ExpenseValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowExpenseValuesConverter}}"
-                                    Labels="{Binding CashFlowMonths, Converter={StaticResource CashFlowLabelsConverter}}"
-                                    IncomeBrush="{DynamicResource StatusSuccessBrush}"
-                                    ExpenseBrush="{DynamicResource AccentPurpleBrush}"
-                                    GridBrush="{DynamicResource BorderBrush}"
-                                    LabelBrush="{DynamicResource TextMutedBrush}"/>
-                                <StackPanel Orientation="Horizontal" Spacing="20" Margin="0,4,0,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Width="8" Height="8" CornerRadius="4" Background="{DynamicResource StatusSuccessBrush}"/>
-                                        <TextBlock Text="Income" Classes="panel-caption"/>
+                                <StackPanel IsVisible="{Binding ShowEmptyCashFlowMessage, Converter={x:Static BoolConverters.Not}}">
+                                    <charts:LineAreaChart Height="200" Margin="0,8,0,0"
+                                        IncomeValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowIncomeValuesConverter}}"
+                                        ExpenseValues="{Binding CashFlowMonths, Converter={StaticResource CashFlowExpenseValuesConverter}}"
+                                        Labels="{Binding CashFlowMonths, Converter={StaticResource CashFlowLabelsConverter}}"
+                                        IncomeBrush="{DynamicResource StatusSuccessBrush}"
+                                        ExpenseBrush="{DynamicResource AccentPurpleBrush}"
+                                        GridBrush="{DynamicResource BorderBrush}"
+                                        LabelBrush="{DynamicResource TextMutedBrush}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="20" Margin="0,4,0,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border Width="8" Height="8" CornerRadius="4" Background="{DynamicResource StatusSuccessBrush}"/>
+                                            <TextBlock Text="Income" Classes="panel-caption"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border Width="8" Height="8" CornerRadius="4" Background="{DynamicResource AccentPurpleBrush}"/>
+                                            <TextBlock Text="Expenses" Classes="panel-caption"/>
+                                        </StackPanel>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Width="8" Height="8" CornerRadius="4" Background="{DynamicResource AccentPurpleBrush}"/>
-                                        <TextBlock Text="Expenses" Classes="panel-caption"/>
-                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,32"
+                                            IsVisible="{Binding ShowEmptyCashFlowMessage}">
+                                    <materialIcons:MaterialIcon Kind="ChartLineVariant" Width="28" Height="28"
+                                                                 Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="No income or expenses recorded in the last 6 months." Classes="text-muted" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Column="2" Classes="panel">
+                        <Border Grid.Column="2" Classes="panel" VerticalAlignment="Top">
                             <StackPanel Spacing="{DynamicResource Spacing8}">
                                 <TextBlock Text="Rent collection" Classes="section-title"/>
                                 <TextBlock Text="This month" Classes="panel-caption"/>
-                                <charts:DonutChart x:Name="RentCollectionDonut"
-                                    Width="150" Height="150" HorizontalAlignment="Center" Margin="0,8,0,0"
-                                    CenterLabel="{Binding RentCollectedPercent, StringFormat='{}{0:N0}%'}"
-                                    CenterSubLabel="Collected"
-                                    TrackBrush="{DynamicResource Surface2Brush}"
-                                    LabelBrush="{DynamicResource TextPrimaryBrush}"
-                                    SubLabelBrush="{DynamicResource TextMutedBrush}"/>
-                                <StackPanel Spacing="8" Margin="0,8,0,0">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <controls:StatusBadge Grid.Column="0" Text="Paid" Severity="Success"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding RentCollectedPaidAmount, StringFormat='£{0:N0}'}"
-                                                   VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    </Grid>
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <controls:StatusBadge Grid.Column="0" Text="Pending" Severity="Warning"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding RentCollectedPendingAmount, StringFormat='£{0:N0}'}"
-                                                   VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    </Grid>
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <controls:StatusBadge Grid.Column="0" Text="Overdue" Severity="Danger"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding RentCollectedOverdueAmount, StringFormat='£{0:N0}'}"
-                                                   VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    </Grid>
+                                <StackPanel IsVisible="{Binding ShowEmptyRentCollectionMessage, Converter={x:Static BoolConverters.Not}}">
+                                    <charts:DonutChart x:Name="RentCollectionDonut"
+                                        Width="150" Height="150" HorizontalAlignment="Center" Margin="0,8,0,0"
+                                        CenterLabel="{Binding RentCollectedPercent, StringFormat='{}{0:N0}%'}"
+                                        CenterSubLabel="Collected"
+                                        TrackBrush="{DynamicResource Surface2Brush}"
+                                        LabelBrush="{DynamicResource TextPrimaryBrush}"
+                                        SubLabelBrush="{DynamicResource TextMutedBrush}"/>
+                                    <StackPanel Spacing="8" Margin="0,8,0,0">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <controls:StatusBadge Grid.Column="0" Text="Paid" Severity="Success"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding RentCollectedPaidAmount, StringFormat='£{0:N0}'}"
+                                                       VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <controls:StatusBadge Grid.Column="0" Text="Pending" Severity="Warning"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding RentCollectedPendingAmount, StringFormat='£{0:N0}'}"
+                                                       VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <controls:StatusBadge Grid.Column="0" Text="Overdue" Severity="Danger"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding RentCollectedOverdueAmount, StringFormat='£{0:N0}'}"
+                                                       VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,32"
+                                            IsVisible="{Binding ShowEmptyRentCollectionMessage}">
+                                    <materialIcons:MaterialIcon Kind="CashMultiple" Width="28" Height="28"
+                                                                 Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="No rent due this month." Classes="text-muted" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -193,7 +214,7 @@
 
                     <!-- Upcoming (wider) + Quick actions (compact) -->
                     <Grid ColumnDefinitions="1.4*,16,1*">
-                        <Border Grid.Column="0" Classes="panel">
+                        <Border Grid.Column="0" Classes="panel" VerticalAlignment="Top">
                             <StackPanel Spacing="{DynamicResource Spacing12}">
                                 <TextBlock Text="Upcoming" Classes="section-title"/>
                                 <ItemsControl ItemsSource="{Binding UpcomingEvents}" IsVisible="{Binding UpcomingEvents.Count, Converter={StaticResource CollectionCountToBoolConverter}}">
@@ -223,7 +244,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Column="2" Classes="panel">
+                        <Border Grid.Column="2" Classes="panel" VerticalAlignment="Top">
                             <StackPanel Spacing="{DynamicResource Spacing12}">
                                 <TextBlock Text="Quick actions" Classes="section-title"/>
                                 <StackPanel Spacing="8">
@@ -270,7 +291,7 @@
 
                     <!-- Recent rent activity + Recent documents -->
                     <Grid ColumnDefinitions="1.4*,16,1*">
-                        <Border Grid.Column="0" Classes="panel">
+                        <Border Grid.Column="0" Classes="panel" VerticalAlignment="Top">
                             <StackPanel Spacing="{DynamicResource Spacing12}">
                                 <TextBlock Text="This month's rent" Classes="section-title"/>
                                 <Border Classes="list-header" IsVisible="{Binding RecentRentRows.Count, Converter={StaticResource CollectionCountToBoolConverter}}">
@@ -305,12 +326,16 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Text="No rent charges for this month yet." Classes="text-muted"
-                                           IsVisible="{Binding RecentRentRows.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}"/>
+                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,8"
+                                            IsVisible="{Binding RecentRentRows.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}">
+                                    <materialIcons:MaterialIcon Kind="CashMultiple" Width="26" Height="26"
+                                                                 Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="No rent charges for this month yet." Classes="text-muted" HorizontalAlignment="Center"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Column="2" Classes="panel">
+                        <Border Grid.Column="2" Classes="panel" VerticalAlignment="Top">
                             <StackPanel Spacing="{DynamicResource Spacing12}">
                                 <TextBlock Text="Recent documents" Classes="section-title"/>
                                 <ItemsControl ItemsSource="{Binding RecentDocuments}">
@@ -334,8 +359,12 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Text="No documents uploaded yet." Classes="text-muted"
-                                           IsVisible="{Binding RecentDocuments.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}"/>
+                                <StackPanel HorizontalAlignment="Center" Spacing="8" Margin="0,8"
+                                            IsVisible="{Binding RecentDocuments.Count, Converter={StaticResource CollectionCountToBoolConverter}, ConverterParameter=Invert}">
+                                    <materialIcons:MaterialIcon Kind="FileDocumentOutline" Width="26" Height="26"
+                                                                 Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="No documents uploaded yet." Classes="text-muted" HorizontalAlignment="Center"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </Grid>

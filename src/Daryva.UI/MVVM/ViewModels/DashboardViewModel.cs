@@ -43,6 +43,8 @@ namespace Daryva.MVVM.ViewModels
         private decimal _rentCollectedOverdueAmount;
         private decimal _rentCollectedPercent;
         private bool _showEmptyDepositMessage = true;
+        private bool _showEmptyCashFlowMessage;
+        private bool _showEmptyRentCollectionMessage;
         private string _greetingText = "Hello";
 
         // Static event to notify all DashboardViewModel instances when payment is recorded/unrecorded
@@ -276,6 +278,21 @@ namespace Daryva.MVVM.ViewModels
         {
             get => _rentCollectedPercent;
             set => SetProperty(ref _rentCollectedPercent, value);
+        }
+
+        /// <summary>True when every month in CashFlowMonths has zero income and zero expenses --
+        /// distinct from an empty collection, since CashFlowMonths always has 6 points structurally.</summary>
+        public bool ShowEmptyCashFlowMessage
+        {
+            get => _showEmptyCashFlowMessage;
+            private set => SetProperty(ref _showEmptyCashFlowMessage, value);
+        }
+
+        /// <summary>True when this month's rent ledger has no rows at all (nothing due from anyone).</summary>
+        public bool ShowEmptyRentCollectionMessage
+        {
+            get => _showEmptyRentCollectionMessage;
+            private set => SetProperty(ref _showEmptyRentCollectionMessage, value);
         }
 
         public string GreetingText
@@ -632,6 +649,7 @@ namespace Daryva.MVVM.ViewModels
             CashFlowMonths.Clear();
             foreach (var point in s.CashFlowMonths)
                 CashFlowMonths.Add(point);
+            ShowEmptyCashFlowMessage = s.CashFlowMonths.All(p => p.Income == 0 && p.Expenses == 0);
 
             UpcomingEvents.Clear();
             foreach (var item in s.UpcomingEvents)
@@ -649,6 +667,7 @@ namespace Daryva.MVVM.ViewModels
             RentCollectedPendingAmount = s.RentCollectedPendingAmount;
             RentCollectedOverdueAmount = s.RentCollectedOverdueAmount;
             RentCollectedPercent = s.RentCollectedPercent;
+            ShowEmptyRentCollectionMessage = s.RentCollectedPaidAmount == 0 && s.RentCollectedPendingAmount == 0 && s.RentCollectedOverdueAmount == 0;
         }
 
         /// <summary>Everything LoadDashboardDataAsync fetches off the UI thread, bundled so it can

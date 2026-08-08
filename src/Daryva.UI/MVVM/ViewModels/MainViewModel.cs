@@ -36,6 +36,7 @@ namespace Daryva.MVVM.ViewModels
         private bool _isNavigationCollapsed;
         private bool _isOnboardingMode;
         private string _currentOrganizationName = "(No org selected)";
+        private string _currentOrgRole = string.Empty;
         private Guid? _lastDisplayedOrgId;
         private bool _isEndingSupportSession;
         private DispatcherTimer? _supportSessionCountdownTimer;
@@ -72,6 +73,8 @@ namespace Daryva.MVVM.ViewModels
             _orgContext.CurrentOrgChanged += OnCurrentOrgChangedForSupportBanner;
 
             EndActiveSupportSessionCommand = new MVVM.Commands.RelayCommand(async _ => await EndActiveSupportSessionAsync(), _ => !_isEndingSupportSession && _orgContext.ActiveSupportSession != null);
+
+            CurrentOrgs = new ObservableCollection<OrgSummary>();
 
             // Initialize navigation items
             NavigationItems = new ObservableCollection<NavigationItem>
@@ -187,7 +190,11 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgDetailsChanged(object? sender, EventArgs e)
         {
-            Dispatcher.UIThread.Post(() => _ = RefreshCurrentOrganizationLabelAsync(force: true));
+            Dispatcher.UIThread.Post(() =>
+            {
+                _ = RefreshCurrentOrganizationLabelAsync(force: true);
+                SyncOrgDisplayState();
+            });
         }
 
         private async System.Threading.Tasks.Task ApplyPostSignInAsync()
@@ -198,6 +205,7 @@ namespace Daryva.MVVM.ViewModels
                 _apiClient.ApplyAuthState();
                 await _orgContext.RefreshAsync().ConfigureAwait(false);
                 await Dispatcher.UIThread.InvokeAsync(EnsureAdminNavItems);
+                await Dispatcher.UIThread.InvokeAsync(SyncOrgDisplayState);
                 // A platform admin needs no org memberships of their own -- Support Mode is the whole
                 // point of that account. Only force SetupRequired on a non-admin with no orgs.
                 if ((_orgContext.Orgs.Count == 0 && !_orgContext.IsPlatformAdmin) || (!_orgContext.CurrentOrgId.HasValue && _orgContext.Orgs.Count > 0))
@@ -247,6 +255,9 @@ namespace Daryva.MVVM.ViewModels
 
                 await _orgContext.RefreshAsync().ConfigureAwait(true);
                 EnsureAdminNavItems();
+                // Pushes what RefreshAsync just loaded into CurrentOrgRole/CurrentOrgs -- see
+                // SyncOrgDisplayState's doc comment for why IOrgContext can't be bound to directly.
+                SyncOrgDisplayState();
 
                 // Decision based on org count and current selection only. Do NOT treat CurrentOrgId == null as "no orgs exist".
                 // A platform admin needs no org memberships of their own -- Support Mode is the whole
@@ -342,10 +353,33 @@ namespace Daryva.MVVM.ViewModels
             set => SetProperty(ref _currentOrganizationName, value);
         }
 
-        /// <summary>Read-through for SidebarProfileFooter's org switcher (Orgs/CurrentOrg/Role) --
-        /// no separate org-switcher state, this is the same IOrgContext MainViewModel already
-        /// holds for everything else.</summary>
-        public IOrgContext OrgContext => _orgContext;
+        /// <summary>Role for the current org, e.g. "Landlord" -- flat and properly notified for
+        /// SidebarProfileFooter's org switcher. IOrgContext itself has no INotifyPropertyChanged
+        /// (Orgs/CurrentOrg are plain reads over a private field), so a binding straight through
+        /// {Binding OrgContext.CurrentOrg.Role} only ever evaluates once: raising PropertyChanged
+        /// for a container property doesn't force Avalonia to re-walk a nested path when that
+        /// property's own resolved value is still the same object reference, which OrgContext
+        /// always is here (confirmed with a headless render test -- the org name silently never
+        /// appeared after RefreshAsync populated it). SyncOrgDisplayState() keeps this and
+        /// CurrentOrgs in sync with _orgContext at every point that already updates
+        /// CurrentOrganizationName the same way.</summary>
+        public string CurrentOrgRole
+        {
+            get => _currentOrgRole;
+            private set => SetProperty(ref _currentOrgRole, value);
+        }
+
+        /// <summary>All orgs the signed-in user belongs to, for the sidebar's org-switcher Flyout.
+        /// See CurrentOrgRole's doc comment for why this can't just be a read-through property.</summary>
+        public ObservableCollection<OrgSummary> CurrentOrgs { get; }
+
+        private void SyncOrgDisplayState()
+        {
+            CurrentOrgRole = _orgContext.CurrentOrg?.Role ?? string.Empty;
+            CurrentOrgs.Clear();
+            foreach (var org in _orgContext.Orgs)
+                CurrentOrgs.Add(org);
+        }
 
         /// <summary>Read-through for SidebarProfileFooter's user row -- the same app-wide singleton
         /// the Dashboard header's avatar button already opens, not a second instance.</summary>
@@ -389,6 +423,10 @@ namespace Daryva.MVVM.ViewModels
                 OnPropertyChanged(nameof(IsInSupportSession));
                 OnPropertyChanged(nameof(SupportSessionOrgName));
                 OnPropertyChanged(nameof(SupportSessionExpiresDisplay));
+                // Same reason as InitializeOrganizationContextAsync/ApplyPostSignInAsync -- fires on
+                // every explicit org switch (SwitchToOrgCommand) and support-session enter/exit, so
+                // the sidebar's org name/role stay in sync with whatever org is now current.
+                SyncOrgDisplayState();
                 EndActiveSupportSessionCommand.RaiseCanExecuteChanged();
 
                 if (IsInSupportSession)

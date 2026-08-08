@@ -5,9 +5,11 @@
              x:Class="Daryva.MVVM.Views.Controls.SidebarProfileFooter"
              x:CompileBindings="False">
     <!-- Combined org switcher + user-profile block for the sidebar footer. DataContext is
-         MainViewModel (set by the parent), which already exposes OrgContext (Orgs/CurrentOrg,
-         for the switcher) and ProfileMenu (the same app-wide singleton the Dashboard header's
-         avatar already opens, for the user row), no separate state here. -->
+         MainViewModel (set by the parent), which exposes CurrentOrganizationName/CurrentOrgRole/
+         CurrentOrgs (flat, properly-notified properties kept in sync with IOrgContext, which
+         itself has no INotifyPropertyChanged, so binding straight through it never refreshes after
+         initial load, see MainViewModel.SyncOrgDisplayState) and ProfileMenu (the same app-wide
+         singleton the Dashboard header's avatar already opens, for the user row). -->
     <UserControl.Styles>
         <Style Selector="Border.footer-card">
             <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}"/>
@@ -77,7 +79,7 @@
             <Button Classes="org-switcher-trigger" IsVisible="{Binding !IsNavigationCollapsed}">
                 <Button.Flyout>
                     <Flyout Placement="Top">
-                        <ItemsControl ItemsSource="{Binding OrgContext.Orgs}" MinWidth="180">
+                        <ItemsControl ItemsSource="{Binding CurrentOrgs}" MinWidth="180">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button Classes="org-flyout-item"
@@ -92,12 +94,12 @@
                 </Button.Flyout>
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Spacing="4">
-                        <TextBlock Text="{Binding OrgContext.CurrentOrg.Name}"
+                        <TextBlock Text="{Binding CurrentOrganizationName}"
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    TextTrimming="CharacterEllipsis"/>
-                        <controls:StatusBadge Text="{Binding OrgContext.CurrentOrg.Role}" Severity="Neutral"/>
+                        <controls:StatusBadge Text="{Binding CurrentOrgRole}" Severity="Neutral"/>
                     </StackPanel>
                     <materialIcons:MaterialIcon Grid.Column="1"
                                                  Kind="ChevronDown"
