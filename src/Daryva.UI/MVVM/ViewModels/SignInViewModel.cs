@@ -1,4 +1,5 @@
 using Daryva.MVVM.Commands;
+using Daryva.Services.Api;
 using Daryva.Services.Auth;
 using Daryva.Services.Navigation;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ public class SignInViewModel : BaseViewModel
     private readonly IAuthService _authService;
     private readonly INavigationService _navigationService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IApiClient _apiClient;
     private bool _isBusy;
     private string _email = string.Empty;
     private string _password = string.Empty;
@@ -24,16 +26,46 @@ public class SignInViewModel : BaseViewModel
     private string _challengeToken = string.Empty;
     private string _twoFactorCode = string.Empty;
 
-    public SignInViewModel(IAuthService authService, INavigationService navigationService, IServiceProvider serviceProvider)
+    public SignInViewModel(IAuthService authService, INavigationService navigationService, IServiceProvider serviceProvider, IApiClient apiClient)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
         SignInCommand = new RelayCommand(async _ => await SignInAsync());
         CreateAccountCommand = new RelayCommand(_ => NavigateToCreateAccount());
         ForgotPasswordCommand = new RelayCommand(_ => NavigateToForgotPassword());
         VerifyTwoFactorCommand = new RelayCommand(async _ => await VerifyTwoFactorAsync());
         CancelTwoFactorCommand = new RelayCommand(_ => CancelTwoFactor());
+
+        // Warm the connection to the API host (TLS handshake etc.) the moment this screen appears,
+        // well before the user finishes typing and actually submits credentials -- session logs
+        // showed the very first request of a session routinely taking 2-4s longer than steady-state
+        // ones purely from connection setup. /health carries no credentials, needs no access token
+        // (none exists yet at this point), and is explicitly exempt from the API's rate limiter
+        // (Daryva.Api/Program.cs), so firing it here is safe and can't affect the real sign-in
+        // request or anything else. Best-effort only -- if it fails, the real sign-in request below
+        // will simply pay the connection cost itself, same as before this existed.
+        _ = WarmApiConnectionAsync();
+    }
+
+    private async System.Threading.Tasks.Task WarmApiConnectionAsync()
+    {
+        try
+        {
+            // Generous timeout on purpose: this runs fully in the background and blocks nothing
+            // the user sees, so there's no cost to giving it a real chance to land even when the
+            // API is unusually slow to respond (observed 15s+ response times in testing) -- a
+            // timeout that's too short would cancel the request before the underlying connection
+            // even finished being established, defeating the point of warming it.
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(25));
+            await _apiClient.HttpClient.GetAsync("health", cts.Token).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort warm-up; a failure here just means the real sign-in request pays the
+            // connection cost itself, exactly as it would have without this.
+        }
     }
 
     private void NavigateToCreateAccount()
