@@ -397,7 +397,7 @@ namespace Daryva.MVVM.ViewModels
                     // (each switch of organisation re-runs this whole method). Firing them
                     // concurrently and awaiting them together cuts wall-clock time to roughly the
                     // single slowest call instead of the sum of all of them.
-                    var greetingTask = UpdateGreetingAsync();
+                    var greetingTask = BuildGreetingTextAsync();
                     var housesTask = _houseService.GetAllHousesAsync();
                     var tenantsTask = _tenantService.GetAllTenantsAsync();
                     // This month's ledger: source for the rent-collection breakdown and the
@@ -476,6 +476,7 @@ namespace Daryva.MVVM.ViewModels
 
                     var snapshot = new DashboardSnapshot
                     {
+                        GreetingText = greetingTask.Result,
                         HouseCount = houseCount,
                         ActiveTenantCount = activeTenantCount,
                         OverdueRentList = overdueRentList,
@@ -686,7 +687,12 @@ namespace Daryva.MVVM.ViewModels
             return (paid, pending, overdue);
         }
 
-        private async Task UpdateGreetingAsync()
+        /// <summary>Returns the greeting text rather than setting GreetingText directly, so it can
+        /// be carried in DashboardSnapshot and restored on a cache hit like everything else --
+        /// previously this set the property as a side effect outside the snapshot, so a cache hit
+        /// (which skips this call entirely) left GreetingText stuck at the new instance's
+        /// constructor default ("Hello", no name) instead of the real greeting.</summary>
+        private async Task<string> BuildGreetingTextAsync()
         {
             string? firstName = null;
 
@@ -704,7 +710,7 @@ namespace Daryva.MVVM.ViewModels
                 firstName = ExtractFirstNameFromEmail(_authSessionService.Email);
             }
 
-            GreetingText = string.IsNullOrWhiteSpace(firstName) ? "Hello" : $"Hello, {firstName}";
+            return string.IsNullOrWhiteSpace(firstName) ? "Hello" : $"Hello, {firstName}";
         }
 
         private static string? ExtractFirstNameFromEmail(string? email)
@@ -739,6 +745,7 @@ namespace Daryva.MVVM.ViewModels
                 $"(allZero={s.CashFlowMonths.All(p => p.Income == 0 && p.Expenses == 0)}), " +
                 $"upcoming={s.UpcomingEvents.Count}, recentRent={s.RecentRentRows.Count}, recentDocs={s.RecentDocuments.Count}");
 
+            GreetingText = s.GreetingText;
             HousesCount = s.HouseCount;
             ActiveTenantsCount = s.ActiveTenantCount;
 
@@ -783,6 +790,7 @@ namespace Daryva.MVVM.ViewModels
         /// 6-parameter version now that there's meaningfully more state to carry.</summary>
         private sealed class DashboardSnapshot
         {
+            public string GreetingText { get; set; } = "Hello";
             public int HouseCount { get; set; }
             public int ActiveTenantCount { get; set; }
             public List<OverdueRentItem> OverdueRentList { get; set; } = new();
