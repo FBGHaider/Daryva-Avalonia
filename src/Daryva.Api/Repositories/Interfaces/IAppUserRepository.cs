@@ -8,5 +8,6 @@ public interface IAppUserRepository
     Task<AppUser?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<AppUser?> GetByEmailVerificationTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
     Task<AppUser?> GetByPasswordResetTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
+    Task<List<AppUser>> ListPlatformAdminsAsync(CancellationToken cancellationToken = default);
     void Add(AppUser user);
 }

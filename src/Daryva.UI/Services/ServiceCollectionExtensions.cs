@@ -56,6 +56,7 @@ namespace Daryva.Services
             services.AddScoped<IPaymentApiService, PaymentApiService>();
             services.AddScoped<IAuditLogApiService, AuditLogApiService>();
             services.AddScoped<ISupportSessionApiService, SupportSessionApiService>();
+            services.AddScoped<IPlatformAdminApiService, PlatformAdminApiService>();
 
             // Database Services
             services.AddScoped<IDbContextFactory, DbContextFactory>();

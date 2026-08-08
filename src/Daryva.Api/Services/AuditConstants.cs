@@ -13,6 +13,7 @@ public static class AuditEventTypes
     public const string AuthPasswordResetRequested = "AuthPasswordResetRequested";
     public const string AuthPasswordReset = "AuthPasswordReset";
     public const string PlatformAdminGranted = "PlatformAdminGranted";
+    public const string PlatformAdminRevoked = "PlatformAdminRevoked";
     public const string TwoFactorEnabled = "TwoFactorEnabled";
     public const string TwoFactorChallengeIssued = "TwoFactorChallengeIssued";
     public const string TwoFactorVerified = "TwoFactorVerified";

@@ -100,6 +100,7 @@ builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISupportSessionService, SupportSessionService>();
 builder.Services.AddScoped<ISupportAccessCodeService, SupportAccessCodeService>();
+builder.Services.AddScoped<IPlatformAdminService, PlatformAdminService>();
 builder.Services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
 builder.Services.AddScoped<IRentLedgerService, RentLedgerService>();
 builder.Services.AddScoped<IHouseService, HouseService>();

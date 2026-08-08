@@ -26,5 +26,8 @@ public class AppUserRepository : IAppUserRepository
     public Task<AppUser?> GetByPasswordResetTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
         => _dbContext.AppUsers.FirstOrDefaultAsync(u => u.PasswordResetTokenHash == tokenHash, cancellationToken);
 
+    public Task<List<AppUser>> ListPlatformAdminsAsync(CancellationToken cancellationToken = default)
+        => _dbContext.AppUsers.Where(u => u.IsPlatformAdmin).OrderBy(u => u.Email).ToListAsync(cancellationToken);
+
     public void Add(AppUser user) => _dbContext.AppUsers.Add(user);
 }

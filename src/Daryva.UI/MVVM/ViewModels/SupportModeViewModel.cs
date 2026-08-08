@@ -18,9 +18,11 @@ namespace Daryva.MVVM.ViewModels
     public class SupportModeViewModel : BaseViewModel
     {
         private readonly ISupportSessionApiService _supportSessionApiService;
+        private readonly IPlatformAdminApiService _platformAdminApiService;
         private readonly IDialogService _dialogService;
         private readonly IOrgContext _orgContext;
         private readonly INavigationService _navigationService;
+        private readonly IAuthSessionService _authSessionService;
 
         private bool _isBusy;
         private string _errorMessage = string.Empty;
@@ -33,18 +35,23 @@ namespace Daryva.MVVM.ViewModels
 
         public SupportModeViewModel(
             ISupportSessionApiService supportSessionApiService,
+            IPlatformAdminApiService platformAdminApiService,
             IDialogService dialogService,
             IOrgContext orgContext,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IAuthSessionService authSessionService)
         {
             _supportSessionApiService = supportSessionApiService ?? throw new ArgumentNullException(nameof(supportSessionApiService));
+            _platformAdminApiService = platformAdminApiService ?? throw new ArgumentNullException(nameof(platformAdminApiService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
             _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _authSessionService = authSessionService ?? throw new ArgumentNullException(nameof(authSessionService));
 
             OrgSearchResults = new ObservableCollection<AdminMemberSearchResultDto>();
             ActiveSessions = new ObservableCollection<SupportSessionVm>();
             PastSessions = new ObservableCollection<SupportSessionVm>();
+            PlatformAdmins = new ObservableCollection<PlatformAdminVm>();
 
             SearchOrgsCommand = new RelayCommand(async _ => await SearchOrgsAsync());
             SelectMemberCommand = new RelayCommand<AdminMemberSearchResultDto>(m => SelectMember(m));
@@ -56,8 +63,11 @@ namespace Daryva.MVVM.ViewModels
             EndSessionCommand = new RelayCommand<SupportSessionVm>(async s => await EndSessionAsync(s));
             RefreshSessionsCommand = new RelayCommand(async _ => await LoadSessionsAsync());
             EnterOrganizationCommand = new RelayCommand<SupportSessionVm>(async s => await EnterOrganizationAsync(s));
+            RefreshPlatformAdminsCommand = new RelayCommand(async _ => await LoadPlatformAdminsAsync());
+            RevokePlatformAdminCommand = new RelayCommand<PlatformAdminVm>(async a => await RevokePlatformAdminAsync(a));
 
             _ = LoadSessionsAsync();
+            _ = LoadPlatformAdminsAsync();
         }
 
         public string PageTitle => "Support Mode";
@@ -66,6 +76,7 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<AdminMemberSearchResultDto> OrgSearchResults { get; }
         public ObservableCollection<SupportSessionVm> ActiveSessions { get; }
         public ObservableCollection<SupportSessionVm> PastSessions { get; }
+        public ObservableCollection<PlatformAdminVm> PlatformAdmins { get; }
 
         public ICommand SearchOrgsCommand { get; }
         public ICommand SelectMemberCommand { get; }
@@ -77,6 +88,8 @@ namespace Daryva.MVVM.ViewModels
         public ICommand EndSessionCommand { get; }
         public ICommand RefreshSessionsCommand { get; }
         public ICommand EnterOrganizationCommand { get; }
+        public ICommand RefreshPlatformAdminsCommand { get; }
+        public ICommand RevokePlatformAdminCommand { get; }
 
         public bool IsBusy
         {
@@ -168,6 +181,7 @@ namespace Daryva.MVVM.ViewModels
 
         public bool HasActiveSessions => ActiveSessions.Count > 0;
         public bool HasPastSessions => PastSessions.Count > 0;
+        public bool HasPlatformAdmins => PlatformAdmins.Count > 0;
 
         private void SelectMember(AdminMemberSearchResultDto? member)
         {
@@ -401,6 +415,67 @@ namespace Daryva.MVVM.ViewModels
             }
             OnPropertyChanged(nameof(HasActiveSessions));
             OnPropertyChanged(nameof(HasPastSessions));
+        }
+
+        private async Task LoadPlatformAdminsAsync()
+        {
+            if (IsBusy)
+                return;
+
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            try
+            {
+                var admins = await _platformAdminApiService.ListAsync().ConfigureAwait(true);
+                var selfId = _authSessionService.UserId;
+
+                PlatformAdmins.Clear();
+                foreach (var dto in admins)
+                    PlatformAdmins.Add(PlatformAdminVm.FromDto(dto, selfId));
+                OnPropertyChanged(nameof(HasPlatformAdmins));
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async Task RevokePlatformAdminAsync(PlatformAdminVm? admin)
+        {
+            if (admin == null || !admin.CanRevoke || IsBusy)
+                return;
+
+            IsBusy = true;
+            try
+            {
+                var confirmed = await _dialogService.ShowConfirmationAsync(
+                    $"Revoke platform admin access from \"{admin.Email}\"? They will immediately lose all platform-admin permissions.",
+                    "Revoke admin access");
+                if (!confirmed)
+                    return;
+
+                ErrorMessage = string.Empty;
+                await _platformAdminApiService.RevokeAsync(admin.Id).ConfigureAwait(true);
+
+                var selfId = _authSessionService.UserId;
+                var admins = await _platformAdminApiService.ListAsync().ConfigureAwait(true);
+                PlatformAdmins.Clear();
+                foreach (var dto in admins)
+                    PlatformAdmins.Add(PlatformAdminVm.FromDto(dto, selfId));
+                OnPropertyChanged(nameof(HasPlatformAdmins));
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
     }
 }

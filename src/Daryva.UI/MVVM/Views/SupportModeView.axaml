@@ -216,6 +216,45 @@
                         </ItemsControl>
                     </StackPanel>
                 </Border>
+
+                <!-- Platform admins -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Platform admins" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Button Grid.Column="1" Content="Refresh" Classes="secondary" Command="{Binding RefreshPlatformAdminsCommand}"/>
+                        </Grid>
+                        <TextBlock Text="Granted only via server config (Admin:BootstrapEmails) plus a restart -- from here you can only view the list and revoke access." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="No platform admins found." FontSize="13" Foreground="{DynamicResource TextMutedBrush}" IsVisible="{Binding !HasPlatformAdmins}"/>
+                        <ItemsControl ItemsSource="{Binding PlatformAdmins}" IsVisible="{Binding HasPlatformAdmins}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                    <Border CornerRadius="6" Padding="8,3" Background="{DynamicResource Surface2Brush}" IsVisible="{Binding IsSelf}">
+                                                        <TextBlock Text="You" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
+                                                    <Run Text="{Binding Email}"/>
+                                                    <Run Text=" · admin since "/>
+                                                    <Run Text="{Binding CreatedAtDisplay}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="Revoke" Classes="secondary" VerticalAlignment="Top"
+                                                    IsVisible="{Binding CanRevoke}"
+                                                    Command="{Binding DataContext.RevokePlatformAdminCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
     </ScrollViewer>
