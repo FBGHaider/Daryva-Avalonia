@@ -9,20 +9,26 @@
     <Color x:Key="Teal">#1E745A</Color>
     <Color x:Key="AccentPurple">#7C6FE0</Color>
 
-    <Color x:Key="Bg">#F4F7FF</Color>
-    <Color x:Key="Surface">#FFFFFF</Color>
-    <Color x:Key="Surface2">#EEF3FF</Color>
-    <Color x:Key="ElevatedSurface">#FBFCFF</Color>
-    <Color x:Key="Border">#D6DEEF</Color>
+    <!-- Previously Bg/Surface/ElevatedSurface were all near-identical near-white tones
+         (#F4F7FF/#FFFFFF/#FBFCFF), so the page canvas and the "raised" widget cards on top of it
+         barely differed, and cards read as glaring flat-white slabs instead of a considered surface.
+         Bg now has real presence as a soft grey-blue canvas; ElevatedSurface (widget/panel cards)
+         and Surface (general cards) keep a gentle, barely-there tint rather than stark white, so
+         cards still read as clearly "raised" above the page without being blinding. -->
+    <Color x:Key="Bg">#EEF1F8</Color>
+    <Color x:Key="Surface">#F9FAFD</Color>
+    <Color x:Key="Surface2">#E7ECF6</Color>
+    <Color x:Key="ElevatedSurface">#F6F9FC</Color>
+    <Color x:Key="Border">#DBE2F0</Color>
     <Color x:Key="TextPrimary">#1B2540</Color>
     <Color x:Key="TextMuted">#5D6B8B</Color>
 
-    <Color x:Key="PrimaryBackground">#F4F7FF</Color>
-    <Color x:Key="SecondaryBackground">#FFFFFF</Color>
-    <Color x:Key="NavigationBackground">#E9EFFD</Color>
-    <Color x:Key="ControlBackground">#EEF3FF</Color>
-    <Color x:Key="ControlBackgroundHover">#E1E9FB</Color>
-    <Color x:Key="BorderColor">#D6DEEF</Color>
+    <Color x:Key="PrimaryBackground">#EEF1F8</Color>
+    <Color x:Key="SecondaryBackground">#F9FAFD</Color>
+    <Color x:Key="NavigationBackground">#E5EBF7</Color>
+    <Color x:Key="ControlBackground">#E7ECF6</Color>
+    <Color x:Key="ControlBackgroundHover">#DAE2F2</Color>
+    <Color x:Key="BorderColor">#DBE2F0</Color>
     <Color x:Key="PrimaryText">#1B2540</Color>
     <Color x:Key="SecondaryText">#5D6B8B</Color>
     <Color x:Key="AccentColor">#FA9704</Color>
@@ -50,6 +56,19 @@
     <SolidColorBrush x:Key="InfoSubtleBrush" Color="{StaticResource BrandSecondary}" Opacity="0.12"/>
     <SolidColorBrush x:Key="AccentPurpleSubtleBrush" Color="{StaticResource AccentPurple}" Opacity="0.14"/>
     <SolidColorBrush x:Key="ElevatedSurfaceBrush" Color="{StaticResource ElevatedSurface}"/>
+    <!-- TextPrimaryBrush/TextMutedBrush/SurfaceBrush/Surface2Brush/BgBrush are defined in
+         Theme.axaml via StaticResource, which freezes them to that file's own dark-hardcoded
+         Color values, so they never actually changed when this theme was selected, since this
+         file never redefined them (only the raw Color resources above were correct for light
+         mode; nothing rebuilt the brushes from them). This is why text/icons using
+         TextPrimaryBrush/TextMutedBrush (26+ files) stayed near-white and vanished against light
+         backgrounds, and why BgBrush-backed pages (Account/Organisation/Settings) kept a dark
+         navy background in light mode. Redefined here using this file's own correct light values. -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMuted}"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Surface}"/>
+    <SolidColorBrush x:Key="Surface2Brush" Color="{StaticResource Surface2}"/>
+    <SolidColorBrush x:Key="BgBrush" Color="{StaticResource Bg}"/>
 
     <!-- Base Brushes -->
     <SolidColorBrush x:Key="PrimaryBackgroundBrush" Color="{StaticResource PrimaryBackground}"/>

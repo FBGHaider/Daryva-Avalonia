@@ -52,6 +52,18 @@
     <SolidColorBrush x:Key="InfoSubtleBrush" Color="{StaticResource BrandSecondary}" Opacity="0.14"/>
     <SolidColorBrush x:Key="AccentPurpleSubtleBrush" Color="{StaticResource AccentPurple}" Opacity="0.16"/>
     <SolidColorBrush x:Key="ElevatedSurfaceBrush" Color="{StaticResource ElevatedSurface}"/>
+    <!-- TextPrimaryBrush/TextMutedBrush/SurfaceBrush/Surface2Brush/BgBrush are defined in
+         Theme.axaml via StaticResource, which freezes them to whatever Color that file's own
+         (dark-hardcoded) TextPrimary/TextMuted/Surface/Surface2/Bg resolve to at parse time, so
+         they never actually change when the theme is swapped, since neither this file nor
+         LightTheme.axaml redefined them. Values here match Theme.axaml's (no visible change in
+         dark mode); redefining explicitly so light mode isn't stuck on these dark values instead
+         of its own, see the same five keys in LightTheme.axaml. -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMuted}"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Surface}"/>
+    <SolidColorBrush x:Key="Surface2Brush" Color="{StaticResource Surface2}"/>
+    <SolidColorBrush x:Key="BgBrush" Color="{StaticResource Bg}"/>
 
     <!-- Base Brushes -->
     <SolidColorBrush x:Key="PrimaryBackgroundBrush" Color="{StaticResource PrimaryBackground}"/>
