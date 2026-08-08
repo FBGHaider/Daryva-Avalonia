@@ -116,33 +116,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Data Maintenance - Danger Zone -->
-                <Border Classes="settings-card">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Data Maintenance" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="Tools to fix duplicate or inconsistent data. Use with care."
-                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
-                        <Border Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StatusWarningBrush}" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,8,0,0">
-                            <StackPanel Spacing="12">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="⚠" FontSize="18" Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Danger Zone" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <TextBlock Text="If the rent ledger shows duplicate rows for the same tenant and period (e.g. one Paid, one Overdue), run cleanup to merge duplicates and keep a single row per tenant per period. Payment history is preserved."
-                                           FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                <CheckBox IsChecked="{Binding ConfirmDangerZoneChecked, Mode=TwoWay}"
-                                          Content="I understand this may modify data"
-                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button Content="Clean up duplicate rent charges" Command="{Binding CleanupDuplicateChargesCommand}"
-                                            Background="Transparent" Foreground="{DynamicResource StatusWarningBrush}" BorderBrush="{DynamicResource StatusWarningBrush}" BorderThickness="1" Padding="12,8" CornerRadius="8"/>
-                                    <TextBlock Text="Cleaning up..." IsVisible="{Binding IsCleaningUpDuplicateCharges}"
-                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="13" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
             </StackPanel>
         </ScrollViewer>
 

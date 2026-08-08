@@ -1127,38 +1127,6 @@ namespace Daryva.Services.Business
             }
         }
 
-        public async Task<int> CleanupDuplicateRentChargesAsync()
-        {
-            var allCharges = (await _rentChargeRepository.GetAllRentChargesAsync()).ToList();
-            var groups = allCharges
-                .GroupBy(c => new { c.TenancyId, c.PeriodYear, c.PeriodMonth })
-                .Where(g => g.Count() > 1)
-                .ToList();
-            int removed = 0;
-            foreach (var group in groups)
-            {
-                var list = group.OrderByDescending(c => c.TotalPaid).ThenBy(c => c.RentChargeId).ToList();
-                var keeper = list[0];
-                for (int i = 1; i < list.Count; i++)
-                {
-                    var duplicate = list[i];
-                    await _rentPaymentRepository.ReassignPaymentsToChargeAsync(duplicate.RentChargeId, keeper.RentChargeId);
-                    var deleted = await _rentChargeRepository.DeleteRentChargeAsync(duplicate.RentChargeId);
-                    if (deleted) removed++;
-                }
-                var totalPaid = await _rentPaymentRepository.GetTotalRentPaidForChargeAsync(keeper.RentChargeId);
-                var charge = await _rentChargeRepository.GetRentChargeByIdAsync(keeper.RentChargeId);
-                if (charge != null)
-                {
-                    string newStatus = totalPaid >= charge.AmountDue ? "Paid" : totalPaid > 0 ? "Partial" : charge.DueDate < DateTime.Today ? "Overdue" : "Pending";
-                    await _rentChargeRepository.UpdateRentChargeStatusAsync(keeper.RentChargeId, newStatus);
-                }
-            }
-            if (removed > 0)
-                DashboardViewModel.NotifyPaymentDataChanged();
-            return removed;
-        }
-
         public async Task<int> RepairRentPaymentChargeLinksAsync()
         {
             var allPayments = (await _rentPaymentRepository.GetAllRentPaymentsAsync(null, null, null)).ToList();

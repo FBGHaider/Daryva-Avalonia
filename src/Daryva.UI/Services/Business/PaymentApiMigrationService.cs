@@ -347,9 +347,6 @@ public class PaymentApiMigrationService : IPaymentService
         return true;
     }
 
-    public Task<int> CleanupDuplicateRentChargesAsync()
-        => Task.FromResult(0);
-
     public Task<int> RepairRentPaymentChargeLinksAsync()
         => Task.FromResult(0);
 

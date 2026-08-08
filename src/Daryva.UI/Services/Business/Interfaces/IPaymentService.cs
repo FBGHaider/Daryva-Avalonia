@@ -19,8 +19,6 @@ namespace Daryva.Services.Business
         Task<IEnumerable<DepositReturnReminderItem>> GetDepositReturnRemindersAsync();
         Task<bool> UnrecordPaymentAsync(int paymentId, string paymentType);
         Task<bool> DeleteAllTransactionsAsync(); // For testing purposes
-        /// <summary>Merges duplicate rent charges (same tenancy + period), keeps one and removes duplicates. Returns number of duplicate charges removed.</summary>
-        Task<int> CleanupDuplicateRentChargesAsync();
         /// <summary>Repairs rent payments: links each payment to the correct RentCharge for its PaidOn period (creates charge if missing). Returns number of payments updated.</summary>
         Task<int> RepairRentPaymentChargeLinksAsync();
         /// <summary>Record that deposit was paid back to the tenant (so they disappear from deposit-return list and deposit ledger after that date).</summary>
