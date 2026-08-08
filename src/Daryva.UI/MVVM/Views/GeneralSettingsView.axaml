@@ -56,6 +56,19 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Diagnostics card -->
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Diagnostics" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="This session's activity log -- every page switch, organisation switch, API call, and error dialog, each timestamped. Copy it when reporting a bug."
+                                   FontSize="13" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                            <Button Content="Copy session log" Command="{Binding CopySessionLogsCommand}"
+                                    Background="{DynamicResource Surface2Brush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12,8" CornerRadius="8"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- Appearance & Behavior card - 2-column form -->
                 <Border Classes="settings-card">
                     <StackPanel Spacing="16">

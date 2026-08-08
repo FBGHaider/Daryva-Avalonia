@@ -2,8 +2,10 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
+using Daryva.Services;
 using Daryva.Services.Api;
 using Daryva.Services.Dialog;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.MVVM.ViewModels
 {
@@ -19,6 +21,17 @@ namespace Daryva.MVVM.ViewModels
 
         private readonly IAuditLogApiService _auditLogApiService;
         private readonly IDialogService _dialogService;
+        private readonly IOrgContext _orgContext;
+
+        // The /api/audit-logs query is genuinely slow server-side (a few seconds even for a
+        // single paginated page -- confirmed via the session log, not a client-side redundancy
+        // like the other pages had). A short cache can't make the FIRST load of a given
+        // page/filter combination faster, but it makes revisiting this tab (or paging back and
+        // forth) near-instant instead of paying that cost every single time. Keyed by org + every
+        // filter/page value, so different views never collide; RefreshCommand always bypasses it.
+        private static readonly Dictionary<string, (DateTime CachedAtUtc, AuditLogListResultDto Result)> _cache = new();
+        private static readonly object _cacheLock = new();
+        private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(20);
 
         private bool _isLoading;
         private string _errorMessage = string.Empty;
@@ -30,15 +43,16 @@ namespace Daryva.MVVM.ViewModels
 
         public const string AllEventTypesOption = "All events";
 
-        public AuditLogViewModel(IAuditLogApiService auditLogApiService, IDialogService dialogService)
+        public AuditLogViewModel(IAuditLogApiService auditLogApiService, IDialogService dialogService, IOrgContext orgContext)
         {
             _auditLogApiService = auditLogApiService ?? throw new ArgumentNullException(nameof(auditLogApiService));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
 
             Entries = new ObservableCollection<AuditLogEntryVm>();
             EventTypeOptions = new ObservableCollection<string>(BuildEventTypeOptions());
 
-            RefreshCommand = new RelayCommand(async _ => await LoadAsync());
+            RefreshCommand = new RelayCommand(async _ => await LoadAsync(forceRefresh: true));
             ClearFiltersCommand = new RelayCommand(async _ => await ClearFiltersAsync());
             NextPageCommand = new RelayCommand(async _ => await GoToPageAsync(Page + 1), _ => Page < TotalPages);
             PreviousPageCommand = new RelayCommand(async _ => await GoToPageAsync(Page - 1), _ => Page > 1);
@@ -147,7 +161,7 @@ namespace Daryva.MVVM.ViewModels
             await LoadAsync();
         }
 
-        private async Task LoadAsync()
+        private async Task LoadAsync(bool forceRefresh = false)
         {
             if (IsLoading)
                 return;
@@ -166,7 +180,28 @@ namespace Daryva.MVVM.ViewModels
                     PageSize = PageSize
                 };
 
-                var result = await _auditLogApiService.QueryAsync(query).ConfigureAwait(true);
+                var cacheKey = $"{_orgContext.CurrentOrgId}|{query.EventType}|{query.FromDate:O}|{query.ToDate:O}|{query.Page}|{query.PageSize}";
+                AuditLogListResultDto? result = null;
+                if (!forceRefresh)
+                {
+                    lock (_cacheLock)
+                    {
+                        if (_cache.TryGetValue(cacheKey, out var entry) && DateTime.UtcNow - entry.CachedAtUtc < CacheTtl)
+                        {
+                            result = entry.Result;
+                            AppLogger.Log("AuditLog", $"Using cached page (key={cacheKey}).");
+                        }
+                    }
+                }
+
+                if (result == null)
+                {
+                    result = await _auditLogApiService.QueryAsync(query).ConfigureAwait(true);
+                    lock (_cacheLock)
+                    {
+                        _cache[cacheKey] = (DateTime.UtcNow, result);
+                    }
+                }
 
                 Entries.Clear();
                 foreach (var item in result.Items)

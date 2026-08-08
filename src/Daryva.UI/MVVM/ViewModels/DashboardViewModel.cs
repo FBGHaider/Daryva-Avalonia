@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
 {
-    public class DashboardViewModel : BaseViewModel
+    public class DashboardViewModel : BaseViewModel, INavigationAware
     {
         private readonly IHouseService _houseService;
         private readonly ITenantService _tenantService;
@@ -50,8 +50,26 @@ namespace Daryva.MVVM.ViewModels
         // Static event to notify all DashboardViewModel instances when payment is recorded/unrecorded
         public static event EventHandler? PaymentDataChanged;
 
-        private EventHandler<BaseViewModel?>? _navigationHandler;
         private EventHandler? _paymentDataHandler;
+        // Short-lived cache of the last successfully-built snapshot per org, shared across every
+        // DashboardViewModel instance (static, since a fresh transient instance is created on every
+        // visit -- see NavigationService.NavigateTo). Confirmed via the session log that repeatedly
+        // revisiting Dashboard (each visit is ~15 independent API calls) is enough on its own to
+        // exceed the backend's 200-requests/minute budget under rapid tab switching, even with no
+        // other bug involved -- a few seconds of staleness on KPI counts is a reasonable trade for
+        // not re-fetching everything on every single revisit. Explicit data-changing actions (a
+        // payment recorded, a house added, etc.) still force a real refresh -- see forceRefresh.
+        private static readonly Dictionary<Guid, (DateTime CachedAtUtc, DashboardSnapshot Snapshot)> _snapshotCache = new();
+        private static readonly object _snapshotCacheLock = new();
+        private static readonly TimeSpan SnapshotCacheTtl = TimeSpan.FromSeconds(20);
+        private readonly AsyncDebouncer _orgChangeDebouncer = new(TimeSpan.FromMilliseconds(400));
+        // Bumped every time a load starts; a load only applies its result (or shows its error
+        // dialog) if it's still the most recent one requested on THIS instance by the time it
+        // finishes. Guards against two overlapping LoadDashboardDataCommand invocations on the
+        // same instance (e.g. the constructor's initial load and a debounced org-change reload
+        // landing close together) racing and having the OLDER one's stale result win, or popping
+        // an error dialog for a request nobody's waiting on anymore.
+        private int _loadGeneration;
 
         public DashboardViewModel(IHouseService houseService, ITenantService tenantService, IPaymentService paymentService, IExpenseService expenseService, IDocumentService documentService, IServiceProvider serviceProvider, INavigationService navigationService, IDialogService dialogService, ISettingsService settingsService, IAuthApiService authApiService, IAuthSessionService authSessionService, NotificationCenterViewModel notificationCenter, ProfileMenuViewModel profileMenu, IOrgContext orgContext)
         {
@@ -73,33 +91,24 @@ namespace Daryva.MVVM.ViewModels
             OverdueRent = new ObservableCollection<OverdueRentItem>();
             MissingDocuments = new ObservableCollection<MissingDocumentItem>();
             DepositReturnReminders = new ObservableCollection<DepositReturnReminderItem>();
-            CashFlowMonths = new ObservableCollection<CashFlowMonthPoint>();
             UpcomingEvents = new ObservableCollection<UpcomingEventItem>();
             RecentRentRows = new ObservableCollection<RentLedgerRowViewModel>();
             RecentDocuments = new ObservableCollection<Document>();
 
-            LoadDashboardDataCommand = new RelayCommand(async _ => 
+            LoadDashboardDataCommand = new RelayCommand(async param =>
             {
                 try
                 {
-                    await LoadDashboardDataAsync();
+                    // Passing true forces a real refresh past the short-lived cache -- used after
+                    // an action that actually changed data (recording a payment, adding a house,
+                    // etc.), where showing a stale cached snapshot would defeat the point.
+                    await LoadDashboardDataAsync(forceRefresh: param is true);
                 }
                 catch (Exception ex)
                 {
                     _dialogService.ShowMessage($"Error loading dashboard: {ex.Message}", "Error");
                 }
             });
-            
-            // Subscribe to navigation changes - refresh when Dashboard becomes active
-            _navigationHandler = (s, vm) =>
-            {
-                if (vm is DashboardViewModel dashboardVm && dashboardVm == this)
-                {
-                    // This Dashboard instance just became active, refresh data
-                    LoadDashboardDataCommand.Execute(null);
-                }
-            };
-            navigationService.CurrentViewModelChanged += _navigationHandler;
             
             // Subscribe to payment data changes - refresh when payments are recorded/unrecorded
             _paymentDataHandler = OnPaymentDataChanged;
@@ -125,18 +134,13 @@ namespace Daryva.MVVM.ViewModels
         /// </summary>
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Dispatcher.UIThread.Post(() => LoadDashboardDataCommand.Execute(null));
+            _orgChangeDebouncer.Trigger(() => Dispatcher.UIThread.Post(() => LoadDashboardDataCommand.Execute(null)));
         }
 
         public void Cleanup()
         {
             _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
-            if (_navigationHandler != null && _navigationService != null)
-            {
-                _navigationService.CurrentViewModelChanged -= _navigationHandler;
-                _navigationHandler = null;
-            }
-            
+
             if (_paymentDataHandler != null)
             {
                 PaymentDataChanged -= _paymentDataHandler;
@@ -152,14 +156,16 @@ namespace Daryva.MVVM.ViewModels
                 // Ensure we're on the UI thread
                 if (Dispatcher.UIThread.CheckAccess())
                 {
-                    // Call LoadDashboardDataAsync directly - fire and forget
-                    _ = LoadDashboardDataAsync();
+                    // Call LoadDashboardDataAsync directly - fire and forget. Forced past the
+                    // cache: a payment was just recorded/unrecorded elsewhere, so a stale snapshot
+                    // would show wrong numbers right after the exact action meant to update them.
+                    _ = LoadDashboardDataAsync(forceRefresh: true);
                 }
                 else
                 {
                     Dispatcher.UIThread.Post(async () =>
                     {
-                        await LoadDashboardDataAsync();
+                        await LoadDashboardDataAsync(forceRefresh: true);
                     });
                 }
             }
@@ -305,9 +311,24 @@ namespace Daryva.MVVM.ViewModels
         public ObservableCollection<MissingDocumentItem> MissingDocuments { get; }
         public ObservableCollection<DepositReturnReminderItem> DepositReturnReminders { get; }
 
+        private ObservableCollection<CashFlowMonthPoint> _cashFlowMonths = new();
+
         /// <summary>Last 6 months of income (recorded rent transactions) vs. expenses, for the
-        /// cash-flow chart.</summary>
-        public ObservableCollection<CashFlowMonthPoint> CashFlowMonths { get; }
+        /// cash-flow chart. Replaced wholesale (not Clear()+Add() in place) on every update --
+        /// LineAreaChart binds three separate properties (IncomeValues/ExpenseValues/Labels) off
+        /// this same collection via three independent converters, so an in-place Clear() followed
+        /// by six individual Add() calls fires seven separate change notifications the three
+        /// bindings can transiently observe out of sync with each other (e.g. Labels still empty
+        /// from the Clear while IncomeValues has already caught up to an Add) -- if a render lands
+        /// in that window, LineAreaChart sees mismatched counts and draws nothing, which is exactly
+        /// the "cash flow widget randomly goes blank" symptom reported after rapid tab switching.
+        /// A single property replacement fires one notification, so all three bindings always see
+        /// the same, fully-populated collection at once.</summary>
+        public ObservableCollection<CashFlowMonthPoint> CashFlowMonths
+        {
+            get => _cashFlowMonths;
+            private set => SetProperty(ref _cashFlowMonths, value);
+        }
 
         /// <summary>Rent due soon (next 3 days) and documents expiring soon (next 30 days),
         /// merged and sorted by date. No maintenance/lease-renewal rows -- neither concept exists
@@ -328,8 +349,31 @@ namespace Daryva.MVVM.ViewModels
             private set => SetProperty(ref _showEmptyDepositMessage, value);
         }
 
-        private async Task LoadDashboardDataAsync()
+        private async Task LoadDashboardDataAsync(bool forceRefresh = false)
         {
+            var myGeneration = ++_loadGeneration;
+
+            var currentOrgId = _orgContext.CurrentOrgId;
+            if (!forceRefresh && currentOrgId.HasValue)
+            {
+                DashboardSnapshot? cached = null;
+                lock (_snapshotCacheLock)
+                {
+                    if (_snapshotCache.TryGetValue(currentOrgId.Value, out var entry) &&
+                        DateTime.UtcNow - entry.CachedAtUtc < SnapshotCacheTtl)
+                        cached = entry.Snapshot;
+                }
+                if (cached != null)
+                {
+                    AppLogger.Log("Dashboard", $"Using cached snapshot for org {currentOrgId} (skipping ~15 API calls).");
+                    if (Dispatcher.UIThread.CheckAccess())
+                        UpdateDashboardProperties(cached);
+                    else
+                        await Dispatcher.UIThread.InvokeAsync(() => UpdateDashboardProperties(cached));
+                    return;
+                }
+            }
+
             const int maxAttempts = 2;
             var attempt = 0;
 
@@ -342,24 +386,56 @@ namespace Daryva.MVVM.ViewModels
                     var dateFormat = await _settingsService.GetSettingAsync("DateFormat", "dd/MM/yyyy") ?? "dd/MM/yyyy";
                     DateTimeFormatProvider.DateFormat = dateFormat;
 
-                    await UpdateGreetingAsync();
+                    var currentDate = DateTime.Now;
+                    var monthStart = new DateTime(currentDate.Year, currentDate.Month, 1);
+                    var nextMonth = currentDate.Date.AddMonths(1);
 
-                    var houses = await _houseService.GetAllHousesAsync();
+                    // All of the reads below are independent of each other -- previously each was
+                    // awaited one at a time, meaning this method made ~18 sequential API round
+                    // trips before the dashboard could render. That's barely noticeable against a
+                    // local dev API but adds up to several real seconds against the production API
+                    // (each switch of organisation re-runs this whole method). Firing them
+                    // concurrently and awaiting them together cuts wall-clock time to roughly the
+                    // single slowest call instead of the sum of all of them.
+                    var greetingTask = UpdateGreetingAsync();
+                    var housesTask = _houseService.GetAllHousesAsync();
+                    var tenantsTask = _tenantService.GetAllTenantsAsync();
+                    // This month's ledger: source for the rent-collection breakdown and the
+                    // "recent rent activity" table -- the only current-month ledger fetch needed
+                    // now that overdue rent uses the dedicated GetOverdueRentAsync() below instead
+                    // of a hand-rolled multi-month scan.
+                    var currentMonthLedgerTask = _paymentService.GetRentLedgerForMonthAsync(
+                        currentDate.Year, currentDate.Month, null, null, null);
+                    // Next month's ledger, needed only for the "rent due soon" window below --
+                    // fetched alongside everything else since it doesn't depend on any other
+                    // result, rather than as a nested await inside GetRentDueSoon.
+                    var nextMonthLedgerTask = _paymentService.GetRentLedgerForMonthAsync(
+                        nextMonth.Year, nextMonth.Month, null, null, null);
+                    var overdueItemsTask = _paymentService.GetOverdueRentAsync();
+                    var depositRemindersTask = _paymentService.GetDepositReturnRemindersAsync();
+                    // Documents expiring in the next 30 days -- feeds both the KPI count (fixing
+                    // a bug where it was hardcoded to 0 and never actually computed) and the
+                    // Upcoming widget's document-expiry rows. One call for both.
+                    var expiringDocumentsTask = _documentService.GetExpiringDocumentsAsync(30);
+                    // This calendar month's recorded rent transactions.
+                    var monthlyIncomeTask = _paymentService.GetTransactionsAsync(monthStart, currentDate, "Rent");
+                    var recentDocumentsTask = _documentService.GetDocumentsAsync();
+                    var cashFlowMonthsTask = BuildCashFlowMonthsAsync(currentDate);
+
+                    await Task.WhenAll(
+                        greetingTask, housesTask, tenantsTask, currentMonthLedgerTask, nextMonthLedgerTask,
+                        overdueItemsTask, depositRemindersTask, expiringDocumentsTask, monthlyIncomeTask,
+                        recentDocumentsTask, cashFlowMonthsTask);
+
+                    var houses = housesTask.Result;
                     var houseCount = houses.Count();
 
-                    var tenants = await _tenantService.GetAllTenantsAsync();
+                    var tenants = tenantsTask.Result;
                     var activeTenantCount = tenants.Count(t => !string.IsNullOrEmpty(t.CurrentHouseAddress));
 
-                    var currentDate = DateTime.Now;
+                    var currentMonthLedger = currentMonthLedgerTask.Result.ToList();
 
-                    // This month's ledger: source for the rent-collection breakdown and the
-                    // "recent rent activity" table -- the only ledger fetch needed now that
-                    // overdue rent uses the dedicated GetOverdueRentAsync() below instead of a
-                    // hand-rolled multi-month scan.
-                    var currentMonthLedger = (await _paymentService.GetRentLedgerForMonthAsync(
-                        currentDate.Year, currentDate.Month, null, null, null)).ToList();
-
-                    var overdueItems = (await _paymentService.GetOverdueRentAsync()).ToList();
+                    var overdueItems = overdueItemsTask.Result.ToList();
                     var overdueRentList = overdueItems.Select(i => new OverdueRentItem
                     {
                         TenantName = i.TenantName,
@@ -369,25 +445,19 @@ namespace Daryva.MVVM.ViewModels
                     }).ToList();
                     var totalOverdue = overdueItems.Sum(i => i.Amount);
 
-                    var depositRemindersList = (await _paymentService.GetDepositReturnRemindersAsync()).ToList();
+                    var depositRemindersList = depositRemindersTask.Result.ToList();
 
-                    // Documents expiring in the next 30 days -- feeds both the KPI count (fixing
-                    // a bug where it was hardcoded to 0 and never actually computed) and the
-                    // Upcoming widget's document-expiry rows. One call for both.
-                    var expiringDocuments = (await _documentService.GetExpiringDocumentsAsync(30)).ToList();
+                    var expiringDocuments = expiringDocumentsTask.Result.ToList();
 
                     // Rent due in the next 3 days -- same window/logic NotificationFeedService
                     // already uses for the header bell's "Rent due soon" items.
-                    var rentDueSoon = await GetRentDueSoonAsync(currentDate, currentMonthLedger);
+                    var rentDueSoon = GetRentDueSoon(currentDate, currentMonthLedger, nextMonthLedgerTask.Result.ToList());
 
-                    // This calendar month's recorded rent transactions.
-                    var monthStart = new DateTime(currentDate.Year, currentDate.Month, 1);
-                    var monthlyIncome = (await _paymentService.GetTransactionsAsync(monthStart, currentDate, "Rent"))
-                        .Sum(t => t.Amount);
+                    var monthlyIncome = monthlyIncomeTask.Result.Sum(t => t.Amount);
 
-                    var cashFlowMonths = await BuildCashFlowMonthsAsync(currentDate);
+                    var cashFlowMonths = cashFlowMonthsTask.Result;
 
-                    var recentDocuments = (await _documentService.GetDocumentsAsync())
+                    var recentDocuments = recentDocumentsTask.Result
                         .OrderByDescending(d => d.UploadedAt)
                         .Take(5)
                         .ToList();
@@ -424,6 +494,20 @@ namespace Daryva.MVVM.ViewModels
                         RentCollectedPercent = collectedPercent
                     };
 
+                    if (currentOrgId.HasValue)
+                    {
+                        lock (_snapshotCacheLock)
+                        {
+                            _snapshotCache[currentOrgId.Value] = (DateTime.UtcNow, snapshot);
+                        }
+                    }
+
+                    if (myGeneration != _loadGeneration)
+                    {
+                        AppLogger.Log("Dashboard", $"Discarding stale load result (generation {myGeneration}, current is {_loadGeneration}).");
+                        return;
+                    }
+
                     // Update ALL UI properties on UI thread in a single dispatcher call
                     if (Dispatcher.UIThread.CheckAccess())
                     {
@@ -452,6 +536,11 @@ namespace Daryva.MVVM.ViewModels
                 }
                 catch (Exception ex)
                 {
+                    if (myGeneration != _loadGeneration)
+                    {
+                        AppLogger.Log("Dashboard", $"Suppressing error dialog for stale/abandoned load (generation {myGeneration}, current is {_loadGeneration}): {ex.Message}");
+                        return;
+                    }
                     _dialogService.ShowMessage($"Error loading dashboard data: {ex.Message}", "Error");
                     return;
                 }
@@ -460,8 +549,11 @@ namespace Daryva.MVVM.ViewModels
 
         /// <summary>Ports NotificationFeedService's "rent due soon" rule (next 3 days, Balance > 0)
         /// so the dashboard's Upcoming widget and the notification bell agree on what counts as
-        /// due soon. Reuses the already-fetched current-month ledger instead of re-fetching it.</summary>
-        private async Task<List<RentLedgerRowViewModel>> GetRentDueSoonAsync(DateTime currentDate, List<RentLedgerRowViewModel> currentMonthLedger)
+        /// due soon. Takes both months' ledgers as already-fetched data (see LoadDashboardDataAsync,
+        /// which now fetches them concurrently with everything else) rather than awaiting the
+        /// next-month fetch itself.</summary>
+        private static List<RentLedgerRowViewModel> GetRentDueSoon(
+            DateTime currentDate, List<RentLedgerRowViewModel> currentMonthLedger, List<RentLedgerRowViewModel> nextMonthLedger)
         {
             var today = currentDate.Date;
             var endSoon = today.AddDays(3);
@@ -481,8 +573,6 @@ namespace Daryva.MVVM.ViewModels
             }
 
             Collect(currentMonthLedger);
-            var nextMonth = today.AddMonths(1);
-            var nextMonthLedger = await _paymentService.GetRentLedgerForMonthAsync(nextMonth.Year, nextMonth.Month, null, null, null);
             Collect(nextMonthLedger);
 
             return result;
@@ -499,18 +589,33 @@ namespace Daryva.MVVM.ViewModels
             var currentMonthStart = new DateTime(currentDate.Year, currentDate.Month, 1);
             var earliestMonth = currentMonthStart.AddMonths(-monthsBack);
 
-            var expenseSummary = await _expenseService.GetExpenseSummaryAsync(startDate: earliestMonth, endDate: currentDate);
-            var expensesByMonth = expenseSummary.ByMonth.ToDictionary(m => (m.Year, m.Month), m => m.Total);
+            var expenseSummaryTask = _expenseService.GetExpenseSummaryAsync(startDate: earliestMonth, endDate: currentDate);
 
-            var points = new List<CashFlowMonthPoint>();
+            var monthRanges = new List<(DateTime Start, DateTime End)>();
             for (var i = monthsBack; i >= 0; i--)
             {
                 var monthDate = currentMonthStart.AddMonths(-i);
                 var monthEnd = monthDate.AddMonths(1).AddDays(-1);
                 if (monthEnd > currentDate)
                     monthEnd = currentDate; // Don't count days that haven't happened yet for the in-progress month.
+                monthRanges.Add((monthDate, monthEnd));
+            }
 
-                var income = (await _paymentService.GetTransactionsAsync(monthDate, monthEnd, "Rent")).Sum(t => t.Amount);
+            // One call per month, same as before, but fired concurrently instead of one at a time
+            // -- this loop alone used to be 6 sequential round trips.
+            var incomeTasks = monthRanges
+                .Select(r => _paymentService.GetTransactionsAsync(r.Start, r.End, "Rent"))
+                .ToList();
+
+            await Task.WhenAll(incomeTasks.Cast<Task>().Append(expenseSummaryTask));
+
+            var expensesByMonth = expenseSummaryTask.Result.ByMonth.ToDictionary(m => (m.Year, m.Month), m => m.Total);
+
+            var points = new List<CashFlowMonthPoint>();
+            for (var i = 0; i < monthRanges.Count; i++)
+            {
+                var monthDate = monthRanges[i].Start;
+                var income = incomeTasks[i].Result.Sum(t => t.Amount);
                 expensesByMonth.TryGetValue((monthDate.Year, monthDate.Month), out var expenses);
 
                 points.Add(new CashFlowMonthPoint
@@ -629,6 +734,11 @@ namespace Daryva.MVVM.ViewModels
 
         private void UpdateDashboardProperties(DashboardSnapshot s)
         {
+            AppLogger.Log("Dashboard",
+                $"Applying snapshot: houses={s.HouseCount}, cashFlowMonths={s.CashFlowMonths.Count} " +
+                $"(allZero={s.CashFlowMonths.All(p => p.Income == 0 && p.Expenses == 0)}), " +
+                $"upcoming={s.UpcomingEvents.Count}, recentRent={s.RecentRentRows.Count}, recentDocs={s.RecentDocuments.Count}");
+
             HousesCount = s.HouseCount;
             ActiveTenantsCount = s.ActiveTenantCount;
 
@@ -646,9 +756,7 @@ namespace Daryva.MVVM.ViewModels
             DocumentsExpiringSoonCount = s.DocumentsExpiringSoonCount;
             MonthlyIncome = s.MonthlyIncome;
 
-            CashFlowMonths.Clear();
-            foreach (var point in s.CashFlowMonths)
-                CashFlowMonths.Add(point);
+            CashFlowMonths = new ObservableCollection<CashFlowMonthPoint>(s.CashFlowMonths);
             ShowEmptyCashFlowMessage = s.CashFlowMonths.All(p => p.Income == 0 && p.Expenses == 0);
 
             UpcomingEvents.Clear();
@@ -710,7 +818,7 @@ namespace Daryva.MVVM.ViewModels
                 dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                 dialog.Show();
             }
-            LoadDashboardDataCommand.Execute(null);
+            LoadDashboardDataCommand.Execute(true);
         }
 
         private async void ShowAddTenantDialog()
@@ -730,7 +838,7 @@ namespace Daryva.MVVM.ViewModels
                 dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                 dialog.Show();
             }
-            LoadDashboardDataCommand.Execute(null);
+            LoadDashboardDataCommand.Execute(true);
         }
 
         private async void ShowRecordPaymentDialog()
@@ -755,7 +863,7 @@ namespace Daryva.MVVM.ViewModels
                 }
                 
                 // Refresh dashboard data after payment is recorded
-                LoadDashboardDataCommand.Execute(null);
+                LoadDashboardDataCommand.Execute(true);
             }
             catch (Exception ex)
             {
@@ -782,7 +890,7 @@ namespace Daryva.MVVM.ViewModels
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                     dialog.Show();
                 }
-                LoadDashboardDataCommand.Execute(null);
+                LoadDashboardDataCommand.Execute(true);
             }
             catch (Exception ex)
             {
@@ -810,7 +918,7 @@ namespace Daryva.MVVM.ViewModels
                     dialog.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
                     dialog.Show();
                 }
-                LoadDashboardDataCommand.Execute(null);
+                LoadDashboardDataCommand.Execute(true);
             }
             catch (Exception ex)
             {

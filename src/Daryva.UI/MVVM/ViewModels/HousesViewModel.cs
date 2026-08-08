@@ -8,6 +8,7 @@ using System.Windows.Input;
 using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
 using Daryva.Services.Navigation;
@@ -16,7 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
 {
-    public class HousesViewModel : BaseViewModel
+    public class HousesViewModel : BaseViewModel, INavigationAware
     {
         private readonly IHouseService _houseService;
         private readonly IDialogService _dialogService;
@@ -25,6 +26,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly ISettingsService _settingsService;
         private readonly INavigationService _navigationService;
         private readonly IOrgContext _orgContext;
+        private readonly AsyncDebouncer _orgChangeDebouncer = new(TimeSpan.FromMilliseconds(400));
         private string _searchTerm = string.Empty;
         private bool _showActiveOnly = false;
         private bool _showArchivedOnly = false;
@@ -79,11 +81,16 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Dispatcher.UIThread.Post(() =>
+            _orgChangeDebouncer.Trigger(() => Dispatcher.UIThread.Post(() =>
             {
                 OnPropertyChanged(nameof(NoOrgSelected));
                 LoadHousesCommand.Execute(null);
-            });
+            }));
+        }
+
+        public void Cleanup()
+        {
+            _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
         }
 
         public ICommand LoadHousesCommand { get; }
@@ -225,6 +232,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("Houses", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 _dialogService.ShowMessage($"Error loading houses: {ex.Message}\n\nStack trace: {ex.StackTrace}", "Database Error");
                 System.Diagnostics.Debug.WriteLine($"Error loading houses: {ex}");
             }

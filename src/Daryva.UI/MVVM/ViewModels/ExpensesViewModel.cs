@@ -10,12 +10,13 @@ using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Data;
 using Daryva.Services.Dialog;
+using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
 {
-    public class ExpensesViewModel : BaseViewModel
+    public class ExpensesViewModel : BaseViewModel, INavigationAware
     {
         private readonly IExpenseService _expenseService;
         private readonly IHouseService _houseService;
@@ -24,6 +25,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
         private readonly IOrgContext _orgContext;
+        private readonly AsyncDebouncer _orgChangeDebouncer = new(TimeSpan.FromMilliseconds(400));
 
         private string _selectedTab = "Summary"; // "Summary" (first) or "List"
         private int _selectedTabIndex = 0;
@@ -119,7 +121,12 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Dispatcher.UIThread.Post(() => _ = LoadInitialDataAsync());
+            _orgChangeDebouncer.Trigger(() => Dispatcher.UIThread.Post(() => _ = LoadInitialDataAsync()));
+        }
+
+        public void Cleanup()
+        {
+            _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
         }
 
         public ICommand LoadExpensesCommand { get; }
@@ -284,6 +291,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("Expenses", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 _dialogService.ShowMessage($"Error loading houses: {ex.Message}", "Error");
             }
         }
@@ -351,6 +363,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("Expenses", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 _dialogService.ShowMessage($"Error loading expenses: {ex.Message}", "Error");
             }
         }
@@ -392,6 +409,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("Expenses", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 _dialogService.ShowMessage($"Error loading summary: {ex.Message}", "Error");
             }
         }

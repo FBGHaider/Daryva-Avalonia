@@ -1,5 +1,6 @@
 using Daryva.MVVM.Models;
 using Daryva.Services.Api;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.Services.Business;
 
@@ -12,21 +13,53 @@ public class HouseService : IHouseService
     private readonly IHouseApiService _houseApiService;
     private readonly ITenantApiService _tenantApiService;
     private readonly IApiEntityIdMapper _idMapper;
+    private readonly IOrgContext _orgContext;
+
+    // GetAllHousesAsync is the single most-called read in the app -- Dashboard, Houses, Tenants,
+    // Rent Ledger, Transactions and Expenses each call it independently on their own page load, so
+    // switching between them repeatedly re-fetches the identical house list over and over. A short
+    // cache here benefits every one of those callers at once instead of needing its own cache in
+    // each ViewModel. Confirmed via the session log that this redundancy was a real contributor to
+    // rate-limit (429) storms under rapid tab switching.
+    private static readonly Dictionary<(Guid OrgId, bool IncludeArchived), (DateTime CachedAtUtc, List<House> Houses)> _cache = new();
+    private static readonly object _cacheLock = new();
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(20);
 
     public HouseService(
         IHouseApiService houseApiService,
         ITenantApiService tenantApiService,
-        IApiEntityIdMapper idMapper)
+        IApiEntityIdMapper idMapper,
+        IOrgContext orgContext)
     {
         _houseApiService = houseApiService ?? throw new ArgumentNullException(nameof(houseApiService));
         _tenantApiService = tenantApiService ?? throw new ArgumentNullException(nameof(tenantApiService));
         _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
+        _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
     }
 
     public async Task<IEnumerable<House>> GetAllHousesAsync(bool includeArchived = false)
     {
-        var houseDtos = await _houseApiService.GetHousesAsync(includeArchived);
-        var activeTenants = await _tenantApiService.GetTenantsAsync(includeArchived: false);
+        var orgId = _orgContext.CurrentOrgId;
+        var cacheKey = orgId.HasValue ? (orgId.Value, includeArchived) : default((Guid, bool)?);
+        if (cacheKey.HasValue)
+        {
+            lock (_cacheLock)
+            {
+                if (_cache.TryGetValue(cacheKey.Value, out var entry) && DateTime.UtcNow - entry.CachedAtUtc < CacheTtl)
+                    return entry.Houses;
+            }
+        }
+
+        // Neither call depends on the other's result -- fetching them one at a time (as before)
+        // doubles this method's latency for nothing. Every visit to the Houses tab goes through
+        // here, so under slower network conditions this was a real, measurable contributor to
+        // the multi-second "Loading houses" delays reported for that page.
+        var housesTask = _houseApiService.GetHousesAsync(includeArchived);
+        var tenantsTask = _tenantApiService.GetTenantsAsync(includeArchived: false);
+        await Task.WhenAll(housesTask, tenantsTask);
+
+        var houseDtos = housesTask.Result;
+        var activeTenants = tenantsTask.Result;
 
         var activeTenantCountsByHouse = activeTenants
             .Where(t => !t.IsArchived && t.CurrentHouseId.HasValue)
@@ -35,7 +68,7 @@ public class HouseService : IHouseService
                 g => g.Key,
                 g => g.Select(t => t.Id).Distinct().Count());
 
-        return houseDtos.Select(dto =>
+        var houses = houseDtos.Select(dto =>
         {
             var house = MapToHouse(dto);
             if (house.ApiId.HasValue && activeTenantCountsByHouse.TryGetValue(house.ApiId.Value, out var count))
@@ -48,7 +81,27 @@ public class HouseService : IHouseService
             }
 
             return house;
-        });
+        }).ToList();
+
+        if (cacheKey.HasValue)
+        {
+            lock (_cacheLock)
+            {
+                _cache[cacheKey.Value] = (DateTime.UtcNow, houses);
+            }
+        }
+
+        return houses;
+    }
+
+    /// <summary>Clears the cached house lists for every org -- called after any write, so the
+    /// next GetAllHousesAsync always reflects it instead of serving up to 20s of stale data.</summary>
+    private static void InvalidateCache()
+    {
+        lock (_cacheLock)
+        {
+            _cache.Clear();
+        }
     }
 
     public async Task<House?> ArchiveHouseAsync(int houseId)
@@ -58,6 +111,7 @@ public class HouseService : IHouseService
             return null;
 
         var dto = await _houseApiService.ArchiveHouseAsync(house.ApiId.Value);
+        InvalidateCache();
         return dto != null ? MapToHouse(dto) : null;
     }
 
@@ -82,6 +136,7 @@ public class HouseService : IHouseService
         };
 
         var createdDto = await _houseApiService.CreateHouseAsync(createDto);
+        InvalidateCache();
         return MapToHouse(createdDto);
     }
 
@@ -110,6 +165,7 @@ public class HouseService : IHouseService
         house.Postcode = updatedDto.Postcode;
         house.TotalRooms = updatedDto.TotalRooms;
         house.CreatedAt = updatedDto.CreatedAt;
+        InvalidateCache();
     }
 
     public async Task DeleteHouseAsync(int houseId)
@@ -122,6 +178,7 @@ public class HouseService : IHouseService
         var deleted = await _houseApiService.DeleteHouseAsync(house.ApiId.Value);
         if (!deleted)
             throw new InvalidOperationException($"Failed to delete house with ID {houseId}.");
+        InvalidateCache();
     }
 
     public async Task<IEnumerable<House>> SearchHousesAsync(string searchTerm)

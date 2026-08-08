@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Data;
 using Daryva.Services.Dialog;
@@ -19,7 +20,7 @@ namespace Daryva.MVVM.ViewModels
         public int? HouseId { get; set; }
     }
 
-    public class TenantsViewModel : BaseViewModel
+    public class TenantsViewModel : BaseViewModel, INavigationAware
     {
         private readonly ITenantService _tenantService;
         private readonly IHouseService _houseService;
@@ -30,6 +31,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly ITenancyRepository _tenancyRepository;
         private readonly IPaymentService _paymentService;
         private readonly IOrgContext _orgContext;
+        private readonly AsyncDebouncer _orgChangeDebouncer = new(TimeSpan.FromMilliseconds(400));
         private string _searchTerm = string.Empty;
         private Tenant? _selectedTenant;
         private bool _showArchivedOnly = false;
@@ -73,11 +75,16 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            _orgChangeDebouncer.Trigger(() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 OnPropertyChanged(nameof(NoOrgSelected));
                 LoadTenantsCommand.Execute(null);
-            });
+            }));
+        }
+
+        public void Cleanup()
+        {
+            _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
         }
 
         public ICommand LoadTenantsCommand { get; }
@@ -277,6 +284,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("Tenants", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 _dialogService.ShowMessage($"Error loading tenants: {ex.Message}\n\nStack trace: {ex.StackTrace}", "Database Error");
                 System.Diagnostics.Debug.WriteLine($"Error loading tenants: {ex}");
             }

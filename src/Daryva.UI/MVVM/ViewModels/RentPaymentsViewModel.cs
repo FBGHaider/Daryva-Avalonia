@@ -1,17 +1,19 @@
 using System.Windows.Input;
 using Avalonia.Threading;
 using Daryva.MVVM.Commands;
+using Daryva.Services;
 using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Daryva.MVVM.ViewModels
 {
-    public class RentPaymentsViewModel : BaseViewModel
+    public class RentPaymentsViewModel : BaseViewModel, INavigationAware
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly INavigationService _navigationService;
         private readonly IOrgContext _orgContext;
+        private readonly AsyncDebouncer _orgChangeDebouncer = new(TimeSpan.FromMilliseconds(400));
         private BaseViewModel? _currentTabViewModel;
         private string _selectedTab = "Rent Ledger";
         private int _selectedTabIndex = 0;
@@ -54,7 +56,21 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Dispatcher.UIThread.Post(() => RefreshCommand.Execute(null));
+            _orgChangeDebouncer.Trigger(() => Dispatcher.UIThread.Post(() => RefreshCommand.Execute(null)));
+        }
+
+        public void Cleanup()
+        {
+            _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
+            // PaymentDataChanged is a static event on DashboardViewModel -- without this, every
+            // past RentPaymentsViewModel instance stays subscribed for the rest of the app's life
+            // and reacts to payment changes recorded from any other screen.
+            DashboardViewModel.PaymentDataChanged -= OnPaymentDataChanged;
+            // LedgerViewModel/TransactionsViewModel are owned sub-tabs, not separately navigated to
+            // -- NavigationService only flips IsActive on the page it directly knows about (this
+            // one), so their own abandoned-load error dialogs need this to cascade explicitly.
+            LedgerViewModel.IsActive = false;
+            TransactionsViewModel.IsActive = false;
         }
 
         private void OnPaymentDataChanged(object? sender, EventArgs e)

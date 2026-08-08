@@ -38,6 +38,7 @@ namespace Daryva.MVVM.ViewModels
             CheckForUpdatesCommand = new RelayCommand(async _ => await CheckForUpdatesAsync(), _ => !IsCheckingForUpdates && !IsInstallingUpdate);
             InstallAndRestartCommand = new RelayCommand(async _ => await InstallAndRestartAsync(), _ => !string.IsNullOrEmpty(AvailableUpdateVersion) && !IsInstallingUpdate);
             CleanupDuplicateChargesCommand = new RelayCommand(async _ => await CleanupDuplicateChargesAsync(), _ => ConfirmDangerZoneChecked && !IsCleaningUpDuplicateCharges);
+            CopySessionLogsCommand = new RelayCommand(async _ => await CopySessionLogsAsync());
 
             _ = LoadAsync();
             InitializeUpdateStatus();
@@ -48,6 +49,25 @@ namespace Daryva.MVVM.ViewModels
         public ICommand CheckForUpdatesCommand { get; }
         public ICommand InstallAndRestartCommand { get; }
         public ICommand CleanupDuplicateChargesCommand { get; }
+        public ICommand CopySessionLogsCommand { get; }
+
+        /// <summary>Copies this session's full log (every navigation, org switch, HTTP call, and
+        /// dialog shown, each timestamped) to the clipboard -- for handing over as evidence when
+        /// reporting a bug instead of a screenshot and a best-effort description.</summary>
+        private async Task CopySessionLogsAsync()
+        {
+            var log = AppLogger.ReadCurrentSessionLog();
+            if (string.IsNullOrEmpty(log))
+            {
+                _dialogService.ShowMessage("No log data available for this session yet.", "Logs");
+                return;
+            }
+
+            var copied = await _dialogService.CopyToClipboardAsync(log);
+            _dialogService.ShowMessage(
+                copied ? "Session log copied to clipboard." : "Could not access the clipboard.",
+                copied ? "Logs" : "Error");
+        }
 
         public string Currency
         {

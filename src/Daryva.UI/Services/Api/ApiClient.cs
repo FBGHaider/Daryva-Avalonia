@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Daryva.Services;
 using Daryva.Services.Auth;
 using Daryva.Services.OrgContext;
 
@@ -79,6 +81,20 @@ public class ApiClient : IApiClient
         private readonly IServiceProvider _serviceProvider;
         private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
+        // Every request from every ViewModel funnels through this single handler, so it's the one
+        // place that can cap how many requests are ever ACTIVELY ON THE WIRE at once app-wide --
+        // individual ViewModels are free to fire off several independent calls concurrently (e.g.
+        // the dashboard's Task.WhenAll load) without knowing or caring about any other ViewModel's
+        // simultaneous bursts. This gate is acquired only around the actual base.SendAsync calls
+        // (see SendGatedAsync) -- NOT around the retry/backoff loop below. Holding it across a
+        // multi-second 429 backoff sleep would let a single throttled request tie up one of a
+        // handful of global slots for 20+ seconds, and with only a few slots total, every other
+        // page's requests (e.g. from rapid tab switching) would queue up behind it -- which is
+        // exactly the "everything grinds to a halt" regression an earlier version of this gate caused.
+        private static readonly SemaphoreSlim _concurrencyGate = new(6, 6);
+        private const int MaxRateLimitRetries = 4;
+        private static readonly TimeSpan RateLimitRetryDelay = TimeSpan.FromSeconds(1);
+
         public ApiAuthHandler(ApiClient owner, Uri baseAddress, IAuthSessionService authSession, IServiceProvider serviceProvider)
         {
             _owner = owner ?? throw new ArgumentNullException(nameof(owner));
@@ -88,6 +104,34 @@ public class ApiClient : IApiClient
         }
 
         private IAuthService? AuthService => _serviceProvider.GetService(typeof(IAuthService)) as IAuthService;
+
+        private async Task<HttpResponseMessage> SendGatedAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.PathAndQuery ?? request.RequestUri?.ToString() ?? "(unknown)";
+            var waitSw = Stopwatch.StartNew();
+            await _concurrencyGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            waitSw.Stop();
+
+            var callSw = Stopwatch.StartNew();
+            try
+            {
+                var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                callSw.Stop();
+                AppLogger.Log("Http", $"{request.Method} {path} -> {(int)response.StatusCode} " +
+                    $"({callSw.ElapsedMilliseconds}ms, queued {waitSw.ElapsedMilliseconds}ms)");
+                return response;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Http", $"{request.Method} {path} threw {ex.GetType().Name}: {ex.Message} " +
+                    $"({callSw.ElapsedMilliseconds}ms, queued {waitSw.ElapsedMilliseconds}ms)");
+                throw;
+            }
+            finally
+            {
+                _concurrencyGate.Release();
+            }
+        }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -129,7 +173,7 @@ public class ApiClient : IApiClient
             var retryRequest = await CloneRequestAsync(request, cancellationToken);
             AttachAccessToken(retryRequest);
             AttachOrgId(retryRequest);
-            return await base.SendAsync(retryRequest, cancellationToken);
+            return await SendGatedAsync(retryRequest, cancellationToken);
         }
 
         private void AttachOrgId(HttpRequestMessage request)
@@ -141,16 +185,42 @@ public class ApiClient : IApiClient
 
         private async Task<HttpResponseMessage> SendWithTransientRetryAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            HttpResponseMessage response;
             try
             {
-                return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await SendGatedAsync(request, cancellationToken).ConfigureAwait(false);
             }
             catch (HttpRequestException) when (request.Content == null)
             {
                 await Task.Delay(TransientRetryDelayMs, cancellationToken).ConfigureAwait(false);
                 var retryRequest = await CloneRequestAsync(request, cancellationToken).ConfigureAwait(false);
-                return await base.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
+                return await SendGatedAsync(retryRequest, cancellationToken).ConfigureAwait(false);
             }
+
+            // Back off and retry a few times instead of surfacing a raw 429 dialog for what's
+            // usually a transient "wait a second" condition. The sleep below happens OUTSIDE
+            // SendGatedAsync's semaphore hold (each retry attempt re-acquires it fresh), so a
+            // throttled request backing off doesn't block other pages' unrelated requests from
+            // using that concurrency slot in the meantime.
+            var retryCount = 0;
+            while (response.StatusCode == HttpStatusCode.TooManyRequests && retryCount < MaxRateLimitRetries)
+            {
+                var delay = response.Headers.RetryAfter?.Delta ?? RateLimitRetryDelay * (retryCount + 1);
+                AppLogger.Log("Http", $"429 on {request.Method} {request.RequestUri?.PathAndQuery} -- " +
+                    $"retry {retryCount + 1}/{MaxRateLimitRetries} after {delay.TotalMilliseconds:F0}ms");
+                response.Dispose();
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+
+                var retryRequest = await CloneRequestAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await SendGatedAsync(retryRequest, cancellationToken).ConfigureAwait(false);
+                retryCount++;
+            }
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                AppLogger.LogError("Http", $"429 on {request.Method} {request.RequestUri?.PathAndQuery} -- " +
+                    $"gave up after {retryCount} retries");
+
+            return response;
         }
 
         private async Task EnsureFreshTokenIfNeededAsync(CancellationToken cancellationToken)

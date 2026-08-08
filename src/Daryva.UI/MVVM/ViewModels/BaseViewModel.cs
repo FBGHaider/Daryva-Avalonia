@@ -9,6 +9,18 @@ namespace Daryva.MVVM.ViewModels
     public abstract class BaseViewModel : INotifyPropertyChanged
     {
         /// <summary>
+        /// True while this instance is the page currently on screen (or a sub-VM owned by one).
+        /// NavigationService flips this to false the moment a page stops being current -- since
+        /// every sidebar click creates a brand-new transient instance of the target page (see
+        /// NavigationService.NavigateTo), the OUTGOING instance's own in-flight data load (and any
+        /// error it eventually throws) is no longer something anyone is looking at. Long-running
+        /// load methods should check this before applying a result or showing an error dialog, so
+        /// switching tabs before a load finishes doesn't pop a confusing, disconnected error dialog
+        /// on top of whatever page the user has since moved to.
+        /// </summary>
+        public bool IsActive { get; set; } = true;
+
+        /// <summary>
         /// Occurs when a property value changes.
         /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;

@@ -3,9 +3,11 @@ using System.Windows.Input;
 using Avalonia.Threading;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Api;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
+using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
 
 namespace Daryva.MVVM.ViewModels
@@ -13,10 +15,11 @@ namespace Daryva.MVVM.ViewModels
     /// <summary>
     /// Organisation / Team page: manage organisations and team members (SaaS-style MVP).
     /// </summary>
-    public class OrganisationViewModel : BaseViewModel
+    public class OrganisationViewModel : BaseViewModel, INavigationAware
     {
         private readonly IOrganisationService _orgService;
         private readonly IOrgContext _orgContext;
+        private readonly AsyncDebouncer _orgChangeDebouncer = new(TimeSpan.FromMilliseconds(400));
         private readonly IOrganizationApiService _organizationApiService;
         private readonly ITenancyApiService _tenancyApiService;
         private readonly IOrganisationMemberService _memberService;
@@ -92,7 +95,12 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Dispatcher.UIThread.Post(() => _ = LoadAsync());
+            _orgChangeDebouncer.Trigger(() => Dispatcher.UIThread.Post(() => _ = LoadAsync()));
+        }
+
+        public void Cleanup()
+        {
+            _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
         }
 
         public string PageTitle => "Organisation";
@@ -367,6 +375,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("Organisation", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 await Dispatcher.UIThread.InvokeAsync(() =>
                     _dialogService.ShowMessage($"Could not load organisations: {ex.Message}", "Error"));
             }

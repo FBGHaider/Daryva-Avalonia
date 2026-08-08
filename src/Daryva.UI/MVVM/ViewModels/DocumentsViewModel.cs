@@ -5,15 +5,17 @@ using System.Linq;
 using System.Windows.Input;
 using Daryva.MVVM.Commands;
 using Daryva.MVVM.Models;
+using Daryva.Services;
 using Daryva.Services.Business;
 using Daryva.Services.Dialog;
+using Daryva.Services.Navigation;
 using Daryva.Services.OrgContext;
 using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Threading;
 
 namespace Daryva.MVVM.ViewModels
 {
-    public class DocumentsViewModel : BaseViewModel
+    public class DocumentsViewModel : BaseViewModel, INavigationAware
     {
         private readonly IDocumentService _documentService;
         private readonly ITenantService _tenantService;
@@ -22,6 +24,7 @@ namespace Daryva.MVVM.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly ISettingsService _settingsService;
         private readonly IOrgContext _orgContext;
+        private readonly AsyncDebouncer _orgChangeDebouncer = new(TimeSpan.FromMilliseconds(400));
 
         private string _searchTerm = string.Empty;
         private Document? _selectedDocument;
@@ -60,7 +63,7 @@ namespace Daryva.MVVM.ViewModels
 
         private void OnCurrentOrgChanged(object? sender, CurrentOrgChangedEventArgs e)
         {
-            Dispatcher.UIThread.Post(() =>
+            _orgChangeDebouncer.Trigger(() => Dispatcher.UIThread.Post(() =>
             {
                 if (_orgContext.CurrentOrgId.HasValue)
                     LoadDocumentsCommand.Execute(null);
@@ -69,7 +72,12 @@ namespace Daryva.MVVM.ViewModels
                     _allDocuments.Clear();
                     ApplySearch();
                 }
-            });
+            }));
+        }
+
+        public void Cleanup()
+        {
+            _orgContext.CurrentOrgChanged -= OnCurrentOrgChanged;
         }
 
         public ICommand LoadDocumentsCommand { get; }
@@ -183,6 +191,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("Documents", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 _dialogService.ShowMessage($"Error loading documents: {ex.Message}", "Error");
             }
         }

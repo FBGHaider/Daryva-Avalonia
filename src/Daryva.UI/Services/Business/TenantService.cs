@@ -1,5 +1,6 @@
 using Daryva.MVVM.Models;
 using Daryva.Services.Api;
+using Daryva.Services.OrgContext;
 
 namespace Daryva.Services.Business;
 
@@ -11,17 +12,57 @@ public class TenantService : ITenantService
 {
     private readonly ITenantApiService _tenantApiService;
     private readonly IApiEntityIdMapper _idMapper;
+    private readonly IOrgContext _orgContext;
 
-    public TenantService(ITenantApiService tenantApiService, IApiEntityIdMapper idMapper)
+    // Same rationale as HouseService's cache: GetAllTenantsAsync is independently called by
+    // Dashboard, Houses, Tenants, Transactions and Notifications on their own page load, so a
+    // short cache here cuts redundant re-fetches across all of them at once.
+    private static readonly Dictionary<(Guid OrgId, bool IncludeArchived), (DateTime CachedAtUtc, List<Tenant> Tenants)> _cache = new();
+    private static readonly object _cacheLock = new();
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(20);
+
+    public TenantService(ITenantApiService tenantApiService, IApiEntityIdMapper idMapper, IOrgContext orgContext)
     {
         _tenantApiService = tenantApiService ?? throw new ArgumentNullException(nameof(tenantApiService));
         _idMapper = idMapper ?? throw new ArgumentNullException(nameof(idMapper));
+        _orgContext = orgContext ?? throw new ArgumentNullException(nameof(orgContext));
     }
 
     public async Task<IEnumerable<Tenant>> GetAllTenantsAsync(bool includeArchived = false)
     {
+        var orgId = _orgContext.CurrentOrgId;
+        var cacheKey = orgId.HasValue ? (orgId.Value, includeArchived) : default((Guid, bool)?);
+        if (cacheKey.HasValue)
+        {
+            lock (_cacheLock)
+            {
+                if (_cache.TryGetValue(cacheKey.Value, out var entry) && DateTime.UtcNow - entry.CachedAtUtc < CacheTtl)
+                    return entry.Tenants;
+            }
+        }
+
         var tenantDtos = await _tenantApiService.GetTenantsAsync(includeArchived);
-        return tenantDtos.Select(MapToTenant);
+        var tenants = tenantDtos.Select(MapToTenant).ToList();
+
+        if (cacheKey.HasValue)
+        {
+            lock (_cacheLock)
+            {
+                _cache[cacheKey.Value] = (DateTime.UtcNow, tenants);
+            }
+        }
+
+        return tenants;
+    }
+
+    /// <summary>Clears the cached tenant lists for every org -- called after any write, so the
+    /// next GetAllTenantsAsync always reflects it instead of serving up to 20s of stale data.</summary>
+    private static void InvalidateCache()
+    {
+        lock (_cacheLock)
+        {
+            _cache.Clear();
+        }
     }
 
     public async Task<IEnumerable<Tenant>> GetTenantsByHouseIdAsync(int? houseId, bool includeArchived = false)
@@ -52,6 +93,7 @@ public class TenantService : ITenantService
         };
 
         var createdDto = await _tenantApiService.CreateTenantAsync(createDto);
+        InvalidateCache();
         return MapToTenant(createdDto);
     }
 
@@ -77,6 +119,7 @@ public class TenantService : ITenantService
         tenant.UniversityName = updatedDto.UniversityName;
         tenant.CreatedAt = updatedDto.CreatedAt;
         tenant.IsArchived = updatedDto.IsArchived;
+        InvalidateCache();
     }
 
     public async Task ArchiveTenantAsync(int tenantId)
@@ -88,6 +131,7 @@ public class TenantService : ITenantService
         var archived = await _tenantApiService.ArchiveTenantAsync(tenant.ApiId.Value);
         if (!archived)
             throw new InvalidOperationException($"Failed to archive tenant with ID {tenantId}.");
+        InvalidateCache();
     }
 
     public async Task UnarchiveTenantAsync(int tenantId)
@@ -99,6 +143,7 @@ public class TenantService : ITenantService
         var unarchived = await _tenantApiService.UnarchiveTenantAsync(tenant.ApiId.Value);
         if (!unarchived)
             throw new InvalidOperationException($"Failed to unarchive tenant with ID {tenantId}.");
+        InvalidateCache();
     }
 
     public async Task<IEnumerable<Tenant>> SearchTenantsAsync(string searchTerm)
@@ -126,6 +171,7 @@ public class TenantService : ITenantService
         var deleted = await _tenantApiService.DeleteTenantAsync(tenant.ApiId.Value);
         if (!deleted)
             throw new InvalidOperationException($"Failed to delete tenant with ID {tenantId}.");
+        InvalidateCache();
     }
 
     public async Task InviteTenantAsync(int tenantId)

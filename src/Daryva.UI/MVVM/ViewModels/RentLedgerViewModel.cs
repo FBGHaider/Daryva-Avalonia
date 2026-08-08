@@ -367,6 +367,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("RentLedger", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 _dialogService.ShowMessage($"Error loading houses: {ex.Message}", "Error");
             }
         }
@@ -427,6 +432,12 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("RentLedger", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => IsLoading = false);
+                    return;
+                }
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     IsLoading = false;
@@ -530,6 +541,11 @@ namespace Daryva.MVVM.ViewModels
             }
             catch (Exception ex)
             {
+                if (!IsActive)
+                {
+                    AppLogger.Log("RentLedger", $"Suppressing error dialog for abandoned load (navigated away): {ex.Message}");
+                    return;
+                }
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     _dialogService.ShowMessage($"Error loading deposit ledger: {ex.Message}", "Error");

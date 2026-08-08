@@ -33,6 +33,16 @@ public partial class App : Application
         ConfigureServices(serviceCollection);
         ServiceProvider = serviceCollection.BuildServiceProvider();
 
+        try
+        {
+            var appPaths = ServiceProvider.GetRequiredService<Daryva.Services.Platform.IAppPaths>();
+            Daryva.Services.AppLogger.Initialize(appPaths.Logs);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to initialize AppLogger: {ex.Message}");
+        }
+
         // Force API-only data mode.
         try
         {

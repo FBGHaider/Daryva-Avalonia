@@ -223,6 +223,8 @@ public sealed class OrgContext : IOrgContext
     {
         if (!_orgs.Any(o => o.Id == orgId))
             return Task.CompletedTask;
+
+        AppLogger.Log("OrgContext", $"SetCurrentOrgAsync: {_currentOrgId} -> {orgId} ({_orgs.FirstOrDefault(o => o.Id == orgId)?.Name})");
         // Defense in depth: EnterSupportOrgAsync's single-org _orgs list means this guard alone
         // already blocks switching to another org mid-session, but if that ever changes, don't leave
         // ActiveSupportSession (and the red banner) pointing at a session this client is no longer

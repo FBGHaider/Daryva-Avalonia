@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Daryva.Services;
 
 namespace Daryva.Services.Dialog
 {
@@ -28,6 +29,11 @@ namespace Daryva.Services.Dialog
 
         public async Task ShowMessageAsync(string message, string title = "Information")
         {
+            if (title.Contains("Error", StringComparison.OrdinalIgnoreCase))
+                AppLogger.LogError("Dialog", $"[{title}] {message}");
+            else
+                AppLogger.Log("Dialog", $"[{title}] {message}");
+
             var owner = GetMainWindow();
             if (owner == null) return;
 
