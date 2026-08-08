@@ -185,12 +185,26 @@ public class ApiClient : IApiClient
 
         private async Task<HttpResponseMessage> SendWithTransientRetryAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            // Both retry paths below must only ever apply to GET requests. A POST/PUT/DELETE isn't
+            // guaranteed idempotent just because it has no request body -- api/auth/2fa/enroll is a
+            // bodyless POST that generates and persists a brand-new TOTP secret on every single
+            // call, overwriting whatever secret a previous call just returned. The old guard here
+            // was "when (request.Content == null)", which let this exact endpoint get silently
+            // retried on a transient network blip or a 429 (the 429 loop below previously had no
+            // guard at all) -- each retry replaced the pending secret server-side and pushed a new
+            // QR code to the UI while the user might already be mid-scan of the previous one,
+            // producing multiple different secrets in their authenticator app from what looked like
+            // one scan. The same risk applies to every other non-GET endpoint in the app (recording
+            // a payment, archiving a tenant, etc.), not just this one -- restricting retries to GET
+            // closes that whole class of "duplicate write from an automatic retry" bug at once.
+            var isRetryable = request.Method == HttpMethod.Get;
+
             HttpResponseMessage response;
             try
             {
                 response = await SendGatedAsync(request, cancellationToken).ConfigureAwait(false);
             }
-            catch (HttpRequestException) when (request.Content == null)
+            catch (HttpRequestException) when (isRetryable)
             {
                 await Task.Delay(TransientRetryDelayMs, cancellationToken).ConfigureAwait(false);
                 var retryRequest = await CloneRequestAsync(request, cancellationToken).ConfigureAwait(false);
@@ -203,7 +217,7 @@ public class ApiClient : IApiClient
             // throttled request backing off doesn't block other pages' unrelated requests from
             // using that concurrency slot in the meantime.
             var retryCount = 0;
-            while (response.StatusCode == HttpStatusCode.TooManyRequests && retryCount < MaxRateLimitRetries)
+            while (isRetryable && response.StatusCode == HttpStatusCode.TooManyRequests && retryCount < MaxRateLimitRetries)
             {
                 var delay = response.Headers.RetryAfter?.Delta ?? RateLimitRetryDelay * (retryCount + 1);
                 AppLogger.Log("Http", $"429 on {request.Method} {request.RequestUri?.PathAndQuery} -- " +
